@@ -218,7 +218,7 @@ func priceFares(ctx context.Context, c *session.Client, page pageData, result *a
 	}
 	result.Complete = done == total
 	if result.Complete {
-		result.Warnings = []string{"Miles & Cash amounts are maximum-offset estimates, not award tickets. A quote marked not selectable cannot currently be used by this account. No payment or ticketing request was submitted."}
+		result.Warnings = []string{"Miles & Cash amounts are maximum-offset estimates for aggregation, not award tickets. No payment or ticketing request was submitted."}
 	}
 	return nil
 }

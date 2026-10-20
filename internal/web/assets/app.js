@@ -338,8 +338,7 @@ function renderFlights() {
       if (fare.milesCash) {
         price.append(el("strong", number(fare.milesCash.miles) + " miles"),
           el("small", "Maximum-offset estimate"),
-          el("div", "+ " + money(fare.milesCash.remainingCash), "cash"),
-          el("small", fare.milesCash.selectable ? "Miles & Cash" : "Not selectable for this account"));
+          el("div", "+ " + money(fare.milesCash.remainingCash), "cash"));
       } else {
         price.append(el("strong", money(fare.cashPrice)),
           el("small", "Full cash fare"),
@@ -391,7 +390,6 @@ function renderFlights() {
           "strong",
           f.pricingType === "miles_cash"
           ? (f.milesCash ? number(f.milesCash.miles) + " miles + " + money(f.milesCash.remainingCash)
-            + (f.milesCash.selectable ? "" : " · not selectable")
             : money(f.cashPrice) + (f.milesCashEligible === false ? " cash · not eligible for Miles & Cash" : " cash · miles conversion unavailable"))
           : number(f.points) +
             " " +

@@ -127,8 +127,10 @@ for testing and normal searches after consulting EVA support. No payment details
 or ticketing endpoints are used. No captured personal details or request state
 are replayed. Incomplete member profiles stop pricing with a clear error.
 
-The frontend distinguishes full cash fares, Miles & Cash maximum-offset
-estimates, account-selectable quotes, and unavailable conversions. Other-carrier
+The frontend aggregates full cash fares and Miles & Cash maximum-offset
+estimates without account-selectability notices or balance-based filtering.
+The JSON retains provider selectability metadata for reference; it does not
+control the aggregated maximum. Missing conversions remain explicit. Other-carrier
 codeshares are not assigned a Miles & Cash quote. Missing conversions produce
 partial results, never zero-mile award offers or an invented conversion rate.
 
