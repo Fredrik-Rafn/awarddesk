@@ -56,122 +56,128 @@ func (p *Provider) Search(ctx context.Context, q award.Query, report award.Repor
 				useErr = &searchRenewal{cause: useErr}
 			}
 		}()
-		progress := func(stage, message string) {
-			if report != nil {
-				report(award.Progress{Stage: stage, Message: message})
+		attempt := func() error {
+			progress := func(stage, message string) {
+				if report != nil {
+					report(award.Progress{Stage: stage, Message: message})
+				}
 			}
-		}
-		var body []byte
-		var target string
-		var sso form
-		var err error
-		for attempt := 0; attempt < 2; attempt++ {
-			progress("flight search", "Opening EVA Miles & Cash search with the saved member session")
-			body, target, err = navigate(ctx, c, "GET", BookingURL, nil)
-			if err != nil {
-				return err
-			}
-			if isAdaptiveBookingChallenge(body, target) {
-				if err = p.clearAvailabilityChallenge(ctx, c, body, target, attempt, progress); err != nil {
+			var body []byte
+			var target string
+			var sso form
+			var err error
+			for attempt := 0; attempt < 2; attempt++ {
+				progress("flight search", "Opening EVA Miles & Cash search with the saved member session")
+				body, target, err = navigate(ctx, c, "GET", BookingURL, nil)
+				if err != nil {
 					return err
 				}
-				continue
-			}
-			f, err := parseForm(body, target)
-			if err != nil {
-				return award.Failure("search_protocol", "EVA search form was not found")
-			}
-			if f.field("$txt_From") == "" {
-				return award.Failure("search_protocol", "EVA did not return the booking form")
-			}
-			bookingBody := body
-			progress("search captcha", "Verifying EVA's booking CAPTCHA")
-			if f.key == "" || f.captchaAction == "" {
-				return award.Failure("captcha_changed", "EVA booking CAPTCHA configuration missing")
-			}
-			solution, err := (antibot.AnySolver{Key: p.config.AnyKey, Proxy: proxy, UserAgent: c.UserAgent()}).SolveRecaptchaV3(ctx, target, f.key, f.captchaAction, f.title)
-			if err != nil {
-				return err
-			}
-			var data bytes.Buffer
-			writer := multipart.NewWriter(&data)
-			if err = writer.WriteField("token", solution.Token); err != nil {
-				return err
-			}
-			if err = writer.Close(); err != nil {
-				return err
-			}
-			_, check, err := c.Do(ctx, "POST", "https://booking.evaair.com/flyeva/handler/CheckRecaptcha.ashx", &data, http.Header{"sec-fetch-site": {"same-origin"}, "content-type": {writer.FormDataContentType()}, "referer": {target}, "origin": {"https://booking.evaair.com"}, "sec-fetch-mode": {"cors"}, "sec-fetch-dest": {"empty"}})
-			if err != nil {
-				return err
-			}
-			var verified struct {
-				Success string
-				Source  string
-			}
-			if json.Unmarshal(check, &verified) != nil || verified.Source == "" || (verified.Success != "true" && verified.Success != "false") {
-				return award.Failure("captcha_changed", "EVA booking CAPTCHA verification format changed")
-			}
-			if err = fillSearch(&f, q, verified.Success, verified.Source); err != nil {
-				return err
-			}
-			// A saved member session can retain a stop marker from an earlier
-			// protected action. EVA's booking form needs the complete new sensor
-			// sequence: the one-sensor shortcut returned 403 on repeated searches.
-			progress("booking form security", "Preparing security for EVA's availability form")
-			if err = (antibot.Hyper{Key: p.config.HyperKey, SkipPixel: true, VerifyAtLogin: true, MinimumSensorRounds: 3}).Prepare(ctx, c, target, bookingBody); err != nil {
-				return err
-			}
-			progress("availability", "Requesting all flight options for the selected date")
-			body, target, err = navigate(ctx, c, "POST", f.action, f.values, target)
-			if err != nil {
-				return err
-			}
-			if isAdaptiveBookingChallenge(body, target) {
-				if err = p.clearAvailabilityChallenge(ctx, c, body, target, attempt, progress); err != nil {
+				if isAdaptiveBookingChallenge(body, target) {
+					if err = p.clearAvailabilityChallenge(ctx, c, body, target, attempt, progress); err != nil {
+						return err
+					}
+					continue
+				}
+				f, err := parseForm(body, target)
+				if err != nil {
+					return award.Failure("search_protocol", "EVA search form was not found")
+				}
+				if f.field("$txt_From") == "" {
+					return award.Failure("search_protocol", "EVA did not return the booking form")
+				}
+				bookingBody := body
+				progress("search captcha", "Verifying EVA's booking CAPTCHA")
+				if f.key == "" || f.captchaAction == "" {
+					return award.Failure("captcha_changed", "EVA booking CAPTCHA configuration missing")
+				}
+				solution, err := (antibot.AnySolver{Key: p.config.AnyKey, Proxy: proxy, UserAgent: c.UserAgent()}).SolveRecaptchaV3(ctx, target, f.key, f.captchaAction, f.title)
+				if err != nil {
 					return err
 				}
-				// The interstitial explicitly intercepted the search. Reopen the
-				// form and acquire fresh CAPTCHA and form state, as history.back
-				// does in EVA's browser flow. No credentials or pricing are replayed.
-				continue
+				var data bytes.Buffer
+				writer := multipart.NewWriter(&data)
+				if err = writer.WriteField("token", solution.Token); err != nil {
+					return err
+				}
+				if err = writer.Close(); err != nil {
+					return err
+				}
+				_, check, err := c.Do(ctx, "POST", "https://booking.evaair.com/flyeva/handler/CheckRecaptcha.ashx", &data, http.Header{"sec-fetch-site": {"same-origin"}, "content-type": {writer.FormDataContentType()}, "referer": {target}, "origin": {"https://booking.evaair.com"}, "sec-fetch-mode": {"cors"}, "sec-fetch-dest": {"empty"}})
+				if err != nil {
+					return err
+				}
+				var verified struct {
+					Success string
+					Source  string
+				}
+				if json.Unmarshal(check, &verified) != nil || verified.Source == "" || (verified.Success != "true" && verified.Success != "false") {
+					return award.Failure("captcha_changed", "EVA booking CAPTCHA verification format changed")
+				}
+				if err = fillSearch(&f, q, verified.Success, verified.Source); err != nil {
+					return err
+				}
+				// A saved member session can retain a stop marker from an earlier
+				// protected action. EVA's booking form needs the complete new sensor
+				// sequence: the one-sensor shortcut returned 403 on repeated searches.
+				progress("booking form security", "Preparing security for EVA's availability form")
+				if err = (antibot.Hyper{Key: p.config.HyperKey, SkipPixel: true, VerifyAtLogin: true, MinimumSensorRounds: 3}).Prepare(ctx, c, target, bookingBody); err != nil {
+					return err
+				}
+				progress("availability", "Requesting all flight options for the selected date")
+				body, target, err = navigate(ctx, c, "POST", f.action, f.values, target)
+				if err != nil {
+					return err
+				}
+				if isAdaptiveBookingChallenge(body, target) {
+					if err = p.clearAvailabilityChallenge(ctx, c, body, target, attempt, progress); err != nil {
+						return err
+					}
+					// The interstitial explicitly intercepted the search. Reopen the
+					// form and acquire fresh CAPTCHA and form state, as history.back
+					// does in EVA's browser flow. No credentials or pricing are replayed.
+					continue
+				}
+				sso, err = parseForm(body, target)
+				if err != nil || sso.action != overrideURL || sso.values.Get("EMBEDDED_TRANSACTION") != "FlexPricerAvailability" || sso.values.Get("ENC") == "" {
+					return award.Failure("search_protocol", "EVA did not return the flight-availability handoff")
+				}
+				break
 			}
-			sso, err = parseForm(body, target)
-			if err != nil || sso.action != overrideURL || sso.values.Get("EMBEDDED_TRANSACTION") != "FlexPricerAvailability" || sso.values.Get("ENC") == "" {
-				return award.Failure("search_protocol", "EVA did not return the flight-availability handoff")
+			// Use the observed availability handoff. Price preparation is handled
+			// separately with the authenticated member profile; no payment is sent.
+			progress("booking handoff", "Opening EVA's flight availability application")
+			body, target, err = navigate(ctx, c, "POST", sso.action, sso.values, target)
+			if err != nil {
+				return err
 			}
-			break
-		}
-		// Use the observed availability handoff. Price preparation is handled
-		// separately with the authenticated member profile; no payment is sent.
-		progress("booking handoff", "Opening EVA's flight availability application")
-		body, target, err = navigate(ctx, c, "POST", sso.action, sso.values, target)
-		if err != nil {
-			return err
-		}
-		body, target, err = completeBookingSecurity(ctx, body, target, func(ctx context.Context, target string, body []byte) error {
-			if handled, e := verifyBookingCaptcha(ctx, c, antibot.AnySolver{Key: p.config.AnyKey, Proxy: proxy, UserAgent: c.UserAgent()}, body, target, progress); handled || e != nil {
-				return e
+			body, target, err = completeBookingSecurity(ctx, body, target, func(ctx context.Context, target string, body []byte) error {
+				if handled, e := verifyBookingCaptcha(ctx, c, antibot.AnySolver{Key: p.config.AnyKey, Proxy: proxy, UserAgent: c.UserAgent()}, body, target, progress); handled || e != nil {
+					return e
+				}
+				if p.config.ImpervaSolver == "anysolver" {
+					return (antibot.AnySolver{Key: p.config.AnyKey}).PrepareReese(ctx, c, target, body)
+				}
+				return (antibot.Hyper{Key: p.config.HyperKey}).PrepareReese(ctx, c, target, body)
+			}, func(ctx context.Context, target string, values url.Values, from string) ([]byte, string, error) {
+				return navigate(ctx, c, "POST", target, values, from)
+			}, progress)
+			if err != nil {
+				return err
 			}
-			if p.config.ImpervaSolver == "anysolver" {
-				return (antibot.AnySolver{Key: p.config.AnyKey}).PrepareReese(ctx, c, target, body)
+			page, err := decodePage(body)
+			if err != nil {
+				return err
 			}
-			return (antibot.Hyper{Key: p.config.HyperKey}).PrepareReese(ctx, c, target, body)
-		}, func(ctx context.Context, target string, values url.Values, from string) ([]byte, string, error) {
-			return navigate(ctx, c, "POST", target, values, from)
-		}, progress)
-		if err != nil {
-			return err
+			result, err = parseAvailability(page.Business["Availability"], q)
+			if err != nil {
+				return err
+			}
+			return priceFares(ctx, c, page, &result, report)
 		}
-		page, err := decodePage(body)
-		if err != nil {
-			return err
-		}
-		result, err = parseAvailability(page.Business["Availability"], q)
-		if err != nil {
-			return err
-		}
-		return priceFares(ctx, c, page, &result, report)
+		return retrySearchPreparation(ctx, func() (string, error) {
+			err := attempt()
+			return stage, err
+		}, report)
 	})
 	var failure *award.Error
 	if errors.As(err, &failure) && failure.Stage == "" {

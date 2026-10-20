@@ -13,6 +13,39 @@ type searchRenewal struct{ cause error }
 func (e *searchRenewal) Error() string { return e.cause.Error() }
 func (e *searchRenewal) Unwrap() error { return e.cause }
 
+// Reopen the booking form with the same authenticated client and sticky proxy.
+// An explicit rejection before pricing is safe to restart; uncertain requests,
+// credential/OTP submissions, solver outages and price preparation are not.
+func retrySearchPreparation(ctx context.Context, run func() (string, error), report award.Reporter) error {
+	for attempt := 0; ; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		stage, err := run()
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if attempt >= 2 || !canRetrySearchRejection(stage, err) {
+			return err
+		}
+		if report != nil {
+			report(award.Progress{Stage: "search recovery", Message: "EVA rejected search preparation; automatically reopening the booking form with fresh verification"})
+		}
+	}
+}
+
+func canRetrySearchRejection(stage string, err error) bool {
+	var failure *award.Error
+	if !errors.As(err, &failure) || failure.Code != "session_denied" || failure.HTTPStatus != 403 || failure.OutcomeUnknown {
+		return false
+	}
+	switch stage {
+	case "flight search", "search captcha", "booking form security", "availability", "adaptive security", "booking handoff", "booking security", "booking CAPTCHA":
+		return true
+	}
+	return false
+}
+
 func canRenewSearch(stage string, err error) bool {
 	var failure *award.Error
 	if !errors.As(err, &failure) || (failure.Code != "connection" && failure.Code != "proxy_changed") {

@@ -72,6 +72,12 @@ does not shorten this booking sequence: the one-sensor shortcut reproduced
 HTTP 403 for HND–SIN. Other providers retain early stopping using Hyper's SDK
 cookie validation. No fixed delay or automatic credential/pricing replay is added.
 Search failures include the stage and rejected EVA host in the frontend.
+An explicit HTTP 403 during search preparation now automatically restarts the
+booking flow up to twice, with the same verified member session and sticky proxy.
+Each attempt opens a new form and obtains fresh CAPTCHA and security state;
+the UI shows recovery progress within the original search job. Credentials,
+OTP, pricing, uncertain outcomes and solver-access failures are not replayed.
+Repeated provider rejection can still exhaust the bounded recovery budget.
 The availability adapter also recognizes Akamai's "Challenge Validation" page.
 After explicit challenge verification it reopens the search form and obtains
 fresh form state and a fresh CAPTCHA token, with one bounded recovery attempt.
@@ -96,10 +102,12 @@ itineraries with complete pricing in 76 and 70 seconds on the same saved session
 
 Current verification note (20 October 2026): five consecutive searches passed
 across economy, premium economy and business, including fresh login/Outlook OTP
-and repeated HND–SIN searches. Hyper subsequently began returning HTTP 403
-`access denied` for Akamai generation, including direct diagnostic requests.
-Further live confirmation requires working Hyper access. AnySolver Akamai
-fallback trials were rejected by EVA and were removed. The alternate hCaptcha
+and repeated HND–SIN searches. Hyper Akamai access was restored after the balance
+was topped up. Hyper Reese84 still returns `access denied`, so booking security
+uses AnySolver. A local website test returned two HND–SIN options for 27 November
+after a manual retry of an availability 403; this prompted the automatic search
+recovery described above. See the [results screenshot](screenshots/eva-results.png).
+AnySolver Akamai fallback trials were rejected by EVA and were removed. The alternate hCaptcha
 verification branch has regression coverage but still needs successful live
 confirmation when EVA presents it again.
 
