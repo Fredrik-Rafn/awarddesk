@@ -1,0 +1,134 @@
+// Package login runs one bounded, cancellable verification at a time.
+// It retains public status only; the checker manages encrypted session storage.
+package login
+
+import (
+	"awarddesk/internal/award"
+	"context"
+	"errors"
+	"sync"
+	"time"
+)
+
+type Check func(context.Context, award.Reporter) error
+type Status struct {
+	State          string    `json:"state"`
+	Message        string    `json:"message"`
+	ID             uint64    `json:"id"`
+	StartedAt      time.Time `json:"startedAt,omitempty"`
+	FinishedAt     time.Time `json:"finishedAt,omitempty"`
+	DurationMS     int64     `json:"durationMs,omitempty"`
+	Stage          string    `json:"stage,omitempty"`
+	Code           string    `json:"code,omitempty"`
+	OutcomeUnknown bool      `json:"outcomeUnknown,omitempty"`
+}
+type Service struct {
+	mu      sync.Mutex
+	check   Check
+	name    string
+	timeout time.Duration
+	status  Status
+	cancel  context.CancelFunc
+	next    time.Time
+	closed  bool
+	wg      sync.WaitGroup
+}
+
+func New(check Check) *Service {
+	return NewNamed("ANA", 150*time.Second, check)
+}
+func NewNamed(name string, timeout time.Duration, check Check) *Service {
+	return &Service{name: name, timeout: timeout, check: check, status: Status{State: "idle", Message: "Not tested in this server session"}}
+}
+func (s *Service) Ready() bool { return s.check != nil }
+func (s *Service) Status() Status {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.status
+}
+func (s *Service) Start() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.startLocked()
+}
+func (s *Service) startLocked() error {
+	if s.closed || s.check == nil {
+		return award.Failure("configuration", "Configure "+s.name+" credentials and solver keys, then restart")
+	}
+	if s.status.State == "running" {
+		return nil // Coalesce concurrent requests; no additional upstream login.
+	}
+	if time.Now().Before(s.next) {
+		if s.status.State == "verified" {
+			return nil
+		} // Briefly reuse explicitly timestamped verification.
+		return award.Failure("cooldown", "Please wait before starting another "+s.name+" login check")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+	s.cancel = cancel
+	s.status = Status{ID: s.status.ID + 1, StartedAt: time.Now(), State: "running", Message: "Preparing " + s.name + " session"}
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		defer cancel()
+		err := s.check(ctx, func(p award.Progress) {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			s.status.Message = p.Message
+			s.status.Stage = p.Stage
+		})
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.cancel = nil
+		s.status.FinishedAt = time.Now()
+		s.status.DurationMS = time.Since(s.status.StartedAt).Milliseconds()
+		s.next = time.Now().Add(5 * time.Second)
+		switch {
+		case errors.Is(ctx.Err(), context.Canceled):
+			s.status.State, s.status.Message = "cancelled", s.name+" login check cancelled"
+		case errors.Is(ctx.Err(), context.DeadlineExceeded):
+			s.status.State, s.status.Message = "failed", s.name+" login check exceeded its deadline"
+			var ae *award.Error
+			if errors.As(err, &ae) {
+				s.status.Message, s.status.Code, s.status.Stage, s.status.OutcomeUnknown = ae.Message, ae.Code, ae.Stage, ae.OutcomeUnknown
+			}
+		case err != nil:
+			s.status.State, s.status.Message = "failed", s.name+" login failed"
+			var ae *award.Error
+			if errors.As(err, &ae) {
+				s.status.Message = ae.Message
+				s.status.Code, s.status.Stage, s.status.OutcomeUnknown = ae.Code, ae.Stage, ae.OutcomeUnknown
+				if ae.Code == "mfa_required" {
+					s.status.State = "otp_required"
+					s.status.Message = s.name + " requires a one-time password. Automatic OTP handling is not configured."
+				}
+				if ae.Code == "authentication" || ae.Code == "mfa_required" || ae.Code == "login_response" {
+					s.next = time.Now().Add(time.Minute)
+				}
+				if until := time.Now().Add(time.Duration(ae.RetryAfterSeconds) * time.Second); until.After(s.next) {
+					s.next = until
+				}
+			}
+		default:
+			s.status.State, s.status.Message = "verified", s.name+" session ready and saved for reuse. No flight search performed."
+			s.next = time.Now().Add(15 * time.Second)
+		}
+	}()
+	return nil
+}
+func (s *Service) Cancel() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.cancel != nil {
+		s.cancel()
+	}
+}
+func (s *Service) Close() {
+	s.mu.Lock()
+	s.closed = true
+	if s.cancel != nil {
+		s.cancel()
+	}
+	s.mu.Unlock()
+	s.wg.Wait()
+}

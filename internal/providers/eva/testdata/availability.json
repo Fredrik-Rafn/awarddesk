@@ -1,0 +1,811 @@
+{
+  "currencyBean": {
+    "name": "New Taiwan Dollar",
+    "code": "TWD",
+    "symbol": ""
+  },
+  "fareFamilyList": [
+    {
+      "ffCode": "TWV3",
+      "ffName": "Economy<br>Basic"
+    },
+    {
+      "ffCode": "TWQ3",
+      "ffName": "Economy<br>Standard"
+    },
+    {
+      "ffCode": "TWB3",
+      "ffName": "Economy<br>Up"
+    },
+    {
+      "ffCode": "TWD3",
+      "ffName": "Business<br>Basic"
+    },
+    {
+      "ffCode": "TWJ3",
+      "ffName": "Business<br>Standard"
+    },
+    {
+      "ffCode": "TWC3",
+      "ffName": "Business<br>Up"
+    }
+  ],
+  "proposedBounds": [
+    {
+      "proposedFlightsGroup": [
+        {
+          "proposedBoundId": 0,
+          "segments": [
+            {
+              "beginLocation": {
+                "countryName": "Taiwan",
+                "locationName": "Taiwan Taoyuan Intl",
+                "cityName": "Taipei",
+                "cityCode": "TPE",
+                "countryCode": "TW",
+                "locationCode": "TPE"
+              },
+              "endLocation": {
+                "countryName": "Hong Kong (SAR of China)",
+                "locationName": "Hong Kong International",
+                "cityName": "Hong Kong",
+                "cityCode": "HKG",
+                "countryCode": "HK",
+                "locationCode": "HKG"
+              },
+              "beginDate": "Nov 24, 2026, 7:00:00 PM",
+              "endDate": "Nov 24, 2026, 8:50:00 PM",
+              "flightNumber": "809",
+              "airline": {
+                "name": "EVA Air",
+                "code": "BR"
+              },
+              "opAirline": {},
+              "equipment": {
+                "name": "Airbus A321",
+                "code": "321"
+              }
+            }
+          ]
+        },
+        {
+          "proposedBoundId": 1,
+          "segments": [
+            {
+              "beginLocation": {
+                "countryName": "Taiwan",
+                "locationName": "Taiwan Taoyuan Intl",
+                "cityName": "Taipei",
+                "cityCode": "TPE",
+                "countryCode": "TW",
+                "locationCode": "TPE"
+              },
+              "endLocation": {
+                "countryName": "Hong Kong (SAR of China)",
+                "locationName": "Hong Kong International",
+                "cityName": "Hong Kong",
+                "cityCode": "HKG",
+                "countryCode": "HK",
+                "locationCode": "HKG"
+              },
+              "beginDate": "Nov 24, 2026, 12:25:00 PM",
+              "endDate": "Nov 24, 2026, 2:20:00 PM",
+              "flightNumber": "869",
+              "airline": {
+                "name": "EVA Air",
+                "code": "BR"
+              },
+              "opAirline": {},
+              "equipment": {
+                "name": "Boeing 777-300er",
+                "code": "77W"
+              }
+            }
+          ]
+        },
+        {
+          "proposedBoundId": 2,
+          "segments": [
+            {
+              "beginLocation": {
+                "countryName": "Taiwan",
+                "locationName": "Taiwan Taoyuan Intl",
+                "cityName": "Taipei",
+                "cityCode": "TPE",
+                "countryCode": "TW",
+                "locationCode": "TPE"
+              },
+              "endLocation": {
+                "countryName": "Hong Kong (SAR of China)",
+                "locationName": "Hong Kong International",
+                "cityName": "Hong Kong",
+                "cityCode": "HKG",
+                "countryCode": "HK",
+                "locationCode": "HKG"
+              },
+              "beginDate": "Nov 24, 2026, 4:35:00 PM",
+              "endDate": "Nov 24, 2026, 6:30:00 PM",
+              "flightNumber": "871",
+              "airline": {
+                "name": "EVA Air",
+                "code": "BR"
+              },
+              "opAirline": {},
+              "equipment": {
+                "name": "Boeing 787-10",
+                "code": "781"
+              }
+            }
+          ]
+        },
+        {
+          "proposedBoundId": 3,
+          "segments": [
+            {
+              "beginLocation": {
+                "countryName": "Taiwan",
+                "locationName": "Taiwan Taoyuan Intl",
+                "cityName": "Taipei",
+                "cityCode": "TPE",
+                "countryCode": "TW",
+                "locationCode": "TPE"
+              },
+              "endLocation": {
+                "countryName": "Hong Kong (SAR of China)",
+                "locationName": "Hong Kong International",
+                "cityName": "Hong Kong",
+                "cityCode": "HKG",
+                "countryCode": "HK",
+                "locationCode": "HKG"
+              },
+              "beginDate": "Nov 24, 2026, 6:10:00 PM",
+              "endDate": "Nov 24, 2026, 8:05:00 PM",
+              "flightNumber": "857",
+              "airline": {
+                "name": "EVA Air",
+                "code": "BR"
+              },
+              "opAirline": {},
+              "equipment": {
+                "name": "Airbus A330-300",
+                "code": "333"
+              }
+            }
+          ]
+        },
+        {
+          "proposedBoundId": 4,
+          "segments": [
+            {
+              "beginLocation": {
+                "countryName": "Taiwan",
+                "locationName": "Taiwan Taoyuan Intl",
+                "cityName": "Taipei",
+                "cityCode": "TPE",
+                "countryCode": "TW",
+                "locationCode": "TPE"
+              },
+              "endLocation": {
+                "countryName": "Hong Kong (SAR of China)",
+                "locationName": "Hong Kong International",
+                "cityName": "Hong Kong",
+                "cityCode": "HKG",
+                "countryCode": "HK",
+                "locationCode": "HKG"
+              },
+              "beginDate": "Nov 24, 2026, 7:00:00 AM",
+              "endDate": "Nov 24, 2026, 9:00:00 AM",
+              "flightNumber": "891",
+              "airline": {
+                "name": "EVA Air",
+                "code": "BR"
+              },
+              "opAirline": {},
+              "equipment": {
+                "name": "Boeing 787-10",
+                "code": "781"
+              }
+            }
+          ]
+        },
+        {
+          "proposedBoundId": 5,
+          "segments": [
+            {
+              "beginLocation": {
+                "countryName": "Taiwan",
+                "locationName": "Taiwan Taoyuan Intl",
+                "cityName": "Taipei",
+                "cityCode": "TPE",
+                "countryCode": "TW",
+                "locationCode": "TPE"
+              },
+              "endLocation": {
+                "countryName": "Hong Kong (SAR of China)",
+                "locationName": "Hong Kong International",
+                "cityName": "Hong Kong",
+                "cityCode": "HKG",
+                "countryCode": "HK",
+                "locationCode": "HKG"
+              },
+              "beginDate": "Nov 24, 2026, 8:10:00 AM",
+              "endDate": "Nov 24, 2026, 10:10:00 AM",
+              "flightNumber": "851",
+              "airline": {
+                "name": "EVA Air",
+                "code": "BR"
+              },
+              "opAirline": {},
+              "equipment": {
+                "name": "Airbus A321",
+                "code": "321"
+              }
+            }
+          ]
+        },
+        {
+          "proposedBoundId": 6,
+          "segments": [
+            {
+              "beginLocation": {
+                "countryName": "Taiwan",
+                "locationName": "Taiwan Taoyuan Intl",
+                "cityName": "Taipei",
+                "cityCode": "TPE",
+                "countryCode": "TW",
+                "locationCode": "TPE"
+              },
+              "endLocation": {
+                "countryName": "Hong Kong (SAR of China)",
+                "locationName": "Hong Kong International",
+                "cityName": "Hong Kong",
+                "cityCode": "HKG",
+                "countryCode": "HK",
+                "locationCode": "HKG"
+              },
+              "beginDate": "Nov 24, 2026, 9:50:00 AM",
+              "endDate": "Nov 24, 2026, 11:50:00 AM",
+              "flightNumber": "867",
+              "airline": {
+                "name": "EVA Air",
+                "code": "BR"
+              },
+              "opAirline": {},
+              "equipment": {
+                "name": "Boeing 787-9",
+                "code": "789"
+              }
+            }
+          ]
+        },
+        {
+          "proposedBoundId": 7,
+          "segments": [
+            {
+              "beginLocation": {
+                "countryName": "Taiwan",
+                "locationName": "Taiwan Taoyuan Intl",
+                "cityName": "Taipei",
+                "cityCode": "TPE",
+                "countryCode": "TW",
+                "locationCode": "TPE"
+              },
+              "endLocation": {
+                "countryName": "Hong Kong (SAR of China)",
+                "locationName": "Hong Kong International",
+                "cityName": "Hong Kong",
+                "cityCode": "HKG",
+                "countryCode": "HK",
+                "locationCode": "HKG"
+              },
+              "beginDate": "Nov 24, 2026, 7:20:00 PM",
+              "endDate": "Nov 24, 2026, 9:25:00 PM",
+              "flightNumber": "2895",
+              "airline": {
+                "name": "EVA Air",
+                "code": "BR"
+              },
+              "opAirline": {
+                "name": "Hong Kong Airlines",
+                "code": "HX"
+              },
+              "equipment": {
+                "name": "Airbus A320",
+                "code": "320"
+              }
+            }
+          ]
+        },
+        {
+          "proposedBoundId": 8,
+          "segments": [
+            {
+              "beginLocation": {
+                "countryName": "Taiwan",
+                "locationName": "Taiwan Taoyuan Intl",
+                "cityName": "Taipei",
+                "cityCode": "TPE",
+                "countryCode": "TW",
+                "locationCode": "TPE"
+              },
+              "endLocation": {
+                "countryName": "Hong Kong (SAR of China)",
+                "locationName": "Hong Kong International",
+                "cityName": "Hong Kong",
+                "cityCode": "HKG",
+                "countryCode": "HK",
+                "locationCode": "HKG"
+              },
+              "beginDate": "Nov 24, 2026, 9:40:00 PM",
+              "endDate": "Nov 24, 2026, 11:45:00 PM",
+              "flightNumber": "2891",
+              "airline": {
+                "name": "EVA Air",
+                "code": "BR"
+              },
+              "opAirline": {
+                "name": "Hong Kong Airlines",
+                "code": "HX"
+              },
+              "equipment": {
+                "name": "Airbus A320",
+                "code": "320"
+              }
+            }
+          ]
+        },
+        {
+          "proposedBoundId": 9,
+          "segments": [
+            {
+              "beginLocation": {
+                "countryName": "Taiwan",
+                "locationName": "Taiwan Taoyuan Intl",
+                "cityName": "Taipei",
+                "cityCode": "TPE",
+                "countryCode": "TW",
+                "locationCode": "TPE"
+              },
+              "endLocation": {
+                "countryName": "Hong Kong (SAR of China)",
+                "locationName": "Hong Kong International",
+                "cityName": "Hong Kong",
+                "cityCode": "HKG",
+                "countryCode": "HK",
+                "locationCode": "HKG"
+              },
+              "beginDate": "Nov 24, 2026, 11:45:00 AM",
+              "endDate": "Nov 24, 2026, 1:55:00 PM",
+              "flightNumber": "2897",
+              "airline": {
+                "name": "EVA Air",
+                "code": "BR"
+              },
+              "opAirline": {
+                "name": "Hong Kong Airlines",
+                "code": "HX"
+              },
+              "equipment": {
+                "name": "Airbus A321",
+                "code": "321"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "recommendationList": [
+    {
+      "recoId": 0,
+      "ffCode": "TWV3",
+      "recoAmount": {
+        "totalAmount": 5562
+      },
+      "bounds": [
+        {
+          "flightGroupList": [
+            {
+              "flightId": 0,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "V"
+            },
+            {
+              "flightId": 1,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "V"
+            },
+            {
+              "flightId": 2,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "V"
+            },
+            {
+              "flightId": 3,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "V"
+            },
+            {
+              "flightId": 4,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "V"
+            },
+            {
+              "flightId": 5,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "V"
+            },
+            {
+              "flightId": 6,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "V"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "recoId": 1,
+      "ffCode": "TWV3",
+      "recoAmount": {
+        "totalAmount": 6290
+      },
+      "bounds": [
+        {
+          "flightGroupList": [
+            {
+              "flightId": 7,
+              "numberOfSeatsLeft": 4,
+              "displayLSAInfo": "YES",
+              "rbd": "V"
+            },
+            {
+              "flightId": 8,
+              "numberOfSeatsLeft": 4,
+              "displayLSAInfo": "YES",
+              "rbd": "V"
+            },
+            {
+              "flightId": 9,
+              "numberOfSeatsLeft": 4,
+              "displayLSAInfo": "YES",
+              "rbd": "V"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "recoId": 2,
+      "ffCode": "TWQ3",
+      "recoAmount": {
+        "totalAmount": 8841
+      },
+      "bounds": [
+        {
+          "flightGroupList": [
+            {
+              "flightId": 0,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "Q"
+            },
+            {
+              "flightId": 1,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "Q"
+            },
+            {
+              "flightId": 2,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "Q"
+            },
+            {
+              "flightId": 3,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "Q"
+            },
+            {
+              "flightId": 4,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "Q"
+            },
+            {
+              "flightId": 5,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "Q"
+            },
+            {
+              "flightId": 6,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "Q"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "recoId": 3,
+      "ffCode": "TWQ3",
+      "recoAmount": {
+        "totalAmount": 9670
+      },
+      "bounds": [
+        {
+          "flightGroupList": [
+            {
+              "flightId": 7,
+              "numberOfSeatsLeft": 4,
+              "displayLSAInfo": "YES",
+              "rbd": "Q"
+            },
+            {
+              "flightId": 8,
+              "numberOfSeatsLeft": 4,
+              "displayLSAInfo": "YES",
+              "rbd": "Q"
+            },
+            {
+              "flightId": 9,
+              "numberOfSeatsLeft": 4,
+              "displayLSAInfo": "YES",
+              "rbd": "Q"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "recoId": 4,
+      "ffCode": "TWB3",
+      "recoAmount": {
+        "totalAmount": 15146
+      },
+      "bounds": [
+        {
+          "flightGroupList": [
+            {
+              "flightId": 0,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "B"
+            },
+            {
+              "flightId": 1,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "B"
+            },
+            {
+              "flightId": 2,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "B"
+            },
+            {
+              "flightId": 3,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "B"
+            },
+            {
+              "flightId": 4,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "B"
+            },
+            {
+              "flightId": 5,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "B"
+            },
+            {
+              "flightId": 6,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "B"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "recoId": 7,
+      "ffCode": "TWB3",
+      "recoAmount": {
+        "totalAmount": 18510
+      },
+      "bounds": [
+        {
+          "flightGroupList": [
+            {
+              "flightId": 7,
+              "numberOfSeatsLeft": 4,
+              "displayLSAInfo": "YES",
+              "rbd": "B"
+            },
+            {
+              "flightId": 8,
+              "numberOfSeatsLeft": 4,
+              "displayLSAInfo": "YES",
+              "rbd": "B"
+            },
+            {
+              "flightId": 9,
+              "numberOfSeatsLeft": 4,
+              "displayLSAInfo": "YES",
+              "rbd": "B"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "recoId": 5,
+      "ffCode": "TWD3",
+      "recoAmount": {
+        "totalAmount": 16659
+      },
+      "bounds": [
+        {
+          "flightGroupList": [
+            {
+              "flightId": 0,
+              "numberOfSeatsLeft": 5,
+              "displayLSAInfo": "YES",
+              "rbd": "D"
+            },
+            {
+              "flightId": 1,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "D"
+            },
+            {
+              "flightId": 2,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "D"
+            },
+            {
+              "flightId": 3,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "D"
+            },
+            {
+              "flightId": 4,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "D"
+            },
+            {
+              "flightId": 6,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "D"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "recoId": 6,
+      "ffCode": "TWJ3",
+      "recoAmount": {
+        "totalAmount": 18172
+      },
+      "bounds": [
+        {
+          "flightGroupList": [
+            {
+              "flightId": 0,
+              "numberOfSeatsLeft": 5,
+              "displayLSAInfo": "YES",
+              "rbd": "J"
+            },
+            {
+              "flightId": 1,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "J"
+            },
+            {
+              "flightId": 2,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "J"
+            },
+            {
+              "flightId": 3,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "J"
+            },
+            {
+              "flightId": 4,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "J"
+            },
+            {
+              "flightId": 6,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "J"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "recoId": 8,
+      "ffCode": "TWC3",
+      "recoAmount": {
+        "totalAmount": 24100
+      },
+      "bounds": [
+        {
+          "flightGroupList": [
+            {
+              "flightId": 0,
+              "numberOfSeatsLeft": 5,
+              "displayLSAInfo": "YES",
+              "rbd": "C"
+            },
+            {
+              "flightId": 1,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "C"
+            },
+            {
+              "flightId": 2,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "C"
+            },
+            {
+              "flightId": 3,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "C"
+            },
+            {
+              "flightId": 4,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "C"
+            },
+            {
+              "flightId": 5,
+              "numberOfSeatsLeft": 3,
+              "displayLSAInfo": "YES",
+              "rbd": "C"
+            },
+            {
+              "flightId": 6,
+              "numberOfSeatsLeft": 9,
+              "displayLSAInfo": "NO_OVER_THRESHOLD",
+              "rbd": "C"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

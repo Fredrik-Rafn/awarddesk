@@ -1,0 +1,4 @@
+# One authenticated Evomi proxy per line; blank lines and # comments are allowed.
+# Copy to proxies.txt. The application uses a fresh locked session per login.
+# Example only; replace with your own credentials:
+# http://core-residential.evomi.com:1000:username:password_session-abcdefghij_lifetime-3

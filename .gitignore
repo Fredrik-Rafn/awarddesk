@@ -1,0 +1,10 @@
+*.exe
+bin/
+.env
+.env.*
+!.env.example
+*.har
+*.private.*
+*.log
+proxies.txt
+.state/
