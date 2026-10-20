@@ -6,18 +6,29 @@ build pipeline, database, or separate frontend server.
 
 | Module | Available functionality | Status |
 | --- | --- | --- |
-| EVA Air · Miles & Cash | Login, Outlook OAuth OTP, encrypted sessions, flight availability and checkout price preparation | Integrated and live-verified in economy, premium economy and business; one adult, one way |
+| EVA Air · Miles & Cash | Login, Outlook OAuth OTP, JSON session files, flight availability and checkout price preparation | Integrated and live-verified in economy, premium economy and business; one adult, one way |
 | ANA Mileage Club | Fresh login, Hyper/Akamai initialization, authenticated member verification | Direct login previously verified; current direct check requires MFA; proxy checks return HTTP 403 |
 | British Airways / Avios | Login and award-flight search | Experimental; repeatable standalone login remains unverified |
 
 ANA award searches are not implemented. The background job saves verified ANA
-sessions encrypted for the Windows user and validates them before reuse.
+sessions in per-account JSON files and validates them before reuse.
 See [saved sessions](docs/sessions.md).
 
 ## Start backend and frontend
 
-The current encrypted session and Outlook-token storage requires **Windows**.
-Install Go 1.25.5 or newer. For a new laptop checkout, from PowerShell:
+Supports **macOS, Windows and Linux**. Install Go 1.25.5 or newer.
+For a new macOS/Linux checkout:
+
+```sh
+git clone https://github.com/Fredrik-Rafn/awarddesk.git
+cd awarddesk
+cp .env.example .env
+cp proxies.example.txt proxies.txt
+# Fill in .env and proxies.txt, then start backend and frontend together:
+go run .
+```
+
+On Windows, from PowerShell:
 
 ```powershell
 git clone https://github.com/Fredrik-Rafn/awarddesk.git
@@ -29,10 +40,11 @@ go run .
 ```
 
 Credentials, solver keys, proxy credentials and saved sessions are excluded from
-Git. Configure the new laptop's `.env` and `proxies.txt` separately. Saved sessions
-and rotated Outlook tokens are encrypted for the original Windows user; they
-cannot be copied to another computer and decrypted there. The laptop needs a
-usable Outlook refresh token and will establish its own airline session.
+Git. Configure the new laptop's `.env` and `proxies.txt` separately. Sessions and
+rotated Outlook tokens are readable JSON files under `.state/`, one per account.
+They can be copied between operating systems, with no machine-specific encryption
+or key. A copied airline session still needs its original sticky proxy and must
+pass the provider's expiry and authentication checks. See [file storage](docs/storage.md).
 
 Open **http://127.0.0.1:8080**. The ANA panel shows
 progress, success/failure, and cancellation. The session job starts automatically;
@@ -94,7 +106,7 @@ internal/
   antibot/                 Hyper Akamai adapter and AnySolver CAPTCHA adapter
   session/                 HTTP/TLS, cookies, proxy and safe retries
   proxies/                 Editable Evomi pool and exclusive locked-session leases
-  sessionstore/            Windows-encrypted session files and process locks
+  sessionstore/            Portable JSON files and per-account process locks
   config/                  Local .env loading and environment precedence
   login/                   Background login-check lifecycle and cancellation
   award/                   Shared flight-search models and provider contract

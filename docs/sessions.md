@@ -8,7 +8,7 @@ same manager manually. No flight-search endpoints are called.
 ## Reuse and renewal
 
 1. Acquire an exclusive account/session file lock.
-2. Load `.state/ana/<account-hash>.session`, decrypting it with Windows DPAPI.
+2. Load `.state/ana/<account-hash>.json` as readable JSON.
 3. Restore cookies with original domain/path/expiry and deletion semantics,
    the authorization token, frontend API headers and browser identity.
 4. Reserve the original proxy pool slot and use its exact locked session ID.
@@ -50,23 +50,25 @@ Reference: https://docs.evomi.com/proxy-instructions/residential-proxies/proxy-s
 
 ## Storage and capacity
 
-DPAPI protects the file for the Windows user on this machine. It contains
-authentication material and proxy credentials, but not the account password.
-There is no plaintext fallback or separate key file. Files are git-ignored,
-bounded in size, and replaced through a flushed temporary file.
+The JSON file contains authentication material and proxy credentials, but not
+the account password (credentials remain in `.env`). There is no encryption or
+separate key file. Files are git-ignored, bounded in size and replaced through a
+flushed temporary file. macOS/Linux files are created with owner-only permissions.
 
-A Windows file lock prevents overlapping use by app processes sharing the same
-account cache path. Windows releases the lock on process exit; leftover `.lock`
-files are harmless. The in-process manager rejects overlapping use without
-building an unbounded queue. This is not a multi-host scheduler or an account
-pool implementation. Session files cannot be copied to another user/machine
-and expected to work.
+An OS file lock prevents overlapping use by app processes sharing the same
+account cache path: flock on macOS/Linux and LockFileEx on Windows. The OS releases
+the lock on process exit; leftover `.lock` files are harmless. Different account
+files have independent locks. The in-process manager rejects overlapping use
+without building an unbounded queue. This is not a multi-host scheduler or an
+account pool implementation. Files can be copied between machines, but expiry,
+browser identity, credentials and the original sticky proxy still need to match.
+See [portable file storage](storage.md).
 
 The explicit CLI `go run ./cmd/ana-login` remains a fresh-login diagnostic and
 does not share the server's session cache. Do not use it to benchmark reuse.
 The future search integration should use the server's manager, not the CLI.
 
-Offline tests cover encrypted file round trips and replacement, process locks,
+Offline tests cover JSON file round trips and replacement, process locks,
 cookie scope/expiry/deletion, stored identity isolation, cache expiry, renewal,
 no credential fallback on 403/transport failure, OTP failure without a cache,
 exclusive proxy restoration and rotation, and maintenance stopping on errors.

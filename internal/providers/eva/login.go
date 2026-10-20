@@ -40,6 +40,7 @@ func New(c Config) *Provider { return &Provider{config: c, gate: make(chan struc
 
 type cached struct {
 	Version         int
+	Account         string
 	Identity        string
 	Created         time.Time
 	Proxy, Template string
@@ -52,7 +53,7 @@ func (p *Provider) identity() string {
 }
 func (p *Provider) store() sessionstore.Store {
 	h := sha256.Sum256([]byte(strings.ToLower(p.config.Email)))
-	return sessionstore.Store{Path: filepath.Join(".state", "eva", hex.EncodeToString(h[:])+".session")}
+	return sessionstore.Store{Path: filepath.Join(".state", "eva", hex.EncodeToString(h[:])+".json")}
 }
 func (p *Provider) Ensure(ctx context.Context, report award.Reporter) error {
 	return p.withSession(ctx, report, nil)
@@ -325,7 +326,7 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 	}
 	err = p.finish(store, c, saved, use)
 	if err == nil {
-		progress("session ready", "EVA member session verified and encrypted for reuse")
+		progress("session ready", "EVA member session verified and saved for reuse")
 	}
 	return err
 }
@@ -409,6 +410,7 @@ func (p *Provider) save(store sessionstore.Store, c *session.Client, saved cache
 		return award.Failure("session_store", "Could not snapshot EVA session")
 	}
 	saved.HTTP = state
+	saved.Account = p.config.Email
 	data, err := json.Marshal(saved)
 	if err == nil {
 		err = store.Save(data)

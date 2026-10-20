@@ -3,13 +3,10 @@
 package outlook
 
 import (
-	"awarddesk/internal/sessionstore"
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,8 +20,6 @@ import (
 	"net/http"
 	"net/mail"
 	"net/url"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -56,18 +51,15 @@ func (r *Reader) token(ctx context.Context) (string, error) {
 	if r.access != "" && time.Until(r.expires) > time.Minute {
 		return r.access, nil
 	}
-	hash := sha256.Sum256([]byte(strings.ToLower(r.config.Email) + "|" + r.config.ClientID))
-	store := sessionstore.Store{Path: filepath.Join(".state", "outlook", hex.EncodeToString(hash[:])+".token")}
+	store := r.tokenStore()
 	unlock, err := store.Lock()
 	if err != nil {
 		return "", errors.New("Outlook token store is busy")
 	}
 	defer unlock()
-	refresh := r.config.RefreshToken
-	if data, err := store.Load(); err == nil {
-		refresh = string(data)
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return "", errors.New("Outlook token store could not be read")
+	refresh, err := r.loadRefreshToken(store)
+	if err != nil {
+		return "", err
 	}
 	form := url.Values{"client_id": {r.config.ClientID}, "refresh_token": {refresh}, "grant_type": {"refresh_token"}, "scope": {"https://outlook.office.com/IMAP.AccessAsUser.All offline_access"}}
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://login.microsoftonline.com/consumers/oauth2/v2.0/token", strings.NewReader(form.Encode()))
@@ -97,7 +89,7 @@ func (r *Reader) token(ctx context.Context) (string, error) {
 		return "", errors.New("Outlook OAuth authorization failed")
 	}
 	if value.RefreshToken != "" {
-		if err = store.Save([]byte(value.RefreshToken)); err != nil {
+		if err = r.saveRefreshToken(store, value.RefreshToken); err != nil {
 			return "", errors.New("could not save rotated Outlook token")
 		}
 	}

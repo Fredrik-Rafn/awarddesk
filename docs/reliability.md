@@ -37,7 +37,7 @@ Timeouts alone are not classified as OTP.
 - The UI service coalesces concurrent starts into one check. The provider also
   prevents concurrent logins for its configured account.
 - Successful UI check results are reused for 15 seconds with the original finish
-  timestamp. Authenticated state is retained separately in an encrypted file;
+  timestamp. Authenticated state is retained separately in a JSON file;
   the manager validates it before use.
 - Failed checks cool down for five seconds, account failures for one minute;
   longer upstream retry intervals are respected.

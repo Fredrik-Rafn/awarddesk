@@ -32,7 +32,7 @@ The frontend uses a dedicated login panel, not the flight-search selector.
 and cooldown. The checker calls `ana.Provider.Login`, verifies the member, and
 stores the member-verified session through `ana.Manager` and `sessionstore`.
 The HTTP client closes after use; cookies, token, browser identity and the exact
-proxy session survive in an encrypted file. Only public status reaches the UI.
+proxy session survive in a per-account JSON file. Only public status reaches the UI.
 
 Configuration is independent: ANA can run without BA credentials and vice versa.
 No credentials are accepted from the browser or returned in API responses.

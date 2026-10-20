@@ -1,8 +1,9 @@
-// Package sessionstore persists opaque session data protected for the current
-// Windows user with DPAPI. No plaintext fallback or separate encryption key.
+// Package sessionstore persists portable, readable JSON state files.
 package sessionstore
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -33,21 +34,24 @@ func (s Store) Load() ([]byte, error) {
 	if err != nil || len(data) == 0 || len(data) > maxSize {
 		return nil, errors.New("invalid saved session contents")
 	}
-	clear, err := crypt(data, true)
-	if err != nil {
-		return nil, errors.New("cannot decrypt saved session for this Windows user")
+	if !json.Valid(data) {
+		return nil, errors.New("saved state is not valid JSON")
 	}
-	return clear, nil
+	return data, nil
 }
 func (s Store) Save(data []byte) error {
-	if len(data) == 0 || len(data) > maxSize/2 {
+	if len(data) == 0 || len(data) > maxSize {
 		return errors.New("invalid session size")
 	}
-	sealed, err := crypt(data, false)
-	if err != nil {
-		return errors.New("cannot encrypt session for this Windows user")
+	var formatted bytes.Buffer
+	if err := json.Indent(&formatted, data, "", "  "); err != nil {
+		return errors.New("saved state must be valid JSON")
 	}
-	if err = os.MkdirAll(filepath.Dir(s.Path), 0700); err != nil {
+	formatted.WriteByte('\n')
+	if formatted.Len() > maxSize {
+		return errors.New("formatted state exceeds size limit")
+	}
+	if err := os.MkdirAll(filepath.Dir(s.Path), 0700); err != nil {
 		return errors.New("cannot create session directory")
 	}
 	f, err := os.CreateTemp(filepath.Dir(s.Path), ".session-*")
@@ -58,7 +62,7 @@ func (s Store) Save(data []byte) error {
 	defer os.Remove(tmp)
 	err = f.Chmod(0600)
 	if err == nil {
-		_, err = f.Write(sealed)
+		_, err = f.Write(formatted.Bytes())
 	}
 	if err == nil {
 		err = f.Sync()

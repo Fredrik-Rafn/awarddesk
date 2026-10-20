@@ -73,7 +73,7 @@ func run() error {
 		return e
 	}
 	if anaReady {
-		manager := ana.NewManager(anaProvider, sessionstore.Store{Path: filepath.Join(".state", "ana", anaProvider.AccountID()+".session")})
+		manager := ana.NewManager(anaProvider, sessionstore.Store{Path: filepath.Join(".state", "ana", anaProvider.AccountID()+".json")})
 		check = manager.Ensure
 	}
 	app.ANALogin = login.New(check)

@@ -38,7 +38,9 @@ printing email contents.
 
 ## Sessions and OTP
 
-Verified cookies are encrypted with Windows DPAPI under `.state/eva`.
+Verified cookies are saved as readable `.state/eva/<account-hash>.json` files.
+Each contains the account, cookie scopes/expiry, browser identity and sticky proxy.
+Storage works on macOS, Windows and Linux without an encryption key.
 Each session retains its original locked proxy identity and browser identity.
 Fresh logins take an unused pool slot and a new locked proxy session.
 The cache has a 24-hour local limit, but EVA or the residential peer can expire
@@ -52,7 +54,8 @@ IP verification uses ipify through the same sticky proxy and checks the result
 against the saved pin. It does not depend on Hyper's IP-lookup permission or
 send a solver API key to the IP service. Hyper still generates Akamai sensors.
 
-Outlook refresh tokens rotate into encrypted storage under `.state/outlook`.
+Outlook refresh tokens rotate into `.state/outlook/<account-hash>.json`, alongside
+the email and OAuth client ID. Each mailbox has its own file.
 Mailbox checks use read-only IMAP and `BODY.PEEK`; they never send mail or mark
 messages read. OTPs must match the sender, subject and configured recipient,
 arrive after the login checkpoint, and remain within EVA's three-minute lifetime.
@@ -148,5 +151,5 @@ fare combinations in 91.6 seconds. Basic was 207,900 miles plus TWD 6,359;
 Standard 295,470 plus TWD 6,359; Up 415,380 plus TWD 6,359.
 
 Live preflight renewal detected an unavailable saved proxy, started a fresh
-sticky session and completed login with Outlook OTP. The new encrypted cookie
+sticky session and completed login with Outlook OTP. The stored cookie
 snapshot was about 22 KB; subsequent searches successfully restored it.
