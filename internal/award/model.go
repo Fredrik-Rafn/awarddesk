@@ -28,6 +28,7 @@ type Query struct {
 	Date        string `json:"date"`
 	Cabin       Cabin  `json:"cabin"`
 	Adults      int    `json:"adults"`
+	Refresh     bool   `json:"refresh,omitempty"`
 }
 
 var iata = regexp.MustCompile(`^[A-Z]{3}$`)
@@ -105,11 +106,13 @@ type Itinerary struct {
 // Result.Complete concerns the recognized search and pricing response. Optional
 // details and later checkout offers can remain unavailable; see Warnings.
 type Result struct {
-	Query       Query       `json:"query"`
-	FetchedAt   time.Time   `json:"fetchedAt"`
-	Itineraries []Itinerary `json:"itineraries"`
-	Warnings    []string    `json:"warnings"`
-	Complete    bool        `json:"complete"`
+	Query          Query       `json:"query"`
+	FetchedAt      time.Time   `json:"fetchedAt"`
+	Itineraries    []Itinerary `json:"itineraries"`
+	Warnings       []string    `json:"warnings"`
+	Complete       bool        `json:"complete"`
+	Cached         bool        `json:"cached,omitempty"`
+	CacheExpiresAt *time.Time  `json:"cacheExpiresAt,omitempty"`
 }
 type Progress struct {
 	Stage     string `json:"stage"`

@@ -14,6 +14,10 @@ ANA award searches are not implemented. The background job saves verified ANA
 sessions in per-account JSON files and validates them before reuse.
 See [saved sessions](docs/sessions.md).
 
+EVA also reuses complete identical search results for two minutes, marks them
+as cached, and offers **Refresh live** to bypass them. See
+[search speed and caching](docs/performance.md).
+
 ## Start backend and frontend
 
 Supports **macOS, Windows and Linux**. Install Go 1.25.5 or newer.

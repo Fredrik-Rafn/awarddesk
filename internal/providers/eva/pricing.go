@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -36,6 +37,10 @@ func ajaxContext(page pageData) url.Values {
 // Endpoints are fixed to the captured price-preparation flow. Payment and
 // ticketing endpoints are never accepted.
 func quoteRequest(ctx context.Context, c pricingClient, sessionID, action string, values url.Values) (pageData, error) {
+	started := time.Now()
+	defer func() {
+		slog.Info("EVA pricing request", "action", action, "elapsed", time.Since(started).Round(time.Millisecond))
+	}()
 	if !regexp.MustCompile(`^[A-Za-z0-9_!.~-]{1,256}$`).MatchString(sessionID) {
 		return pageData{}, award.Failure("pricing_protocol", "EVA booking session identifier missing or invalid")
 	}

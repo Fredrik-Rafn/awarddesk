@@ -113,6 +113,7 @@ $("search").addEventListener("submit", async (e) => {
       date: $("date").value,
       cabin: $("cabin").value,
       adults: Number($("adults").value),
+      refresh: $("refresh").checked,
     };
     const job = await api("/api/searches", {
       method: "POST",
@@ -121,7 +122,12 @@ $("search").addEventListener("submit", async (e) => {
     currentJob = job.id;
     location.hash = job.id;
     sessionStorage.setItem("awarddesk.job", job.id);
-    poll();
+    if (job.status === "completed") {
+      result = job.result;
+      stop();
+      $("status").hidden = true;
+      showResults();
+    } else poll();
   } catch (e) {
     busy(false);
     status(
@@ -242,7 +248,9 @@ function showResults() {
     " adult" +
     (q.adults === 1 ? "" : "s") +
     " · " +
-    (result.complete ? "Available quotes retrieved" : "Partial results");
+    (result.complete ? "Available quotes retrieved" : "Partial results") +
+    (result.cached ? " · Cached" : " · Live") +
+    (result.fetchedAt ? " · Checked " + new Date(result.fetchedAt).toLocaleTimeString() : "");
   $("airline").replaceChildren(new Option("All airlines", "all"));
   [
     ...new Set(

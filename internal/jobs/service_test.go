@@ -60,7 +60,9 @@ func TestSequentialJobsAndCancellation(t *testing.T) {
 		t.Fatal(e)
 	}
 	<-entered
-	b, e := s.Submit(query())
+	otherQuery := query()
+	otherQuery.Destination = "SFO"
+	b, e := s.Submit(otherQuery)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -92,6 +94,65 @@ func TestRateLimitCooldownAndSanitizedErrors(t *testing.T) {
 	j := await(t, other, b.ID, "failed")
 	if j.Error.Message == "secret credential" {
 		t.Fatal("raw error exposed")
+	}
+}
+
+func TestIdenticalInflightSearchesShareOneJob(t *testing.T) {
+	entered, release := make(chan struct{}), make(chan struct{})
+	var calls atomic.Int32
+	s := New(fakeProvider{func(ctx context.Context) (award.Result, error) {
+		calls.Add(1)
+		close(entered)
+		select {
+		case <-release:
+			return award.Result{Complete: true}, nil
+		case <-ctx.Done():
+			return award.Result{}, ctx.Err()
+		}
+	}})
+	defer s.Close()
+	a, err := s.Submit(query())
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-entered
+	for i := 0; i < 100; i++ {
+		b, err := s.Submit(query())
+		if err != nil || b.ID != a.ID {
+			t.Fatalf("duplicate queued: id=%s err=%v", b.ID, err)
+		}
+	}
+	close(release)
+	await(t, s, a.ID, "completed")
+	if calls.Load() != 1 {
+		t.Fatal("duplicate upstream work")
+	}
+}
+
+type cachedProvider struct{ fakeProvider }
+
+func (p cachedProvider) CachedSearch(q award.Query) (award.Result, bool) {
+	return award.Result{Query: q, Complete: true, Cached: true, FetchedAt: time.Now()}, q.Destination == "SFO" && !q.Refresh
+}
+
+func TestCachedSearchBypassesBusyLiveQueue(t *testing.T) {
+	entered := make(chan struct{})
+	s := New(cachedProvider{fakeProvider{func(ctx context.Context) (award.Result, error) {
+		close(entered)
+		<-ctx.Done()
+		return award.Result{}, ctx.Err()
+	}}})
+	defer s.Close()
+	_, err := s.Submit(query())
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-entered
+	q := query()
+	q.Destination = "SFO"
+	j, err := s.Submit(q)
+	if err != nil || j.Status != "completed" || j.Result == nil || !j.Result.Cached {
+		t.Fatalf("cache waited for provider: %+v err=%v", j, err)
 	}
 }
 

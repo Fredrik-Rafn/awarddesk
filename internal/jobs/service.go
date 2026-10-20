@@ -88,6 +88,21 @@ func (s *Service) Submit(q award.Query) (Job, error) {
 	if len(s.items) >= 100 {
 		return Job{}, award.Failure("capacity", "result storage is full; retry after older searches expire")
 	}
+	for _, existing := range s.items {
+		if existing.Query == q && (existing.Status == "queued" || existing.Status == "running") && existing.ctx.Err() == nil {
+			return *existing, nil
+		}
+	}
+	// Cached complete results bypass live-search queues and provider cooldowns.
+	if cached, ok := p.(interface {
+		CachedSearch(award.Query) (award.Result, bool)
+	}); ok {
+		if result, hit := cached.CachedSearch(q); hit {
+			j := &Job{ID: id, Query: q, Status: "completed", CreatedAt: now, UpdatedAt: now, Result: &result, Progress: award.Progress{Stage: "cached results", Message: "Recent complete results reused"}}
+			s.items[id] = j
+			return *j, nil
+		}
+	}
 	if now.Before(s.cooldown) {
 		return Job{}, &award.Error{Code: "rate_limited", Message: "provider cooldown is active", RetryAfterSeconds: int(time.Until(s.cooldown).Seconds()) + 1}
 	}

@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"mime/multipart"
 	"net/url"
 	"strconv"
@@ -32,6 +33,10 @@ func (p *Provider) Capabilities() award.Capabilities {
 	return award.Capabilities{ID: "eva", Name: "EVA Air · Miles & Cash", Program: "Infinity MileageLands", Cabins: []award.Cabin{award.Economy, award.PremiumEconomy, award.Business}, VerifiedCabins: []award.Cabin{award.Economy, award.PremiumEconomy, award.Business}, MaxAdults: 1, OneWayOnly: true}
 }
 func (p *Provider) Search(ctx context.Context, q award.Query, report award.Reporter) (award.Result, error) {
+	return p.searchCached(ctx, q, report, p.searchLive)
+}
+
+func (p *Provider) searchLive(ctx context.Context, q award.Query, report award.Reporter) (award.Result, error) {
 	result := award.Result{Query: q}
 	if err := q.Validate(time.Now()); err != nil {
 		return result, err
@@ -43,8 +48,16 @@ func (p *Provider) Search(ctx context.Context, q award.Query, report award.Repor
 		return result, award.Failure("unsupported", "EVA pricing uses the authenticated member profile for one adult")
 	}
 	stage := "session preparation"
+	stageStarted := time.Now()
+	defer func() {
+		slog.Info("EVA search stage", "stage", stage, "elapsed", time.Since(stageStarted).Round(time.Millisecond))
+	}()
 	observer := report
 	report = func(p award.Progress) {
+		if p.Stage != stage {
+			slog.Info("EVA search stage", "stage", stage, "elapsed", time.Since(stageStarted).Round(time.Millisecond))
+			stageStarted = time.Now()
+		}
 		stage = p.Stage
 		if observer != nil {
 			observer(p)
@@ -86,11 +99,16 @@ func (p *Provider) Search(ctx context.Context, q award.Query, report award.Repor
 					return award.Failure("search_protocol", "EVA did not return the booking form")
 				}
 				bookingBody := body
-				progress("search captcha", "Verifying EVA's booking CAPTCHA")
+				progress("booking form security", "Preparing EVA security and CAPTCHA together")
 				if f.key == "" || f.captchaAction == "" {
 					return award.Failure("captcha_changed", "EVA booking CAPTCHA configuration missing")
 				}
-				solution, err := (antibot.AnySolver{Key: p.config.AnyKey, Proxy: proxy, UserAgent: c.UserAgent()}).SolveRecaptchaV3(ctx, target, f.key, f.captchaAction, f.title)
+				userAgent := c.UserAgent()
+				solution, err := bookingVerification(ctx, func(ctx context.Context) (antibot.CaptchaSolution, error) {
+					return (antibot.AnySolver{Key: p.config.AnyKey, Proxy: proxy, UserAgent: userAgent}).SolveRecaptchaV3(ctx, target, f.key, f.captchaAction, f.title)
+				}, func(ctx context.Context) error {
+					return (antibot.Hyper{Key: p.config.HyperKey, SkipPixel: true, VerifyAtLogin: true, MinimumSensorRounds: 3}).Prepare(ctx, c, target, bookingBody)
+				})
 				if err != nil {
 					return err
 				}
@@ -119,10 +137,6 @@ func (p *Provider) Search(ctx context.Context, q award.Query, report award.Repor
 				// A saved member session can retain a stop marker from an earlier
 				// protected action. EVA's booking form needs the complete new sensor
 				// sequence: the one-sensor shortcut returned 403 on repeated searches.
-				progress("booking form security", "Preparing security for EVA's availability form")
-				if err = (antibot.Hyper{Key: p.config.HyperKey, SkipPixel: true, VerifyAtLogin: true, MinimumSensorRounds: 3}).Prepare(ctx, c, target, bookingBody); err != nil {
-					return err
-				}
 				progress("availability", "Requesting all flight options for the selected date")
 				body, target, err = navigate(ctx, c, "POST", f.action, f.values, target)
 				if err != nil {

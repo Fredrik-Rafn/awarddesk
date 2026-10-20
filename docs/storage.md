@@ -10,6 +10,7 @@ proxies.txt                       # Proxy pool
   eva/<account-hash>.json          # EVA cookies, account, expiry and exact proxy
   ana/<account-hash>.json          # ANA tokens, browser state and exact proxy
   outlook/<account-hash>.json      # Email, client_id, refresh_token, updated_at
+  eva-results/<query-hash>.json    # Recent complete parsed searches (default 2m)
 ```
 
 The account hash is deterministic. EVA uses the email, ANA the member number,

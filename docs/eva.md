@@ -100,6 +100,11 @@ itineraries with complete pricing in 76 and 70 seconds on the same saved session
 
 ## Flight prices
 
+Complete identical searches are cached in JSON for two minutes by default.
+The frontend labels cache hits and provides a live-refresh bypass. CAPTCHA
+solving overlaps with booking security setup. See [speed and caching](performance.md)
+for the freshness rules, measurements and remaining bottlenecks.
+
 Current verification note (20 October 2026): five consecutive searches passed
 across economy, premium economy and business, including fresh login/Outlook OTP
 and repeated HND–SIN searches. Hyper Akamai access was restored after the balance

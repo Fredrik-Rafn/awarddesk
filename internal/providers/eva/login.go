@@ -30,6 +30,7 @@ type Config struct {
 	ImpervaSolver                     string
 	Pool                              *proxies.Pool
 	Mailbox                           *outlook.Reader
+	ResultCacheTTL                    time.Duration
 }
 type Provider struct {
 	config Config

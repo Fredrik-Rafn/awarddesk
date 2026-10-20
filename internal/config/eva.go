@@ -6,12 +6,22 @@ import (
 	"awarddesk/internal/proxies"
 	"fmt"
 	"os"
+	"time"
 )
 
 // EVA is shared by the server and diagnostic command.
 func EVA() (*eva.Provider, bool, error) {
+	ttl := 2 * time.Minute
+	if value := os.Getenv("EVA_RESULT_CACHE_TTL"); value != "" {
+		var err error
+		ttl, err = time.ParseDuration(value)
+		if err != nil || ttl < 0 || ttl > 15*time.Minute {
+			return nil, false, fmt.Errorf("EVA_RESULT_CACHE_TTL must be a duration between 0s and 15m")
+		}
+	}
 	c := eva.Config{
-		Email: os.Getenv("EVA_EMAIL"), Password: os.Getenv("EVA_PASSWORD"),
+		ResultCacheTTL: ttl,
+		Email:          os.Getenv("EVA_EMAIL"), Password: os.Getenv("EVA_PASSWORD"),
 		HyperKey: os.Getenv("HYPER_API_KEY"), AnyKey: os.Getenv("ANYSOLVER_API_KEY"),
 		ImpervaSolver: os.Getenv("EVA_IMPERVA_SOLVER"),
 	}
