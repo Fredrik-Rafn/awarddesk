@@ -12,7 +12,7 @@ import (
 
 func adminSince(value string, now time.Time) (time.Time, bool) {
 	switch value {
-	case "", "24h":
+	case "24h":
 		return now.Add(-24 * time.Hour), true
 	case "1h":
 		return now.Add(-time.Hour), true
@@ -20,7 +20,7 @@ func adminSince(value string, now time.Time) (time.Time, bool) {
 		return now.Add(-7 * 24 * time.Hour), true
 	case "30d":
 		return now.Add(-30 * 24 * time.Hour), true
-	case "all":
+	case "", "all":
 		return time.Time{}, true
 	}
 	return time.Time{}, false

@@ -6,7 +6,41 @@ const cabinNames = {
   business: "Business",
   first: "First",
 };
-let config, currentJob, result, timer, previewRevision;
+let config, currentJob, result, timer, previewRevision, startedAt, elapsedTimer;
+let searchBusy = false;
+function updateElapsed() {
+  if (!startedAt) return;
+  const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  $("search-elapsed").textContent =
+    seconds < 60
+      ? seconds + "s elapsed"
+      : Math.floor(seconds / 60) + "m " + (seconds % 60) + "s elapsed";
+}
+function progress(completed, total) {
+  const track = $("search-progress");
+  const known = Number(total) > 0;
+  track.classList.toggle("determinate", known);
+  if (known) {
+    const value = Math.max(0, Math.min(Number(completed) || 0, Number(total)));
+    track.setAttribute("aria-valuemin", "0");
+    track.setAttribute("aria-valuemax", String(total));
+    track.setAttribute("aria-valuenow", String(value));
+    track.setAttribute(
+      "aria-valuetext",
+      value + " of " + total + " quotes calculated",
+    );
+    track.firstElementChild.style.width = (100 * value) / total + "%";
+  } else {
+    for (const name of [
+      "aria-valuemin",
+      "aria-valuemax",
+      "aria-valuenow",
+      "aria-valuetext",
+    ])
+      track.removeAttribute(name);
+    track.firstElementChild.style.width = "";
+  }
+}
 const number = (n) => new Intl.NumberFormat("en-GB").format(n);
 const money = (m) => number(Number(m.amount)) + " " + m.currency;
 const el = (tag, text, className) => {
@@ -16,21 +50,7 @@ const el = (tag, text, className) => {
   return n;
 };
 async function api(path, options = {}) {
-  const r = await fetch(path, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRF-Token": config?.csrf || "",
-      ...options.headers,
-    },
-  });
-  const data = r.status === 204 ? null : await r.json();
-  if (!r.ok) {
-    const error = new Error(data.error || data.message || "Request failed");
-    error.status = r.status;
-    throw error;
-  }
-  return data;
+  return workspaceHTTP.request(path, options);
 }
 function status(stage, message, detail, error = false) {
   $("status").hidden = false;
@@ -38,10 +58,33 @@ function status(stage, message, detail, error = false) {
   $("stage").textContent = stage.toUpperCase();
   $("status-message").textContent = message;
   $("status-detail").textContent = detail;
+  $("search-progress").hidden = !searchBusy || error;
+  $("search-elapsed").hidden = !searchBusy;
+  $("search-skeleton").hidden = error || !searchBusy || !$("results").hidden;
 }
 function busy(value) {
+  searchBusy = value;
   $("submit").disabled = value || !config?.ready;
+  $("submit").classList.toggle("is-loading", value);
+  $("submit").setAttribute("aria-busy", String(value));
+  $("submit").textContent = value
+    ? "Searching EVA flights…"
+    : "Find EVA flights ↗";
   $("cancel").hidden = !value;
+  $("cancel").disabled = false;
+  $("cancel").textContent = "Cancel search";
+  $("search-skeleton").hidden = !value || !$("results").hidden;
+  $("search-progress").hidden = !value;
+  $("search-elapsed").hidden = !value;
+  if (value && !startedAt) {
+    startedAt = Date.now();
+    updateElapsed();
+    elapsedTimer = setInterval(updateElapsed, 1000);
+    progress();
+  } else if (!value) {
+    clearInterval(elapsedTimer);
+    startedAt = null;
+  }
 }
 function stop() {
   clearTimeout(timer);
@@ -55,6 +98,15 @@ async function poll() {
   try {
     const job = await api("/api/searches/" + requestedJob);
     if (currentJob !== requestedJob) return;
+    const createdAt = Date.parse(job.createdAt);
+    if (
+      Number.isFinite(createdAt) &&
+      createdAt > 0 &&
+      createdAt <= Date.now()
+    ) {
+      startedAt = createdAt;
+      updateElapsed();
+    }
     if (job.status === "completed") {
       result = job.result;
       stop();
@@ -70,10 +122,12 @@ async function poll() {
       }
       status(
         job.status,
-        job.error?.message || "Search cancelled",
-        (job.status === "failed" ? "Failed at " + (job.error?.stage || job.progress?.stage || "provider request") + ". " : "") +
-          (job.result?.itineraries?.length ? "Retrieved flights and finished quotes are shown below as partial results. " : "") +
-          "No payment or ticketing request was submitted.",
+        job.status === "failed"
+          ? "We couldn’t finish this search"
+          : "Search cancelled",
+        (job.result?.itineraries?.length
+          ? "Retrieved flights and finished quotes are shown below as partial results. "
+          : "") + "You can adjust your search and try again.",
         job.status === "failed",
       );
       return;
@@ -84,39 +138,50 @@ async function poll() {
       showResults();
     }
     status(
-      job.progress.stage,
-      job.progress.message,
-      job.progress.total ? (job.progress.completed || 0) + " of " + job.progress.total + " price calculations complete."
-        : "Saved EVA sessions are reused. Fresh login and pricing can take a few minutes.",
+      "Searching EVA Air",
+      job.progress.total
+        ? "Calculating Miles & Cash options"
+        : "Looking for available flights",
+      job.progress.total
+        ? (job.progress.completed || 0) +
+            " of " +
+            job.progress.total +
+            " price calculations complete."
+        : "This can take a few minutes. Flight options will appear as they become available.",
     );
+    progress(job.progress.completed, job.progress.total);
     timer = setTimeout(poll, 1800);
   } catch (e) {
     if (currentJob !== requestedJob) return;
     if (e.status === 404) {
       stop();
-      status("expired", "Search is no longer available",
-        "The server may have restarted or the saved result expired.", true);
+      status(
+        "expired",
+        "Search is no longer available",
+        "The server may have restarted or the saved result expired.",
+        true,
+      );
       return;
     }
     status(
       "connection",
       "Reconnecting to your search",
       "The search may still be running. Checking again in five seconds.",
-      true,
     );
     timer = setTimeout(poll, 5000);
   }
 }
 $("search").addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (searchBusy) return;
   previewRevision = null;
   $("results").hidden = true;
   $("empty").hidden = true;
   busy(true);
   status(
     "starting",
-    "Preparing a fresh search",
-    "Your credentials remain on the local server.",
+    "Finding your next flight",
+    "Checking EVA Air availability. This can take a few minutes.",
   );
   try {
     const q = {
@@ -126,7 +191,7 @@ $("search").addEventListener("submit", async (e) => {
       date: $("date").value,
       cabin: $("cabin").value,
       adults: Number($("adults").value),
-      refresh: $("refresh").checked,
+      refresh: false,
     };
     const job = await api("/api/searches", {
       method: "POST",
@@ -146,17 +211,21 @@ $("search").addEventListener("submit", async (e) => {
     status(
       "unable to start",
       e.message,
-      "Check the search fields and local configuration.",
+      "Review your search details and try again. Account setup is available in Admin.",
       true,
     );
   }
 });
 $("cancel").addEventListener("click", async () => {
   if (!currentJob) return;
+  $("cancel").disabled = true;
+  $("cancel").textContent = "Cancelling…";
   try {
     await api("/api/searches/" + currentJob, { method: "DELETE" });
     await poll();
   } catch (e) {
+    $("cancel").disabled = false;
+    $("cancel").textContent = "Cancel search";
     status("cancel", e.message, "Try cancelling again.", true);
   }
 });
@@ -198,7 +267,12 @@ for (const id of ["origin", "destination"]) {
           "/api/airports?q=" + encodeURIComponent(input.value),
           { signal: request.signal },
         );
-        if (request.signal.aborted || controller !== request || document.activeElement !== input) return;
+        if (
+          request.signal.aborted ||
+          controller !== request ||
+          document.activeElement !== input
+        )
+          return;
         index = -1;
         list.replaceChildren();
         items.forEach((a, i) => {
@@ -246,12 +320,16 @@ for (const id of ["origin", "destination"]) {
   input.addEventListener("blur", close);
 }
 function showResults() {
+  $("search-skeleton").hidden = true;
   document.body.classList.add("has-results");
   const q = result.query;
   $("results").hidden = false;
   $("result-route").textContent = q.origin + " → " + q.destination;
   $("result-title").textContent =
-    result.itineraries.length + (q.provider === "eva" ? " flight options · Miles & Cash" : " award itineraries");
+    result.itineraries.length +
+    (q.provider === "eva"
+      ? " flight options · Miles & Cash"
+      : " award itineraries");
   $("result-meta").textContent =
     q.date +
     " · " +
@@ -261,9 +339,15 @@ function showResults() {
     " adult" +
     (q.adults === 1 ? "" : "s") +
     " · " +
-    (result.complete ? "Available quotes retrieved" : currentJob ? "Calculating mileage quotes" : "Partial results") +
+    (result.complete
+      ? "Available quotes retrieved"
+      : currentJob
+        ? "Calculating mileage quotes"
+        : "Partial results") +
     (result.cached ? " · Cached" : " · Live") +
-    (result.fetchedAt ? " · Checked " + new Date(result.fetchedAt).toLocaleTimeString() : "");
+    (result.fetchedAt
+      ? " · Checked " + new Date(result.fetchedAt).toLocaleTimeString()
+      : "");
   const selectedAirline = $("airline").value;
   $("airline").replaceChildren(new Option("All airlines", "all"));
   [
@@ -273,15 +357,21 @@ function showResults() {
   ]
     .sort()
     .forEach((a) => $("airline").append(new Option(a, a)));
-  if ([...$("airline").options].some((option) => option.value === selectedAirline)) $("airline").value = selectedAirline;
+  if (
+    [...$("airline").options].some((option) => option.value === selectedAirline)
+  )
+    $("airline").value = selectedAirline;
   $("warnings").replaceChildren(...result.warnings.map((w) => el("p", w)));
   $("warnings").hidden = !result.warnings.length;
   renderFlights();
 }
 function renderFlights() {
   const flights = $("flights");
-  const expanded = new Set([...flights.querySelectorAll("article[data-flight-key]")]
-    .filter((card) => card.querySelector("details")?.open).map((card) => card.dataset.flightKey));
+  const expanded = new Set(
+    [...flights.querySelectorAll("article[data-flight-key]")]
+      .filter((card) => card.querySelector("details")?.open)
+      .map((card) => card.dataset.flightKey),
+  );
   flights.replaceChildren();
   const list = result.itineraries
     .filter(
@@ -291,7 +381,10 @@ function renderFlights() {
           i.segments.some((s) => s.airline === $("airline").value)),
     )
     .slice();
-  const cost = (f) => f.pricingType === "miles_cash" ? Number(f.cashPrice?.amount ?? Infinity) : f.points;
+  const cost = (f) =>
+    f.pricingType === "miles_cash"
+      ? Number(f.cashPrice?.amount ?? Infinity)
+      : f.points;
   const cheapest = (i) => Math.min(...i.fares.map(cost));
   list.sort((a, b) =>
     $("sort").value === "points"
@@ -301,14 +394,33 @@ function renderFlights() {
         ),
   );
   if (!list.length) {
-    flights.append(
+    const emptyState = el("div", undefined, "result-empty");
+    emptyState.append(
+      el(
+        "h3",
+        result.itineraries.length
+          ? "No flights match these filters"
+          : "No flights found",
+      ),
       el(
         "p",
         result.itineraries.length
-          ? "No flights match these filters."
-          : "No flights returned for this search.",
+          ? "Try another airline or include connecting flights."
+          : "Try a different departure date, route or cabin.",
       ),
     );
+    if (result.itineraries.length) {
+      const reset = el("button", "Reset filters", "secondary");
+      reset.type = "button";
+      reset.onclick = () => {
+        for (const id of ["stops", "airline"]) {
+          $(id).value = "all";
+          $(id).dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      };
+      emptyState.append(reset);
+    }
+    flights.append(emptyState);
     return;
   }
   for (const item of list) {
@@ -318,7 +430,14 @@ function renderFlights() {
     const card = el("article", undefined, "flight"),
       main = el("div", undefined, "flight-main"),
       carrier = el("div", undefined, "carrier");
-    card.dataset.flightKey = JSON.stringify(item.segments.map((s) => [s.flightNumber, s.origin, s.destination, s.departureLocal]));
+    card.dataset.flightKey = JSON.stringify(
+      item.segments.map((s) => [
+        s.flightNumber,
+        s.origin,
+        s.destination,
+        s.departureLocal,
+      ]),
+    );
     carrier.append(
       el("div", [...new Set(item.segments.map((s) => s.airline))].join(" + ")),
       el(
@@ -362,19 +481,32 @@ function renderFlights() {
     if (fare.pricingType === "miles_cash") {
       price.classList.add("miles-cash");
       if (fare.milesCash) {
-        price.append(el("strong", number(fare.milesCash.miles) + " miles"),
+        price.append(
+          el("strong", number(fare.milesCash.miles) + " miles"),
           el("small", "Maximum-offset estimate"),
-          el("div", "+ " + money(fare.milesCash.remainingCash), "cash"));
+          el("div", "+ " + money(fare.milesCash.remainingCash), "cash"),
+        );
       } else {
-        price.append(el("strong", money(fare.cashPrice)),
+        price.append(
+          el("strong", money(fare.cashPrice)),
           el("small", "Full cash fare"),
-          el("div", fare.milesCashEligible === false ? "Not eligible for Miles & Cash" : currentJob ? "Calculating miles…" : "Miles conversion unavailable", "cash"));
+          el(
+            "div",
+            fare.milesCashEligible === false
+              ? "Not eligible for Miles & Cash"
+              : currentJob
+                ? "Calculating miles…"
+                : "Miles conversion unavailable",
+            "cash",
+          ),
+        );
       }
-    } else price.append(
-      el("strong", number(fare.points)),
-      el("small", " " + fare.program),
-      el("div", "+ " + fare.taxes.amount + " " + fare.taxes.currency, "cash"),
-    );
+    } else
+      price.append(
+        el("strong", number(fare.points)),
+        el("small", " " + fare.program),
+        el("div", "+ " + fare.taxes.amount + " " + fare.taxes.currency, "cash"),
+      );
     main.append(carrier, route, info, price);
     card.append(main);
     const details = el("details");
@@ -416,15 +548,23 @@ function renderFlights() {
         el(
           "strong",
           f.pricingType === "miles_cash"
-          ? (f.milesCash ? number(f.milesCash.miles) + " miles + " + money(f.milesCash.remainingCash)
-            : money(f.cashPrice) + (f.milesCashEligible === false ? " cash · not eligible for Miles & Cash" : currentJob ? " cash · calculating miles…" : " cash · miles conversion unavailable"))
-          : number(f.points) +
-            " " +
-            f.program +
-            " + " +
-            f.taxes.amount +
-            " " +
-            f.taxes.currency,
+            ? f.milesCash
+              ? number(f.milesCash.miles) +
+                " miles + " +
+                money(f.milesCash.remainingCash)
+              : money(f.cashPrice) +
+                (f.milesCashEligible === false
+                  ? " cash · not eligible for Miles & Cash"
+                  : currentJob
+                    ? " cash · calculating miles…"
+                    : " cash · miles conversion unavailable")
+            : number(f.points) +
+                " " +
+                f.program +
+                " + " +
+                f.taxes.amount +
+                " " +
+                f.taxes.currency,
         ),
       );
       details.append(row);
@@ -463,17 +603,22 @@ $("download").addEventListener("click", () => {
   busy(false);
   try {
     config = await api("/api/config");
+    config.providers = config.providers.filter((p) => p.id === "eva");
+    config.ready = config.evaLoginReady;
     $("provider").replaceChildren(
       ...config.providers.map(
         (p) => new Option(p.name + " · " + p.program, p.id),
       ),
     );
-    if (config.providers.some(p => p.id === "eva")) $("provider").value = "eva";
+    if (config.providers.some((p) => p.id === "eva"))
+      $("provider").value = "eva";
     function providerChanged() {
       const p = config.providers.find((p) => p.id === $("provider").value);
       if (!p) return;
-      $("submit").textContent = p.id === "eva" ? "Find EVA flights ↗" : "Find award flights ↗";
-      $("sort").options[0].textContent = p.id === "eva" ? "Lowest cash fare" : "Lowest points";
+      $("submit").textContent =
+        p.id === "eva" ? "Find EVA flights ↗" : "Find award flights ↗";
+      $("sort").options[0].textContent =
+        p.id === "eva" ? "Lowest cash fare" : "Lowest points";
       $("cabin").replaceChildren(
         ...p.cabins.map((c) => new Option(cabinNames[c] || c, c)),
       );
@@ -487,11 +632,6 @@ $("download").addEventListener("click", () => {
     $("provider").addEventListener("change", providerChanged);
     providerChanged();
     $("setup").hidden = config.ready;
-    $("connection").textContent = config.ready
-      ? config.proxyEnabled
-        ? "● Sticky proxy configured"
-        : "● Direct connection"
-      : "○ Server setup required";
     busy(false);
     currentJob = /^[a-f0-9]{32}$/.test(location.hash.slice(1))
       ? location.hash.slice(1)
@@ -505,4 +645,3 @@ $("download").addEventListener("click", () => {
     status("offline", "Local server unavailable", e.message, true);
   }
 })();
-

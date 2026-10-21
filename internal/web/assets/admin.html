@@ -6,8 +6,12 @@
     <title>Awarddesk · Admin</title>
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="/admin.css" />
+    <script src="/http.js" defer></script>
+    <script src="/admin-controls.js" defer></script>
     <script src="/admin.js" defer></script>
     <script src="/admin-dashboard.js" defer></script>
+    <script src="/admin-registration.js" defer></script>
+    <script src="/components.js" defer></script>
   </head>
   <body>
     <header>
@@ -60,7 +64,7 @@
           </nav>
           <div class="sidebar-bottom">
             <span class="live-dot"></span> Local SQLite workspace
-            <p id="retention-note">30-day search history</p>
+            <p id="retention-note">All-time search history</p>
             <button id="logout" class="secondary">Sign out</button>
           </div>
         </aside>
@@ -77,10 +81,10 @@
               <label
                 >Time window<select id="analytics-range">
                   <option value="1h">Last hour</option>
-                  <option value="24h" selected>Last 24 hours</option>
+                  <option value="24h">Last 24 hours</option>
                   <option value="7d">Last 7 days</option>
                   <option value="30d">Last 30 days</option>
-                  <option value="all">All retained history</option>
+                  <option value="all" selected>All-time history</option>
                 </select></label
               ><button id="refresh-dashboard" class="secondary" type="button">
                 ↻ Refresh</button
@@ -168,7 +172,8 @@
                 including queue and retry time. Repeated or coalesced requests
                 sharing a job count once. Separate manual retries are separate
                 jobs; we do not infer that they are the same user journey.
-                Statistics include only retained records in the selected window.
+                History is kept permanently. Statistics reflect the selected
+                time window.
               </p>
             </details>
           </section>
@@ -180,9 +185,6 @@
           >
             <div class="panel-top">
               <h2>Accounts &amp; sessions</h2>
-              <button id="new-account" class="secondary">
-                Add EVA account
-              </button>
             </div>
             <p class="hint">
               One active search per account. Separate accounts run concurrently.
@@ -190,8 +192,68 @@
               refreshes expired sessions.
             </p>
             <div id="account-list"></div>
+            <div class="registration-panel">
+              <div class="panel-top">
+                <div>
+                  <div class="eyebrow">BULK ONBOARDING</div>
+                  <h3>Create EVA accounts</h3>
+                </div>
+                <span id="registration-total" class="chart-total"></span>
+              </div>
+              <p class="hint">
+                Paste up to 500 Outlook mailboxes. Each signup uses its own
+                unused sticky proxy and runs within the shared worker limit.
+                Email verification, EVA credentials and saved-session
+                preparation are automatic.
+              </p>
+              <form id="registration-form">
+                <label for="registration-credentials"
+                  >One mailbox per line</label
+                >
+                <textarea
+                  id="registration-credentials"
+                  rows="5"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="email:password:refresh_token:client_id"
+                  required
+                ></textarea>
+                <p class="hint">
+                  Names, adult birth dates, phone numbers and strong passwords
+                  are generated. Outlook uses OAuth2; mailbox passwords are
+                  discarded. Existing imports are skipped.
+                </p>
+                <label class="registration-consent"
+                  ><input
+                    id="registration-consent"
+                    type="checkbox"
+                    required
+                  /><span
+                    >I authorize creation of these EVA memberships and accept
+                    EVA's
+                    <a
+                      href="https://eservice.evaair.com/flyeva/EVA/FFP/register-now.aspx"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >membership terms and privacy policy</a
+                    >.</span
+                  ></label
+                >
+                <div class="form-actions">
+                  <button id="start-registration" class="primary" type="submit">
+                    Create accounts &amp; prepare sessions</button
+                  ><span id="registration-message" role="status"></span>
+                </div>
+              </form>
+              <div id="registration-list"></div>
+              <nav
+                id="registration-pages"
+                class="numbered-pagination"
+                aria-label="Account creation pages"
+              ></nav>
+            </div>
             <form id="account-form" hidden>
-              <h3 id="account-heading">Add EVA account</h3>
+              <h3 id="account-heading">Edit EVA account</h3>
               <input name="id" type="hidden" />
               <div class="admin-grid">
                 <label
@@ -221,9 +283,14 @@
                     placeholder="Leave empty to keep existing"
                 /></label>
               </div>
-              <label class="check"
-                ><input name="enabled" type="checkbox" checked /> Enabled</label
-              >
+              <label class="account-switch"
+                ><span>Account enabled</span
+                ><input
+                  name="enabled"
+                  type="checkbox"
+                  role="switch"
+                  checked /><span class="switch-track"><span></span></span
+              ></label>
               <div class="ana-actions">
                 <button class="primary" type="submit">Save account</button
                 ><button id="cancel-account" class="secondary" type="button">
@@ -244,6 +311,23 @@
               searches bypass expired entries. Cached results retain their
               original retrieval time.
             </p>
+            <div class="cache-policy-card">
+              <div>
+                <h3>Flight caching</h3>
+                <p id="cache-policy-description">Loading cache policy…</p>
+              </div>
+              <button
+                id="flight-cache-toggle"
+                class="pill-switch"
+                type="button"
+                role="switch"
+                aria-checked="true"
+                aria-label="Flight caching"
+              >
+                <span class="switch-track"><span></span></span
+                ><span class="switch-label">Enabled</span>
+              </button>
+            </div>
             <div id="flight-list"></div>
             <details id="cache-details" hidden>
               <summary>Cached result details</summary>
@@ -266,8 +350,8 @@
               </button>
             </div>
             <p class="hint">
-              Every retained search, including live runs, cache hits, failures
-              and recoveries. Open a row for its result and diagnostics.
+              Every search, including live runs, cache hits, failures and
+              recoveries. Open a row for its result and diagnostics.
             </p>
             <form id="history-filters" class="history-filters">
               <label class="history-query"
@@ -319,12 +403,12 @@
                   <option>50</option>
                   <option>100</option>
                 </select></label
-              ><button id="history-prev" class="secondary" type="button">
-                ← Previous</button
-              ><span id="history-page"></span
-              ><button id="history-next" class="secondary" type="button">
-                Next →
-              </button>
+              >
+              <nav
+                id="history-pages"
+                class="numbered-pagination"
+                aria-label="Search history pages"
+              ></nav>
             </div>
           </section>
           <section id="proxies" class="search-panel" data-view="proxies" hidden>
@@ -358,25 +442,35 @@
           >
             <h2>Settings &amp; API keys</h2>
             <p class="hint">
-              Saved immediately. EVA uses updates when an account next becomes
-              idle. ANA and BA startup settings require a server restart. Empty
-              secret fields keep their current value; use Clear to remove a key.
+              Edit saved values and save your changes. Use the eye icon to
+              reveal a secret; empty its field to remove it. EVA applies updates
+              when an account next becomes idle. Flight caching applies
+              immediately.
             </p>
             <form id="settings-form">
-              <div id="setting-fields" class="admin-grid"></div>
-              <div class="admin-grid">
-                <label
-                  >Add setting name<input
-                    id="new-setting-key"
-                    placeholder="SETTING_NAME" /></label
-                ><label
-                  >Value<input
-                    id="new-setting-value"
-                    type="password"
-                    autocomplete="off"
-                /></label>
+              <div id="setting-fields" class="settings-sections"></div>
+              <details class="advanced-settings">
+                <summary>Advanced · add a custom setting</summary>
+                <div class="admin-grid">
+                  <label
+                    >Add setting name<input
+                      id="new-setting-key"
+                      placeholder="SETTING_NAME" /></label
+                  ><label
+                    >Value<input
+                      id="new-setting-value"
+                      type="password"
+                      autocomplete="off"
+                  /></label>
+                </div>
+              </details>
+              <div class="settings-save">
+                <p>
+                  Boolean switches apply when you save. Flight caching applies
+                  immediately.
+                </p>
+                <button class="primary" type="submit">Save settings</button>
               </div>
-              <button class="primary" type="submit">Save settings</button>
             </form>
             <hr />
             <form id="password-form">
@@ -412,6 +506,22 @@
         </button>
       </div>
       <div id="detail-body"></div>
+    </dialog>
+    <dialog
+      id="confirm-dialog"
+      aria-labelledby="confirm-title"
+      aria-describedby="confirm-message"
+    >
+      <div class="confirm-symbol" aria-hidden="true">!</div>
+      <h2 id="confirm-title">Confirm action</h2>
+      <p id="confirm-message"></p>
+      <div class="confirm-actions">
+        <button id="confirm-cancel" class="secondary" type="button">
+          Cancel</button
+        ><button id="confirm-accept" class="primary" type="button">
+          Continue
+        </button>
+      </div>
     </dialog>
     <footer>
       Local SQLite workspace · API keys and account secrets stay on this

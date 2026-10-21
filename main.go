@@ -9,6 +9,7 @@ import (
 	"awarddesk/internal/login"
 	"awarddesk/internal/providers/ana"
 	"awarddesk/internal/providers/ba"
+	"awarddesk/internal/registration"
 	"awarddesk/internal/session"
 	"awarddesk/internal/sessionstore"
 	"awarddesk/internal/web"
@@ -83,7 +84,12 @@ func run() error {
 	if e != nil {
 		return e
 	}
-	app.Admin = &web.Admin{DB: db, Fleet: evaProvider}
+	registrations, err := registration.New(db, evaProvider)
+	if err != nil {
+		return err
+	}
+	defer registrations.Close()
+	app.Admin = &web.Admin{DB: db, Fleet: evaProvider, Registrations: registrations}
 	app.Availability = func() (bool, bool) {
 		return ready || evaProvider.Ready(), db.Setting("PROXY_LIST") != "" || proxy != ""
 	}
@@ -111,6 +117,7 @@ func run() error {
 	}
 	defer listener.Close()
 	evaProvider.Start()
+	registrations.Start()
 	maintenanceDone := make(chan struct{})
 	go func() {
 		defer close(maintenanceDone)

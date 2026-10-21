@@ -7,9 +7,38 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 const fixture = "http://core-residential.evomi.com:1000:user:private-secret_session-abcdefghij_lifetime-3"
+
+func TestWaitResumePreservesIdentityAndHonorsCancellation(t *testing.T) {
+	p, _ := poolFile(t, fixture)
+	a, err := p.Acquire(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if _, err = p.WaitResume(ctx, a.Template, a.URL); err != context.DeadlineExceeded {
+		t.Fatal("busy proxy did not honor cancellation")
+	}
+	original := a.URL
+	a.Release(true)
+	p.mu.Lock()
+	p.entries[0].until = time.Now().Add(20 * time.Millisecond)
+	p.mu.Unlock()
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel2()
+	b, err := p.WaitResume(ctx2, a.Template, original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Release(false)
+	if b.URL != original {
+		t.Fatal("waiting changed saved session identity")
+	}
+}
 
 func poolFile(t *testing.T, lines string) (*Pool, string) {
 	t.Helper()

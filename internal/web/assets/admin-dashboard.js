@@ -3,6 +3,16 @@ let dashboardPaused = false,
   dashboardLoading = false,
   historyPage = 1,
   historyLoading = 0;
+const dashboardSnapshots = new Map();
+function changedSnapshot(key, data, focusedContainer) {
+  if (focusedContainer?.contains(document.activeElement)) return false;
+  const next = JSON.stringify(data, (key, value) =>
+    key === "now" || key === "generatedAt" ? undefined : value,
+  );
+  if (dashboardSnapshots.get(key) === next) return false;
+  dashboardSnapshots.set(key, next);
+  return true;
+}
 let historyFilters = {
   q: "",
   status: "",
@@ -47,6 +57,7 @@ function historyQuery() {
   return q;
 }
 function clearDashboard() {
+  dashboardSnapshots.clear();
   historyPage = 1;
   historyLoading++;
   for (const id of [
@@ -70,7 +81,7 @@ const viewLabels = {
   ],
   searches: [
     "Search history",
-    "The complete ledger. Filter, inspect and export every retained search.",
+    "The full ledger. Filter, inspect and export your all-time search history.",
   ],
   accounts: [
     "Accounts & sessions",
@@ -166,10 +177,7 @@ function renderHealth(data) {
     card.append(row);
   }
   $("retention-note").textContent =
-    (data.retentionDays || 30) +
-    "-day search history · " +
-    (data.concurrency || 4) +
-    " workers";
+    "All-time search history · " + (data.concurrency || 4) + " workers";
   const accountNav = document.querySelector('[data-nav="accounts"]');
   accountNav.title =
     ready + " ready, " + busy + " busy, " + attention + " need attention";
@@ -460,7 +468,8 @@ async function loadHistory() {
     historyPage = pages;
     return loadHistory();
   }
-  $("job-list").replaceChildren(searchTable(result.items));
+  if (changedSnapshot("history", result.items, $("job-list")))
+    $("job-list").replaceChildren(searchTable(result.items));
   const start = result.total ? (result.page - 1) * result.limit + 1 : 0;
   $("history-count").textContent =
     start +
@@ -469,12 +478,13 @@ async function loadHistory() {
     " of " +
     formatNumber(result.total) +
     " searches";
-  $("history-page").textContent = "Page " + result.page + " of " + pages;
-  $("history-prev").disabled = historyPage <= 1;
-  $("history-next").disabled = historyPage >= pages;
+  renderPagination($("history-pages"), result.page, pages, async (page) => {
+    historyPage = page;
+    await loadHistory().catch((e) => message(e.message));
+  });
 }
 async function refreshDashboard() {
-  if (dashboardLoading) return;
+  if (dashboardLoading) return false;
   dashboardLoading = true;
   try {
     const q = rangeQuery();
@@ -483,10 +493,16 @@ async function refreshDashboard() {
       api("/api/admin/analytics?" + q),
       api("/api/admin/history?" + q + "&limit=6"),
     ]);
-    if (!polling) return;
-    render(data);
-    renderAnalytics(stats);
-    $("recent-jobs").replaceChildren(searchTable(recent.items, true));
+    if (!polling) return false;
+    if (
+      !$("flight-list").contains(document.activeElement) &&
+      changedSnapshot("overview", data, $("account-list"))
+    )
+      render(data);
+    if (changedSnapshot("analytics", stats, $("overview")))
+      renderAnalytics(stats);
+    if (changedSnapshot("recent", recent.items, $("recent-jobs")))
+      $("recent-jobs").replaceChildren(searchTable(recent.items, true));
     if (currentView() === "searches") await loadHistory();
     $("last-sync").textContent =
       "Updated " +
@@ -620,8 +636,19 @@ $("analytics-range").onchange = () => {
   historyPage = 1;
   refresh().catch((e) => message(e.message));
 };
-$("refresh-dashboard").onclick = () =>
-  refresh().catch((e) => message(e.message));
+$("refresh-dashboard").onclick = async () => {
+  const button = $("refresh-dashboard");
+  button.disabled = true;
+  button.classList.add("is-loading");
+  try {
+    await refresh();
+  } catch (e) {
+    message(e.message);
+  } finally {
+    button.disabled = false;
+    button.classList.remove("is-loading");
+  }
+};
 $("pause-refresh").onclick = () => {
   dashboardPaused = !dashboardPaused;
   $("pause-refresh").textContent = dashboardPaused
@@ -631,12 +658,12 @@ $("pause-refresh").onclick = () => {
   if (dashboardPaused) $("last-sync").textContent = "Live updates paused";
   else refresh().catch((e) => message(e.message));
 };
-$("history-filters").onsubmit = (e) => {
+$("history-filters").onsubmit = async (e) => {
   e.preventDefault();
   for (const key of Object.keys(historyFilters))
     historyFilters[key] = $("history-" + (key === "q" ? "query" : key)).value;
   historyPage = 1;
-  loadHistory().catch((e) => message(e.message));
+  await loadHistory().catch((e) => message(e.message));
 };
 $("reset-history").onclick = () => {
   $("history-filters").reset();
@@ -652,14 +679,6 @@ $("reset-history").onclick = () => {
 };
 $("history-limit").onchange = () => {
   historyPage = 1;
-  loadHistory().catch((e) => message(e.message));
-};
-$("history-prev").onclick = () => {
-  historyPage--;
-  loadHistory().catch((e) => message(e.message));
-};
-$("history-next").onclick = () => {
-  historyPage++;
   loadHistory().catch((e) => message(e.message));
 };
 $("export-history").onclick = () => {

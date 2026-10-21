@@ -1,14 +1,15 @@
 # EVA search speed
 
 Complete EVA results are stored in SQLite for **30 minutes from availability retrieval**.
-Change `EVA_RESULT_CACHE_TTL` in Admin; `0s` disables caching, up to `24h` is accepted.
+Change `EVA_RESULT_CACHE_TTL` in Admin (up to `24h`). Its cache switch disables
+caching and clears temporary results after confirmation. A legacy `0s` lifetime
+also requires confirmation. Historical searches stay permanently.
 Only complete successes are cached, keyed by account and query. Expiry is checked
 on every read; periodic cleanup bounds storage at 1,000 entries.
 
 The frontend labels results **Live** or **Cached**, with their original retrieval
-time. **Refresh live (skip recent results)** bypasses cached results and updates
-the cache after success. The API equivalent is `"refresh": true` in the normal
-search JSON. Responses include `cached` and `cacheExpiresAt` where applicable.
+time. The API supports `"refresh": true` to bypass cached results and update
+the cache after success. Responses include `cached` and `cacheExpiresAt` where applicable.
 Recent cache hits bypass the live-search queue and provider cooldowns.
 
 Identical queued/running requests share one job, preventing duplicate solver and

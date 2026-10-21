@@ -64,7 +64,29 @@ func (p *Provider) store() sessionstore.Store {
 }
 func (p *Provider) Ensure(ctx context.Context, report award.Reporter) error {
 	ctx, report = trackRequestRecoveries(ctx, report)
-	return p.withSession(ctx, report, nil)
+	stage := "session preparation"
+	observer := report
+	err := p.withSession(ctx, func(progress award.Progress) {
+		stage = progress.Stage
+		if observer != nil {
+			observer(progress)
+		}
+	}, nil)
+	return loginStageError(err, stage)
+}
+func loginStageError(err error, stage string) error {
+	var failure *award.Error
+	if !errors.As(err, &failure) {
+		return err
+	}
+	copy := *failure
+	if copy.Stage == "" {
+		copy.Stage = stage
+	}
+	if (stage == "credentials" || stage == "otp submission" || stage == "verification continuation") && (copy.Code == "connection" || copy.Code == "response_read") {
+		copy.OutcomeUnknown = true
+	}
+	return &copy
 }
 func (p *Provider) withSession(ctx context.Context, report award.Reporter, use func(*session.Client, string) error) error {
 	if p.config.Email == "" || p.config.Password == "" || p.config.Pool == nil || p.config.Mailbox == nil {
@@ -149,6 +171,14 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 		}
 		if saved.Identity == p.identity() && !saved.Created.IsZero() && !saved.Created.After(time.Now()) && time.Now().Before(p.sessionExpiry(saved)) {
 			lease, err = p.config.Pool.Resume(ctx, saved.Template, saved.Proxy)
+			if errors.Is(err, proxies.ErrUnavailable) {
+				if report != nil {
+					report(award.Progress{Stage: "proxy queue", Message: "Waiting for the saved session's sticky proxy to become available"})
+				}
+				waitCtx, cancel := context.WithTimeout(ctx, 65*time.Second)
+				lease, err = p.config.Pool.WaitResume(waitCtx, saved.Template, saved.Proxy)
+				cancel()
+			}
 			if err != nil {
 				if errors.Is(err, proxies.ErrRemoved) {
 					p.discardWarm()
@@ -380,6 +410,9 @@ func proxyNeedsRenewal(err error) bool {
 	return errors.As(err, &e) && (e.Code == "connection" || e.Code == "proxy_changed" || e.Code == "response_read")
 }
 func (p *Provider) resumeChallenge(ctx context.Context, c *session.Client, body []byte, target string, progress func(string, string)) ([]byte, string, error) {
+	return p.resumePortalChallenge(ctx, c, body, target, "/flyeva/eva/ffp/login.aspx", progress)
+}
+func (p *Provider) resumePortalChallenge(ctx context.Context, c *session.Client, body []byte, target, expectedPath string, progress func(string, string), beforeForward ...func() error) ([]byte, string, error) {
 	if !strings.Contains(string(body), `name="sec_chlge_forward_wrap"`) {
 		return body, target, nil
 	}
@@ -388,12 +421,8 @@ func (p *Provider) resumeChallenge(ctx context.Context, c *session.Client, body 
 		return nil, target, err
 	}
 	u, err := url.Parse(f.action)
-	if err != nil || u.Scheme != "https" || u.Host != "eservice.evaair.com" || !strings.EqualFold(u.Path, "/flyeva/eva/ffp/login.aspx") || u.Query().Get("akamai-challenge-resubmit") != "true" {
+	if err != nil || u.Scheme != "https" || u.Host != "eservice.evaair.com" || !strings.EqualFold(u.Path, expectedPath) || u.Query().Get("akamai-challenge-resubmit") != "true" {
 		return nil, target, award.Failure("challenge_changed", "EVA challenge forwarding destination changed")
-	}
-	progress("adaptive security", "Completing EVA's additional security check, including its required wait")
-	if err = (antibot.Hyper{Key: p.config.HyperKey}).PrepareAdaptive(ctx, c, target, body); err != nil {
-		return nil, target, err
 	}
 	// Forward only EVA's fresh opaque wrapper after explicit verification;
 	// never retry the original credential request on a timeout or rejection.
@@ -404,7 +433,17 @@ func (p *Provider) resumeChallenge(ctx context.Context, c *session.Client, body 
 		}
 		values.Set(key, f.values.Get(key))
 	}
-	return navigate(ctx, c, "POST", f.action, values)
+	progress("adaptive security", "Completing EVA's additional security check, including its required wait")
+	if err = (antibot.Hyper{Key: p.config.HyperKey}).PrepareAdaptive(ctx, c, target, body); err != nil {
+		return nil, target, err
+	}
+	for _, before := range beforeForward {
+		if err = before(); err != nil {
+			return nil, target, err
+		}
+	}
+	progress("verification continuation", "Continuing EVA's explicitly intercepted request once")
+	return navigate(ctx, c, "POST", f.action, values, target)
 }
 
 // EVA's getClientDT JavaScript fills these initially empty fields on page load.
@@ -513,6 +552,9 @@ func navigate(ctx context.Context, c *session.Client, method, target string, val
 			res, data, err = c.Do(ctx, method, target, nil, h)
 		}
 		if err != nil {
+			if res != nil && (res.StatusCode == 403 || res.StatusCode == 428) && u.Host == "eservice.evaair.com" && (strings.EqualFold(u.Path, "/flyeva/eva/ffp/login.aspx") || strings.EqualFold(u.Path, "/flyeva/EVA/FFP/register-now.aspx")) && bytes.Contains(data, []byte(`name="sec_chlge_forward_wrap"`)) {
+				return data, target, nil
+			}
 			if res != nil && (res.StatusCode == 403 || res.StatusCode == 428) && isAdaptiveBookingChallenge(data, target) {
 				return data, target, nil
 			}

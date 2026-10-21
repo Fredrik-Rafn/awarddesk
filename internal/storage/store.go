@@ -11,7 +11,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -58,7 +57,8 @@ func Open(path string) (*Store, error) {
  CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,data BLOB NOT NULL,updated_at INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS admin_sessions(token TEXT PRIMARY KEY,expires INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS runtime(key TEXT PRIMARY KEY,data BLOB NOT NULL);
- INSERT OR IGNORE INTO settings(key,value) VALUES('HISTORY_RETENTION_DAYS','30');
+ DELETE FROM settings WHERE key='HISTORY_RETENTION_DAYS';
+ INSERT OR IGNORE INTO settings(key,value) VALUES('FLIGHT_CACHE_ENABLED','true');
  CREATE INDEX IF NOT EXISTS jobs_created_time ON jobs(julianday(json_extract(data,'$.createdAt')));
  CREATE INDEX IF NOT EXISTS jobs_status ON jobs(json_extract(data,'$.status'));
  CREATE INDEX IF NOT EXISTS jobs_updated ON jobs(updated_at);
@@ -169,7 +169,12 @@ func MailboxKey(email, clientID string) string {
 }
 func (s *Store) ReadState(k string) ([]byte, error) {
 	var b []byte
-	e := s.DB.QueryRow("SELECT data FROM states WHERE key=?", Key(k)).Scan(&b)
+	var e error
+	if strings.HasPrefix(Key(k), ".state/eva-results/") {
+		b, e = cacheStateQuery(s, Key(k))
+	} else {
+		e = s.DB.QueryRow("SELECT data FROM states WHERE key=?", Key(k)).Scan(&b)
+	}
 	if errors.Is(e, sql.ErrNoRows) {
 		e = os.ErrNotExist
 	}
@@ -179,7 +184,11 @@ func (s *Store) WriteState(k string, b []byte) error {
 	if len(b) == 0 || len(b) > 8<<20 || !json.Valid(b) {
 		return errors.New("invalid state")
 	}
-	_, e := s.DB.Exec("INSERT INTO states VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at", Key(k), b, time.Now().UnixMilli())
+	query := "INSERT INTO states VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at"
+	if strings.HasPrefix(Key(k), ".state/eva-results/") {
+		query = "INSERT INTO states SELECT ?,?,? WHERE " + cacheAllowedSQL + " ON CONFLICT(key) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at"
+	}
+	_, e := s.DB.Exec(query, Key(k), b, time.Now().UnixMilli())
 	return e
 }
 func (s *Store) DeleteState(k string) error {
@@ -264,13 +273,6 @@ func (s *Store) RuntimeValue(key string, v any) {
 		_ = json.Unmarshal(b, v)
 	}
 }
-func (s *Store) HistoryRetentionDays() int {
-	n, e := strconv.Atoi(s.Setting("HISTORY_RETENTION_DAYS"))
-	if e != nil || n < 1 || n > 365 {
-		return 30
-	}
-	return n
-}
 func (s *Store) Prune() error {
 	tx, e := s.DB.Begin()
 	if e != nil {
@@ -280,7 +282,7 @@ func (s *Store) Prune() error {
 	for _, q := range []struct {
 		sql string
 		at  int64
-	}{{"DELETE FROM jobs WHERE updated_at<?", time.Now().Add(-time.Duration(s.HistoryRetentionDays()) * 24 * time.Hour).UnixMilli()}, {"DELETE FROM admin_sessions WHERE expires<?", time.Now().UnixMilli()}, {"DELETE FROM leases WHERE expires<?", time.Now().UnixMilli()}} {
+	}{{"DELETE FROM admin_sessions WHERE expires<?", time.Now().UnixMilli()}, {"DELETE FROM leases WHERE expires<?", time.Now().UnixMilli()}} {
 		if _, e = tx.Exec(q.sql, q.at); e != nil {
 			return e
 		}

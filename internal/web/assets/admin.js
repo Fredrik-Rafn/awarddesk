@@ -12,25 +12,28 @@ function el(tag, text, cls) {
   if (cls) n.className = cls;
   return n;
 }
-function message(text) {
-  $("message").textContent = text;
+let messageTimer;
+function message(text, kind = "error") {
+  const box = $("message");
+  clearTimeout(messageTimer);
+  box.replaceChildren();
+  box.dataset.kind = kind;
+  if (!text) return;
+  box.append(el("span", text));
+  const dismiss = el("button", "×", "message-dismiss");
+  dismiss.type = "button";
+  dismiss.setAttribute("aria-label", "Dismiss notification");
+  dismiss.onclick = () => message("");
+  box.append(dismiss);
+  if (kind === "success") messageTimer = setTimeout(() => message(""), 7000);
 }
 async function api(path, options = {}) {
-  const r = await fetch(path, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRF-Token": csrf,
-      ...options.headers,
-    },
-  });
-  if (r.status === 204) return null;
-  const b = await r.json();
-  if (!r.ok) {
-    if (r.status === 401 && path !== "/api/admin/session") showLogin();
-    throw Error(b.error || b.message || "Request failed");
+  try {
+    return await workspaceHTTP.request(path, options);
+  } catch (error) {
+    if (error.status === 401 && path !== "/api/admin/session") showLogin();
+    throw error;
   }
-  return b;
 }
 function showLogin() {
   polling = false;
@@ -39,6 +42,11 @@ function showLogin() {
   $("proxy-list").value = "";
   $("setting-fields").replaceChildren();
   $("account-form").reset();
+  resetSecretInputs($("account-form"));
+  $("registration-form").reset();
+  $("registration-message").textContent = "";
+  $("registration-list").replaceChildren();
+  registrationPage = 1;
   overview = null;
   if (typeof clearDashboard === "function") clearDashboard();
   for (const id of ["account-list", "flight-list", "job-list", "cache-json"])
@@ -49,12 +57,16 @@ function action(label, fn) {
   b.type = "button";
   b.onclick = async () => {
     b.disabled = true;
+    b.classList.add("is-loading");
+    b.setAttribute("aria-busy", "true");
     try {
       await fn();
     } catch (e) {
       message(e.message);
     } finally {
       b.disabled = false;
+      b.classList.remove("is-loading");
+      b.removeAttribute("aria-busy");
     }
   };
   return b;
@@ -99,144 +111,176 @@ function render(data) {
   $("proxy-count").textContent =
     String(data.proxyCount || 0) + " configured endpoints";
   const status = new Map(data.sessions.map((s) => [s.id, s]));
-  $("account-list").replaceChildren(
-    table(
-      ["Account", "Status", "Session expires", "Last check", "Actions"],
-      data.accounts.map((a) => {
-        const s = status.get(a.id) || {},
-          state = s.state || "idle",
-          p = el("div");
-        p.append(el("span", state, "pill " + state));
-        if (s.message) p.append(el("small", s.message));
-        if (s.needsAttention)
-          p.append(el("small", "Needs attention · use Prepare to retry"));
-        else if (s.nextAttempt && new Date(s.nextAttempt) > new Date())
-          p.append(el("small", "Next attempt: " + date(s.nextAttempt)));
-        const controls = el("div");
-        controls.append(
-          action("Edit", () => editAccount(a)),
-          action("Prepare", async () => {
-            await api("/api/admin/prepare", {
-              method: "POST",
-              body: JSON.stringify({ id: a.id }),
-            });
-            message("Session preparation queued");
-            await refresh();
-          }),
-          action("Invalidate", async () => {
-            await api("/api/admin/invalidate", {
-              method: "POST",
-              body: JSON.stringify({ id: a.id }),
-            });
-            message("Saved session removed");
-            await refresh();
-          }),
-          action("Delete", async () => {
-            if (!confirm("Delete this account and its saved session?")) return;
-            await api("/api/admin/accounts?id=" + encodeURIComponent(a.id), {
-              method: "DELETE",
-            });
-            await refresh();
-          }),
-        );
-        for (const b of controls.querySelectorAll("button"))
-          b.disabled = !!s.busy;
-        return [
-          cell(a.label, a.email),
-          p,
-          cell(
-            s.session?.present ? date(s.session.expiresAt) : "No saved session",
-            s.session?.expirySource,
-          ),
-          cell(date(s.checkedAt), s.stage),
-          controls,
-        ];
-      }),
-    ),
-  );
-  $("flight-list").replaceChildren(
-    table(
-      ["Route", "Departure / cabin", "Flights", "Fetched / expires", "Actions"],
-      data.flights.map((f) => {
-        const c = el("div");
-        c.append(
-          action("View", async () => {
-            const result = await api(
-              "/api/admin/cache?key=" + encodeURIComponent(f.key),
-            );
-            $("cache-details").hidden = false;
-            $("cache-details").open = true;
-            $("cache-json").textContent = JSON.stringify(result, null, 2);
-          }),
-          action("Remove", async () => {
-            await api("/api/admin/cache?key=" + encodeURIComponent(f.key), {
-              method: "DELETE",
-            });
-            await refresh();
-          }),
-        );
-        return [
-          f.query.origin + " → " + f.query.destination,
-          cell(f.query.date, f.query.cabin),
-          String(f.count),
-          cell(
-            date(f.fetchedAt),
-            (f.expired ? "Expired · " : "Until ") + date(f.expiresAt),
-          ),
-          c,
-        ];
-      }),
-    ),
-  );
+  if (!$("account-list").contains(document.activeElement))
+    $("account-list").replaceChildren(
+      table(
+        ["Account", "Status", "Session expires", "Last check", "Actions"],
+        data.accounts.map((a) => {
+          const s = status.get(a.id) || {},
+            state = s.state || "idle",
+            p = el("div");
+          p.append(el("span", state, "pill " + state));
+          if (s.message) p.append(el("small", s.message));
+          if (s.needsAttention)
+            p.append(el("small", "Needs attention · use Prepare to retry"));
+          else if (s.nextAttempt && new Date(s.nextAttempt) > new Date())
+            p.append(el("small", "Next attempt: " + date(s.nextAttempt)));
+          const controls = el("div");
+          controls.append(
+            action("Edit", () => editAccount(a)),
+            action("Prepare", async () => {
+              await api("/api/admin/prepare", {
+                method: "POST",
+                body: JSON.stringify({ id: a.id }),
+              });
+              message("Session preparation queued", "success");
+              await refresh();
+            }),
+            action("Invalidate", async () => {
+              await api("/api/admin/invalidate", {
+                method: "POST",
+                body: JSON.stringify({ id: a.id }),
+              });
+              message("Saved session removed", "success");
+              await refresh();
+            }),
+            action("Delete", async () => {
+              if (
+                !(await confirmAction({
+                  title: "Delete this account?",
+                  message:
+                    "This removes the account and its saved login session. Historical searches and statistics will be kept.",
+                  confirmLabel: "Delete account",
+                }))
+              )
+                return;
+              await api("/api/admin/accounts?id=" + encodeURIComponent(a.id), {
+                method: "DELETE",
+              });
+              await refresh();
+            }),
+          );
+          for (const b of controls.querySelectorAll("button"))
+            b.disabled = !!s.busy;
+          return [
+            cell(a.label, a.email),
+            p,
+            cell(
+              s.session?.present
+                ? date(s.session.expiresAt)
+                : "No saved session",
+              s.session?.expirySource,
+            ),
+            cell(date(s.checkedAt), s.stage),
+            controls,
+          ];
+        }),
+      ),
+    );
+  if (!$("flight-list").contains(document.activeElement))
+    $("flight-list").replaceChildren(
+      table(
+        [
+          "Route",
+          "Departure / cabin",
+          "Flights",
+          "Fetched / expires",
+          "Actions",
+        ],
+        data.flights.map((f) => {
+          const c = el("div");
+          c.append(
+            action("View", async () => {
+              const result = await api(
+                "/api/admin/cache?key=" + encodeURIComponent(f.key),
+              );
+              $("cache-details").hidden = false;
+              $("cache-details").open = true;
+              $("cache-json").textContent = JSON.stringify(result, null, 2);
+            }),
+            action("Remove", async () => {
+              await api("/api/admin/cache?key=" + encodeURIComponent(f.key), {
+                method: "DELETE",
+              });
+              await refresh();
+            }),
+          );
+          return [
+            f.query.origin + " → " + f.query.destination,
+            cell(f.query.date, f.query.cabin),
+            String(f.count),
+            cell(
+              date(f.fetchedAt),
+              (f.expired ? "Expired · " : "Until ") + date(f.expiresAt),
+            ),
+            c,
+          ];
+        }),
+      ),
+    );
   if (typeof renderHealth === "function") renderHealth(data);
 }
 async function refresh() {
   if (!polling) return;
-  if (typeof refreshDashboard === "function") await refreshDashboard();
-  else render(await api("/api/admin/overview"));
+  try {
+    const refreshed =
+      typeof refreshDashboard === "function"
+        ? await refreshDashboard()
+        : render(await api("/api/admin/overview"));
+    if (refreshed !== false && $("message").dataset.kind === "reconnect")
+      message("");
+  } catch (e) {
+    if (
+      e instanceof TypeError ||
+      /failed to fetch|networkerror|network request failed/i.test(e.message)
+    ) {
+      const box = $("message");
+      if (!box.textContent || box.dataset.kind === "reconnect")
+        message(
+          "Connection interrupted. Reconnecting to the dashboard…",
+          "reconnect",
+        );
+      return;
+    }
+    throw e;
+  }
 }
-function editAccount(a = { enabled: true }) {
+async function editAccount(a) {
+  if (!a?.id) return;
+  if (a.id) {
+    try {
+      a = await api("/api/admin/accounts?id=" + encodeURIComponent(a.id));
+    } catch (e) {
+      message(e.message);
+      return;
+    }
+  }
   const form = $("account-form");
   form.reset();
+  resetSecretInputs(form);
   for (const k of ["id", "label", "email", "outlookEmail", "clientId"])
     form.elements.namedItem(k).value = a[k] || "";
+  form.elements.password.value = a.password || "";
+  form.elements.refreshToken.value = a.refreshToken || "";
   form.elements.enabled.checked = a.enabled;
-  form.elements.email.readOnly = !!a.id;
-  form.elements.password.required = !a.id;
-  form.elements.refreshToken.required = !a.id;
-  $("account-heading").textContent = a.id
-    ? "Edit EVA account"
-    : "Add EVA account";
+  form.elements.email.readOnly = true;
+  form.elements.password.required = false;
+  form.elements.refreshToken.required = false;
+  $("account-heading").textContent = "Edit EVA account";
   form.hidden = false;
   form.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 async function loadSettings() {
-  settingDefinitions = await api("/api/admin/settings");
-  const fields = $("setting-fields");
-  fields.replaceChildren();
-  for (const [key, s] of Object.entries(settingDefinitions).sort(([a], [b]) =>
-    a.localeCompare(b),
-  )) {
-    const label = el("label", key),
-      input = el("input");
-    input.name = key;
-    input.type = s.secret ? "password" : "text";
-    input.autocomplete = "off";
-    input.value = s.value;
-    input.placeholder =
-      s.secret && s.configured ? "Configured · leave blank to keep" : "";
-    label.append(input);
-    if (s.secret) {
-      const check = el("label", undefined, "check"),
-        box = el("input");
-      box.type = "checkbox";
-      box.dataset.clear = key;
-      check.append(box, el("span", "Clear saved value"));
-      label.append(check);
-    }
-    fields.append(label);
-  }
+  const [definitions, policy] = await Promise.all([
+    api("/api/admin/settings"),
+    api("/api/admin/cache-policy"),
+  ]);
+  if (!polling) return;
+  settingDefinitions = definitions;
+  syncCachePolicy(policy);
+  renderSettingsFields(definitions);
 }
+
 $("edit-proxies").onclick = async () => {
   try {
     const b = await api("/api/admin/proxies");
@@ -279,15 +323,16 @@ $("logout").onclick = async () => {
     message(e.message);
   }
 };
-$("new-account").onclick = () => editAccount();
 $("cancel-account").onclick = () => {
   $("account-form").hidden = true;
   $("account-form").reset();
+  resetSecretInputs($("account-form"));
 };
 $("account-form").onsubmit = async (e) => {
   e.preventDefault();
   const form = e.currentTarget,
     a = Object.fromEntries(new FormData(form));
+  if (!a.id) return;
   a.enabled = form.elements.enabled.checked;
   try {
     await api("/api/admin/accounts", {
@@ -296,7 +341,10 @@ $("account-form").onsubmit = async (e) => {
     });
     form.reset();
     form.hidden = true;
-    message("Account saved. Enabled accounts will be prepared automatically.");
+    message(
+      "Account saved. Enabled accounts will be prepared automatically.",
+      "success",
+    );
     await refresh();
   } catch (e) {
     message(e.message);
@@ -309,7 +357,7 @@ $("proxy-form").onsubmit = async (e) => {
       method: "PUT",
       body: JSON.stringify({ value: $("proxy-list").value }),
     });
-    message("Proxy list saved");
+    message("Proxy list saved", "success");
     $("proxy-list").value = "";
     $("proxy-form").hidden = true;
     $("edit-proxies").hidden = false;
@@ -320,24 +368,35 @@ $("proxy-form").onsubmit = async (e) => {
 };
 $("settings-form").onsubmit = async (e) => {
   e.preventDefault();
-  const values = {},
-    clear = [];
-  for (const input of $("setting-fields").querySelectorAll("input[name]")) {
-    if (!settingDefinitions[input.name].secret || input.value)
-      values[input.name] = input.value;
+  const values = {};
+  for (const input of $("setting-fields").querySelectorAll(
+    "input[name],select[name]",
+  )) {
+    values[input.name] = input.value;
   }
-  for (const c of $("setting-fields").querySelectorAll(
-    "input[data-clear]:checked",
-  ))
-    clear.push(c.dataset.clear);
   if ($("new-setting-key").value.trim())
     values[$("new-setting-key").value.trim()] = $("new-setting-value").value;
+  let confirmCacheClear = false;
+  if (
+    values.FLIGHT_CACHE_ENABLED === "false" ||
+    (values.EVA_RESULT_CACHE_TTL &&
+      /^0(?:[a-z]+)?$/.test(values.EVA_RESULT_CACHE_TTL))
+  ) {
+    confirmCacheClear = await confirmAction({
+      title: "Disable flight caching?",
+      message:
+        "A zero cache lifetime disables caching and immediately deletes cached flights. Search history and login sessions stay stored.",
+      confirmLabel: "Disable & clear cache",
+    });
+    if (!confirmCacheClear) return;
+  }
   try {
     await api("/api/admin/settings", {
       method: "PUT",
-      body: JSON.stringify({ values, clear }),
+      body: JSON.stringify({ values, confirmCacheClear }),
     });
-    message("Settings saved");
+    message("Settings saved", "success");
+    $("settings-form").classList.remove("has-unsaved");
     $("new-setting-key").value = "";
     $("new-setting-value").value = "";
     await loadSettings();
@@ -347,7 +406,15 @@ $("settings-form").onsubmit = async (e) => {
   }
 };
 $("clear-cache").onclick = async () => {
-  if (!confirm("Clear all cached flight results?")) return;
+  if (
+    !(await confirmAction({
+      title: "Clear cached flights?",
+      message:
+        "All cached flight results will be deleted. Future searches will fetch live results. Historical searches and statistics will be kept.",
+      confirmLabel: "Clear cached flights",
+    }))
+  )
+    return;
   try {
     await api("/api/admin/cache", { method: "DELETE" });
     $("cache-details").hidden = true;

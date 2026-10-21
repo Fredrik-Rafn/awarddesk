@@ -32,38 +32,51 @@ original proxy/IP to remain valid. No machine-specific encryption is used.
 
 ## Admin
 
-- Add, edit, enable or remove EVA accounts, including their individual Outlook
-  OAuth client ID and refresh token. Blank secret fields keep existing values.
+- Edit, enable or remove existing EVA accounts, including their individual Outlook
+  OAuth client ID and refresh token. Saved secrets load masked, with eye buttons
+  to reveal them. Empty a settings value and save to remove it.
+- Bulk-create EVA accounts from Outlook credential lines. Generated profiles,
+  email verification, email-login activation and saved-session preparation run
+  automatically with separate sticky proxies and the shared worker limit.
 - Inspect saved member sessions, expiry estimates, preparation status and errors;
   prepare or invalidate a session explicitly. Busy accounts cannot be edited.
 - Replace the sticky Evomi proxy list. Each fresh login selects an available
   endpoint with a new random locked ID; each saved session keeps its exact proxy.
 - Change Hyper/AnySolver keys, solver selection, caching and concurrency settings.
-  EVA applies changes when each account next becomes idle. ANA/BA startup settings
-  need a server restart.
+  EVA applies changes when each account next becomes idle. Legacy ANA/BA values
+  remain stored but are hidden from Settings.
 - Explore the activity chart, success/live reliability rates, median/P95 timings,
   cache use, recovered successes, route rankings and failure stages. Select a time
   window from one hour to all retained history.
 - Filter, sort and paginate all retained searches; inspect results and recovery
   events, or export the matching history as CSV.
 - Inspect cached flight results and ongoing search jobs, cancel jobs and
-  remove cached results. Search history is retained for 30 days by default.
+  remove cached results. Search history, full results and statistics are permanent.
+  Disable flight caching with its pill switch to confirm and clear temporary
+  cached results immediately; history and saved logins remain intact.
 
 Admin uses a hashed password, HttpOnly/SameSite cookies, CSRF/origin checks and
 login throttling. API keys and account passwords/tokens are masked in forms and
 excluded from public configuration and job data. The app binds to localhost.
+Admin sign-in lasts 12 hours. Request tokens have no timed expiry; after a server
+restart the browser refreshes its token and retries once only when middleware
+explicitly rejected the request before executing it. Lost responses are not replayed.
+
+See [bulk account creation](docs/registration.md) for import format and recovery.
 
 ## Search and session behavior
 
 **EVA Air Miles & Cash** supports economy, premium economy and business, one adult,
 one way. It follows the supplied `IS_MILES_MODE=false` flow, including pricing
 preparation, and shows maximum-offset estimates regardless of account balance.
-It does not submit payment or ticketing. ANA is login-only; British Airways remains
-experimental. Actual award-ticket redemption is a different flow.
+It does not submit payment or ticketing. The public page offers EVA only. Legacy
+ANA and BA modules remain available in the codebase. Actual award-ticket
+redemption is a different flow.
 
 Complete identical EVA searches are cached for **30 minutes from availability
-retrieval**. Errors and partial results are never cached. **Refresh live** bypasses
-the cache. Cache entries are account-specific; identical ongoing queries share one
+retrieval**. Errors and partial results are never cached. Admin can disable and
+clear this cache. The API also accepts `refresh: true` for a live request.
+Cache entries are account-specific; identical ongoing queries share one
 job. Cancelling a shared job cancels it for every caller using that job ID.
 
 Up to **four accounts** work concurrently by default, configurable from 1 to 16.
@@ -93,14 +106,12 @@ A fresh booking context is created for each uncached search. See
 | Admin setting | Default / purpose |
 | --- | --- |
 | `EVA_RESULT_CACHE_TTL` | `30m`; `0s` disables caching; maximum `24h` |
-| `HISTORY_RETENTION_DAYS` | `30`; configurable from 1–365 days |
+| `FLIGHT_CACHE_ENABLED` | `true`; disabling in Admin confirms and immediately clears cached flights |
 | `SEARCH_CONCURRENCY` | `4`; 1–16 independent accounts |
 | `EVA_SESSION_MAX_AGE` | `3h`; a conservative maximum, not a guaranteed server lifetime |
 | `EVA_BACKGROUND_ENABLED` | `true`; prepare and periodically verify sessions |
 | `EVA_IMPERVA_SOLVER` | `auto`: Hyper first, AnySolver fallback for generation errors |
 | `HYPER_API_KEY`, `ANYSOLVER_API_KEY` | Solver credentials |
-| `ANA_MEMBER_NUMBER`, `ANA_PASSWORD` | Optional ANA login settings |
-| `BA_EMAIL`, `BA_PASSWORD` | Optional experimental BA settings |
 
 The database defaults to `data/awarddesk.db`. `AWARDDESK_DB` is an optional
 bootstrap environment variable selecting a different database path. It is not a

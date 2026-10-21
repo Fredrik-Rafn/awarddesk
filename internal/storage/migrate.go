@@ -98,6 +98,7 @@ func (s *Store) ImportLegacy(root string) error {
 	if e != nil {
 		return e
 	}
+	delete(values, "HISTORY_RETENTION_DAYS")
 	tx, e := s.DB.Begin()
 	if e != nil {
 		return e

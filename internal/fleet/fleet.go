@@ -43,16 +43,17 @@ type Status struct {
 	Busy           bool            `json:"busy"`
 }
 type Fleet struct {
-	db      *storage.Store
-	pool    *proxies.Pool
-	mu      sync.Mutex
-	entries map[string]*entry
-	ctx     context.Context
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
-	build   func(storage.Account, map[string]string) airline
-	closed  bool
-	pending map[string]bool
+	db            *storage.Store
+	pool          *proxies.Pool
+	mu            sync.Mutex
+	entries       map[string]*entry
+	ctx           context.Context
+	cancel        context.CancelFunc
+	wg            sync.WaitGroup
+	build         func(storage.Account, map[string]string) airline
+	closed        bool
+	pending       map[string]bool
+	registrations int
 }
 
 func New(db *storage.Store) *Fleet {
@@ -61,6 +62,9 @@ func New(db *storage.Store) *Fleet {
 	f.pool = proxies.NewSource(func() (string, error) { m, e := db.Settings(); return m["PROXY_LIST"], e })
 	f.build = func(a storage.Account, m map[string]string) airline {
 		ttl, _ := time.ParseDuration(m["EVA_RESULT_CACHE_TTL"])
+		if m["FLIGHT_CACHE_ENABLED"] == "false" {
+			ttl = 0
+		}
 		age, _ := time.ParseDuration(m["EVA_SESSION_MAX_AGE"])
 		return eva.New(eva.Config{Email: a.Email, Password: a.Password, HyperKey: m["HYPER_API_KEY"], AnyKey: m["ANYSOLVER_API_KEY"], ImpervaSolver: m["EVA_IMPERVA_SOLVER"], Pool: f.pool, Mailbox: outlook.New(outlook.Config{Email: a.OutlookEmail, ClientID: a.ClientID, RefreshToken: a.RefreshToken, StateBackend: db}), ResultCacheTTL: ttl, SessionMaxAge: age, StateBackend: db})
 	}
@@ -91,9 +95,9 @@ func configured(a storage.Account) bool {
 }
 func (f *Fleet) providerLocked(a storage.Account, m map[string]string) *entry {
 	b, _ := json.Marshal(struct {
-		A                            storage.Account
-		Hyper, Any, Solver, TTL, Age string
-	}{a, m["HYPER_API_KEY"], m["ANYSOLVER_API_KEY"], m["EVA_IMPERVA_SOLVER"], m["EVA_RESULT_CACHE_TTL"], m["EVA_SESSION_MAX_AGE"]})
+		A                                          storage.Account
+		Hyper, Any, Solver, TTL, Age, CacheEnabled string
+	}{a, m["HYPER_API_KEY"], m["ANYSOLVER_API_KEY"], m["EVA_IMPERVA_SOLVER"], m["EVA_RESULT_CACHE_TTL"], m["EVA_SESSION_MAX_AGE"], m["FLIGHT_CACHE_ENABLED"]})
 	h := sha256.Sum256(b)
 	e := f.entries[a.ID]
 	if e == nil {
@@ -190,7 +194,7 @@ func (f *Fleet) claim(ctx context.Context, want string, excluded map[string]bool
 		if limit < 1 {
 			limit = 4
 		}
-		active := 0
+		active := f.registrations
 		for _, en := range f.entries {
 			if en.busy {
 				active++

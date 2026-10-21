@@ -2,7 +2,7 @@
 
 The running application stores configuration, proxy lists, EVA accounts, scoped
 cookie/token snapshots, rotated Outlook refresh tokens, complete flight-result
-caches, search jobs and admin sessions in `data/awarddesk.db`.
+caches, permanent search/registration history and admin sessions in `data/awarddesk.db`.
 
 The pure-Go SQLite driver works on Windows/macOS/Linux without CGo. WAL mode,
 a five-second busy timeout and a bounded connection pool allow readers during
@@ -24,17 +24,24 @@ then add accounts, proxies and solver keys. The password is stored as a bcrypt
 hash. Admin cookie tokens are hashed in SQLite, expire after 12 hours, and can be
 revoked by signing out or changing the admin password.
 
-## State and retention
+## State and permanent history
 
 The `states` table stores portable JSON blobs, keyed separately for each EVA/ANA
 account, Outlook mailbox/client ID, and account/query cache combination. Browser
 identity, scoped cookies and the exact sticky proxy travel together. Flight
 results contain parsed display data, without traveller profiles or booking tokens.
 Only complete successes are cached; expiry is checked on every read. Maintenance
-prunes expired caches and bounds the cache at 1,000 entries. Job history is retained
-for 30 days by default (`HISTORY_RETENTION_DAYS`, 1–365). Increasing retention
-keeps future history longer; records pruned before the upgrade cannot be restored.
+prunes expired caches and bounds the cache at 1,000 entries. Search history, its
+full results and statistics are retained permanently, with all-time selected by
+default. The former retention setting is removed and ignored. Records pruned
+before this upgrade cannot be restored.
 Interrupted jobs are recorded rather than replayed on restart.
+
+Admin provides a flight-cache switch (`FLIGHT_CACHE_ENABLED`). Disabling it
+requires a custom confirmation dialog and atomically clears every cached flight.
+Cache reads and writes stop immediately, including writes from running searches.
+Historical results and saved login sessions remain available. Re-enabling caching
+resumes normal caching; a legacy zero lifetime resets to 30m.
 
 Admin history is paginated on the server, with separate compact summaries and
 authenticated full-result inspection. Analytics cover the entire selected time

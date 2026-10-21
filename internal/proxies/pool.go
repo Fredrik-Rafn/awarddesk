@@ -17,6 +17,7 @@ import (
 )
 
 var ErrRemoved = errors.New("saved proxy slot was removed")
+var ErrUnavailable = errors.New("all proxy slots are busy or cooling down")
 
 var sessionTag = regexp.MustCompile(`_(?:session|hardsession|lockedsession)-[^_]+`)
 var lifetimeTag = regexp.MustCompile(`_lifetime-\d+`)
@@ -184,7 +185,25 @@ func (p *Pool) Acquire(ctx context.Context) (*Lease, error) {
 			}
 		}}, nil
 	}
-	return nil, errors.New("all proxy slots are busy or cooling down")
+	return nil, ErrUnavailable
+}
+
+// WaitResume waits for a busy/cooling original slot without changing the saved
+// identity or replaying any airline request. The caller bounds the queue time.
+func (p *Pool) WaitResume(ctx context.Context, template, raw string) (*Lease, error) {
+	for {
+		lease, err := p.Resume(ctx, template, raw)
+		if !errors.Is(err, ErrUnavailable) {
+			return lease, err
+		}
+		timer := time.NewTimer(time.Second)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
 }
 
 // Resume reserves the original pool slot without generating another session ID.
@@ -226,7 +245,7 @@ func (p *Pool) Resume(ctx context.Context, template, raw string) (*Lease, error)
 			continue
 		}
 		if e.busy || time.Now().Before(e.until) {
-			return nil, errors.New("saved proxy slot unavailable")
+			return nil, ErrUnavailable
 		}
 		e.busy = true
 		p.next = (i + 1) % len(p.entries)

@@ -44,6 +44,7 @@ type Reader struct {
 	expires time.Time
 }
 type Checkpoint struct {
+	Folder               string `json:"folder,omitempty"`
 	UIDValidity, NextUID uint32
 	Since                time.Time
 }
@@ -110,7 +111,7 @@ func (x xoauth) Start() (string, []byte, error) {
 func (x xoauth) Next([]byte) ([]byte, error) {
 	return nil, errors.New("Outlook rejected OAuth authentication")
 }
-func (r *Reader) connect(ctx context.Context) (*client.Client, *imap.MailboxStatus, func(), error) {
+func (r *Reader) connect(ctx context.Context, folders ...string) (*client.Client, *imap.MailboxStatus, func(), error) {
 	token, err := r.token(ctx)
 	if err != nil {
 		return nil, nil, nil, err
@@ -133,7 +134,11 @@ func (r *Reader) connect(ctx context.Context) (*client.Client, *imap.MailboxStat
 		cleanup()
 		return nil, nil, nil, errors.New("Outlook IMAP OAuth login rejected")
 	}
-	box, err := c.Select("INBOX", true)
+	folder := "INBOX"
+	if len(folders) > 0 && folders[0] != "" {
+		folder = folders[0]
+	}
+	box, err := c.Select(folder, true)
 	if err != nil {
 		cleanup()
 		return nil, nil, nil, errors.New("Outlook inbox could not be opened read-only")
@@ -172,7 +177,10 @@ func (r *Reader) Wait(ctx context.Context, point Checkpoint) (string, error) {
 	}
 }
 func (r *Reader) poll(ctx context.Context, point Checkpoint) (string, error) {
-	c, box, close, err := r.connect(ctx)
+	return r.pollMessage(ctx, point, subject, 3*time.Minute, Extract)
+}
+func (r *Reader) pollMessage(ctx context.Context, point Checkpoint, expectedSubject string, maxAge time.Duration, extract func([]byte, string, time.Time, time.Time) (string, error)) (string, error) {
+	c, box, close, err := r.connect(ctx, point.Folder)
 	if err != nil {
 		return "", err
 	}
@@ -181,10 +189,11 @@ func (r *Reader) poll(ctx context.Context, point Checkpoint) (string, error) {
 		return "", errors.New("Outlook mailbox identity changed during login")
 	}
 	criteria := imap.NewSearchCriteria()
+	criteria.Since = point.Since.Add(-24 * time.Hour)
 	criteria.Uid = new(imap.SeqSet)
 	criteria.Uid.AddRange(point.NextUID, 0)
 	criteria.Header.Set("From", sender)
-	criteria.Header.Set("Subject", subject)
+	criteria.Header.Set("Subject", expectedSubject)
 	ids, err := c.UidSearch(criteria)
 	if err != nil {
 		return "", errors.New("Outlook OTP search failed")
@@ -215,14 +224,14 @@ func (r *Reader) poll(ctx context.Context, point Checkpoint) (string, error) {
 		if body == nil {
 			continue
 		}
-		if message.InternalDate.Before(point.Since.Add(-5*time.Second)) || time.Since(message.InternalDate) > 3*time.Minute {
+		if message.InternalDate.Before(point.Since.Add(-5*time.Second)) || time.Since(message.InternalDate) > maxAge {
 			continue
 		}
 		data, err := io.ReadAll(io.LimitReader(body, 256*1024+1))
 		if err != nil || len(data) > 256*1024 {
 			continue
 		}
-		value, err := Extract(data, r.config.Email, point.Since, time.Now().UTC())
+		value, err := extract(data, r.config.Email, point.Since, time.Now().UTC())
 		if err == nil && message.Uid > newest {
 			newest = message.Uid
 			code = value
@@ -234,7 +243,7 @@ func (r *Reader) poll(ctx context.Context, point Checkpoint) (string, error) {
 var codePattern = regexp.MustCompile(`(?i)one-time password\s*\(OTP\)\s*is\s*:\s*([0-9]{6})\b`)
 var tags = regexp.MustCompile(`<[^>]*>`)
 
-func Extract(raw []byte, recipient string, since, now time.Time) (string, error) {
+func extractMessageBody(raw []byte, recipient string, since, now time.Time, expectedSubject string, maxAge time.Duration) (string, error) {
 	message, err := mail.ReadMessage(bytes.NewReader(raw))
 	if err != nil {
 		return "", errors.New("invalid OTP email")
@@ -244,7 +253,7 @@ func Extract(raw []byte, recipient string, since, now time.Time) (string, error)
 		return "", errors.New("unrecognized OTP sender")
 	}
 	decoded, err := (&mime.WordDecoder{}).DecodeHeader(message.Header.Get("Subject"))
-	if err != nil || decoded != subject {
+	if err != nil || decoded != expectedSubject {
 		return "", errors.New("unrecognized OTP subject")
 	}
 	to, err := message.Header.AddressList("To")
@@ -259,10 +268,17 @@ func Extract(raw []byte, recipient string, since, now time.Time) (string, error)
 		return "", errors.New("OTP recipient mismatch")
 	}
 	date, err := message.Header.Date()
-	if err != nil || date.Before(since.Add(-5*time.Second)) || now.Sub(date) > 3*time.Minute || date.After(now.Add(30*time.Second)) {
+	if err != nil || date.Before(since.Add(-5*time.Second)) || now.Sub(date) > maxAge || date.After(now.Add(30*time.Second)) {
 		return "", errors.New("OTP email is stale")
 	}
 	body, err := decodeBody(message.Body, message.Header.Get("Content-Type"), message.Header.Get("Content-Transfer-Encoding"), 0)
+	if err != nil {
+		return "", err
+	}
+	return body, nil
+}
+func Extract(raw []byte, recipient string, since, now time.Time) (string, error) {
+	body, err := extractMessageBody(raw, recipient, since, now, subject, 3*time.Minute)
 	if err != nil {
 		return "", err
 	}

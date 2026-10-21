@@ -160,6 +160,10 @@ func (s *Service) Get(id string) (Job, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	j, ok := s.items[id]
+	if ok && j.Status != "running" && j.Status != "queued" && time.Since(j.UpdatedAt) > time.Hour {
+		delete(s.items, id)
+		ok = false
+	}
 	if !ok {
 		if s.persistence != nil {
 			b, e := s.persistence.LoadJob(id)
@@ -168,10 +172,6 @@ func (s *Service) Get(id string) (Job, bool) {
 				return saved, true
 			}
 		}
-		return Job{}, false
-	}
-	if j.Status != "running" && j.Status != "queued" && time.Since(j.UpdatedAt) > time.Hour {
-		delete(s.items, id)
 		return Job{}, false
 	}
 	return *j, true

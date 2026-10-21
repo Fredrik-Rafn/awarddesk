@@ -5,49 +5,35 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Awarddesk · Find your next flight</title>
     <link rel="stylesheet" href="/app.css" />
+    <script src="/http.js" defer></script>
     <script src="/app.js" defer></script>
-    <script src="/sessions.js" defer></script>
+    <script src="/components.js" defer></script>
+    <script src="/calendar.js" defer></script>
   </head>
   <body>
     <header>
       <a class="brand" href="/">◈ <span>awarddesk</span></a
-      ><a href="/admin" class="admin-link">Admin</a><span class="local">LOCAL WORKSPACE <i></i></span>
+      ><a href="/admin" class="admin-link">Admin</a
+      ><span class="local">LOCAL WORKSPACE <i></i></span>
     </header>
     <main>
       <section class="intro">
         <div class="eyebrow">AWARDS &amp; MILES + CASH</div>
         <h1>
           Find your next<br />
-          flight.
+          <span>flight.</span>
         </h1>
-        <p>Compare award quotes and Miles &amp; Cash flight options in one place.</p>
+        <p>
+          Compare award quotes and Miles &amp; Cash flight options in one place.
+        </p>
       </section>
-      <section class="search-panel ana-panel" aria-labelledby="eva-title">
-        <div class="panel-top"><div><div class="eyebrow">EVA AIR · MILES &amp; CASH</div><h2 id="eva-title">EVA saved session</h2></div><span>Outlook OTP</span></div>
-        <p>Prepare a session with your configured sticky proxy. Fresh verification codes are read automatically from your Outlook inbox. Verified sessions are saved in SQLite and reused across searches. Manage multiple accounts in Admin.</p>
-        <p id="eva-status" role="status" aria-live="polite">Checking configuration…</p>
-        <p id="eva-setup" class="notice" hidden>Add EVA accounts, Outlook OAuth, proxies and solver keys in Admin.</p>
-        <div class="ana-actions"><button id="eva-login" class="primary" type="button" disabled>Prepare EVA session</button><button id="eva-cancel" class="secondary" type="button" hidden>Cancel login check</button></div>
-        <p class="hint">Searches aggregate maximum-offset Miles &amp; Cash estimates for each fare family, regardless of the test account's mileage balance.</p>
-      </section>
-      <section class="search-panel ana-panel" aria-labelledby="ana-title">
-        <div class="panel-top">
-          <div><div class="eyebrow">ANA MILEAGE CLUB</div><h2 id="ana-title">ANA saved session</h2></div>
-          <span>Login only</span>
-        </div>
-          <p>The background job validates and saves your session for reuse. It logs in when no valid session is available. Flight searches are not available yet.</p>
-        <p id="ana-status" role="status" aria-live="polite">Checking configuration…</p>
-        <p id="ana-setup" class="notice" hidden>Set ANA_MEMBER_NUMBER, ANA_PASSWORD and HYPER_API_KEY in Admin settings, then restart with <code>go run .</code>.</p>
-        <div class="ana-actions">
-          <button id="ana-login" class="primary" type="button" disabled>Prepare ANA session</button>
-          <button id="ana-cancel" class="secondary" type="button" hidden>Cancel login check</button>
-        </div>
-          <p class="hint">Sessions are saved in the local SQLite database. Checks run at startup and every five minutes; OTP or errors pause automatic checks until you retry.</p>
-      </section>
-      <section class="search-panel" aria-label="Search award flights">
+      <section
+        class="search-panel flight-search-panel"
+        aria-label="Search award flights"
+      >
         <div class="panel-top">
           <select class="program" id="provider" aria-label="Award program">
-            <option value="ba">British Airways · Avios</option></select
+            <option value="eva">EVA Air · Miles &amp; Cash</option></select
           ><span>One way</span>
         </div>
         <form id="search">
@@ -57,7 +43,7 @@
               ><input
                 id="origin"
                 name="origin"
-                value="JFK"
+                value="TPE"
                 maxlength="80"
                 autocomplete="off"
                 role="combobox"
@@ -66,7 +52,7 @@
                 aria-controls="origin-options"
                 required
               /><span class="hint" id="origin-hint"
-                >New York · John F. Kennedy</span
+                >Taipei · Taiwan Taoyuan International</span
               >
               <ul
                 id="origin-options"
@@ -88,7 +74,7 @@
               ><input
                 id="destination"
                 name="destination"
-                value="LAX"
+                value="HKG"
                 maxlength="80"
                 autocomplete="off"
                 role="combobox"
@@ -97,7 +83,7 @@
                 aria-controls="destination-options"
                 required
               /><span class="hint" id="destination-hint"
-                >Los Angeles International</span
+                >Hong Kong · Hong Kong International</span
               >
               <ul
                 id="destination-options"
@@ -140,28 +126,43 @@
             </button>
           </div>
         </form>
-        <div class="panel-foot">
-          <span id="connection">Checking local configuration…</span
-          ><label><input id="refresh" type="checkbox" /> Refresh live (skip recent results)</label>
-        </div>
       </section>
       <p id="setup" class="notice" hidden>
-        Configure an airline account and its solver settings in .env,
-        then restart. Your credentials stay on this
-        computer.
+        Flight search needs an enabled EVA account.
+        <a href="/admin#accounts">Set up an account in Admin ↗</a>
       </p>
       <section id="status" class="status" hidden aria-live="polite">
         <div>
           <span class="eyebrow" id="stage">CONNECTING</span>
           <h2 id="status-message">Starting your search</h2>
-          <p id="status-detail">
-            A fresh login and individual award quotes can take a few minutes.
-          </p>
+          <p id="status-detail">Finding flights can take a few minutes.</p>
+          <div
+            id="search-progress"
+            class="search-progress"
+            role="progressbar"
+            aria-label="Search progress"
+          >
+            <span></span>
+          </div>
+          <small
+            id="search-elapsed"
+            class="search-elapsed"
+            aria-live="off"
+          ></small>
         </div>
         <button id="cancel" class="secondary" type="button">
           Cancel search
         </button>
       </section>
+      <div
+        id="search-skeleton"
+        class="search-skeleton"
+        aria-hidden="true"
+        hidden
+      >
+        <div><span></span><span></span><span></span></div>
+        <div><span></span><span></span><span></span></div>
+      </div>
       <section id="results" hidden>
         <div class="results-top">
           <div>
@@ -196,15 +197,6 @@
         <div id="flights"></div>
         <div id="warnings" class="warnings"></div>
       </section>
-      <details class="status">
-        <summary>Workspace status &amp; verification</summary>
-        <p><strong>BA integration: experimental.</strong> A diagnostic search
-          succeeded, but repeatable login in this application is not verified.</p>
-        <p>Connection settings indicate configuration, not a successful
-          connection test. EVA searches reuse the verified saved session. Results stay in
-          memory for one hour; download JSON to keep them.</p>
-        <p>EVA shows Miles &amp; Cash separately from award tickets. Missing mileage conversions are labeled unavailable. No payment or ticketing request is submitted.</p>
-      </details>
       <section id="empty" class="empty">
         <div class="orbit">↗</div>
         <h2>Where will your points take you?</h2>
@@ -220,4 +212,3 @@
     </footer>
   </body>
 </html>
-

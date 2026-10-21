@@ -3,6 +3,7 @@ package web
 import (
 	"awarddesk/internal/fleet"
 	"awarddesk/internal/proxies"
+	"awarddesk/internal/registration"
 	"awarddesk/internal/storage"
 	"crypto/sha256"
 	"encoding/hex"
@@ -20,11 +21,12 @@ import (
 )
 
 type Admin struct {
-	DB       *storage.Store
-	Fleet    *fleet.Fleet
-	mu       sync.Mutex
-	failures int
-	next     time.Time
+	DB            *storage.Store
+	Fleet         *fleet.Fleet
+	Registrations *registration.Service
+	mu            sync.Mutex
+	failures      int
+	next          time.Time
 }
 
 func tokenHash(v string) string { h := sha256.Sum256([]byte(v)); return hex.EncodeToString(h[:]) }
@@ -69,6 +71,14 @@ func (s *Server) adminRoutes(mux *http.ServeMux) {
 			return
 		}
 		switch r.URL.Path {
+		case "/api/admin/registrations":
+			a.registrations(w, r)
+			return
+		case "/api/admin/registrations/retry":
+			if r.Method == "POST" {
+				a.retryRegistration(w, r)
+				return
+			}
 		case "/api/admin/history":
 			if r.Method == "GET" {
 				s.adminHistory(w, r)
@@ -94,6 +104,20 @@ func (s *Server) adminRoutes(mux *http.ServeMux) {
 				s.adminOverview(w, r)
 				return
 			}
+		case "/api/admin/cache-policy":
+			if r.Method == "GET" {
+				p, e := a.DB.CachePolicy()
+				if e != nil {
+					fail(w, 500, "Could not read cache policy")
+					return
+				}
+				writeJSON(w, 200, p)
+				return
+			}
+			if r.Method == "PUT" {
+				a.cachePolicy(w, r)
+				return
+			}
 		case "/api/admin/settings":
 			if r.Method == "GET" {
 				a.settings(w)
@@ -104,6 +128,21 @@ func (s *Server) adminRoutes(mux *http.ServeMux) {
 				return
 			}
 		case "/api/admin/accounts":
+			if r.Method == "GET" {
+				rows, e := a.DB.Accounts()
+				if e != nil {
+					fail(w, 500, "Could not read account")
+					return
+				}
+				for _, row := range rows {
+					if row.ID == r.URL.Query().Get("id") {
+						writeJSON(w, 200, row)
+						return
+					}
+				}
+				fail(w, 404, "Account not found")
+				return
+			}
 			if r.Method == "PUT" {
 				a.putAccount(w, r)
 				return
@@ -256,6 +295,12 @@ func (a *Admin) settings(w http.ResponseWriter) {
 		fail(w, 500, "Could not read settings")
 		return
 	}
+	policy, e := a.DB.CachePolicy()
+	if e != nil {
+		fail(w, 500, "Could not read cache policy")
+		return
+	}
+	m["FLIGHT_CACHE_ENABLED"] = strconv.FormatBool(policy.Enabled)
 	type setting struct {
 		Value      string `json:"value"`
 		Secret     bool   `json:"secret"`
@@ -263,13 +308,10 @@ func (a *Admin) settings(w http.ResponseWriter) {
 	}
 	out := map[string]setting{}
 	for k, v := range m {
-		if strings.HasPrefix(k, "_") || k == "PROXY_LIST" {
+		if strings.HasPrefix(k, "_") || strings.HasPrefix(k, "ANA_") || strings.HasPrefix(k, "BA_") || k == "AWARDDESK_PROXY" || k == "PROXY_LIST" || k == "HISTORY_RETENTION_DAYS" {
 			continue
 		}
 		row := setting{Value: v, Secret: secretSetting(k), Configured: v != ""}
-		if row.Secret {
-			row.Value = ""
-		}
 		out[k] = row
 	}
 	writeJSON(w, 200, out)
@@ -293,10 +335,7 @@ func validateSetting(k, v string) error {
 			return errors.New("Session maximum must be between 10m and 24h")
 		}
 	case "HISTORY_RETENTION_DAYS":
-		n, e := strconv.Atoi(v)
-		if e != nil || n < 1 || n > 365 {
-			return errors.New("History retention must be 1 to 365 days")
-		}
+		return errors.New("Search history is permanent; retention is no longer configurable")
 	case "SEARCH_CONCURRENCY":
 		n, e := strconv.Atoi(v)
 		if e != nil || n < 1 || n > 16 {
@@ -306,7 +345,7 @@ func validateSetting(k, v string) error {
 		if v != "auto" && v != "hyper" && v != "anysolver" {
 			return errors.New("Solver must be auto, hyper or anysolver")
 		}
-	case "EVA_BACKGROUND_ENABLED", "ANA_BACKGROUND_ENABLED":
+	case "EVA_BACKGROUND_ENABLED", "ANA_BACKGROUND_ENABLED", "FLIGHT_CACHE_ENABLED":
 		if v != "true" && v != "false" {
 			return errors.New("Background settings must be true or false")
 		}
@@ -319,8 +358,9 @@ func validateSetting(k, v string) error {
 }
 func (a *Admin) putSettings(w http.ResponseWriter, r *http.Request) {
 	var b struct {
-		Values map[string]string `json:"values"`
-		Clear  []string          `json:"clear"`
+		Values            map[string]string `json:"values"`
+		Clear             []string          `json:"clear"`
+		ConfirmCacheClear bool              `json:"confirmCacheClear"`
 	}
 	if decodeAdmin(w, r, &b) != nil {
 		fail(w, 400, "Invalid settings")
@@ -342,7 +382,11 @@ func (a *Admin) putSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if a.DB.SetSettings(b.Values) != nil {
+	if err := a.DB.ApplySettings(b.Values, b.ConfirmCacheClear); err != nil {
+		if errors.Is(err, storage.ErrCacheConfirmation) {
+			fail(w, 409, err.Error())
+			return
+		}
 		fail(w, 500, "Could not save settings")
 		return
 	}
@@ -552,5 +596,5 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 			proxyCount++
 		}
 	}
-	writeJSON(w, 200, map[string]any{"proxyCount": proxyCount, "accounts": accounts, "sessions": statuses, "flights": flights, "jobs": history, "now": time.Now().UTC(), "ready": a.Fleet.Ready(), "concurrency": a.DB.Setting("SEARCH_CONCURRENCY"), "retentionDays": a.DB.HistoryRetentionDays()})
+	writeJSON(w, 200, map[string]any{"proxyCount": proxyCount, "accounts": accounts, "sessions": statuses, "flights": flights, "jobs": history, "now": time.Now().UTC(), "ready": a.Fleet.Ready(), "concurrency": a.DB.Setting("SEARCH_CONCURRENCY"), "historyPermanent": true})
 }

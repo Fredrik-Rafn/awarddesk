@@ -153,7 +153,7 @@ func (s *Server) Handler() http.Handler {
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/") && r.Method != "GET" && r.Method != "HEAD" {
 			if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-CSRF-Token")), []byte(s.csrf)) != 1 {
-				fail(w, 403, "invalid request token")
+				writeJSON(w, 403, map[string]string{"error": "invalid request token", "code": "request_token_invalid"})
 				return
 			}
 		}
