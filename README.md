@@ -41,8 +41,13 @@ original proxy/IP to remain valid. No machine-specific encryption is used.
 - Change Hyper/AnySolver keys, solver selection, caching and concurrency settings.
   EVA applies changes when each account next becomes idle. ANA/BA startup settings
   need a server restart.
-- Inspect cached flight results and ongoing/recent search jobs, cancel jobs and
-  remove cached results. Search history is retained for 24 hours.
+- Explore the activity chart, success/live reliability rates, median/P95 timings,
+  cache use, recovered successes, route rankings and failure stages. Select a time
+  window from one hour to all retained history.
+- Filter, sort and paginate all retained searches; inspect results and recovery
+  events, or export the matching history as CSV.
+- Inspect cached flight results and ongoing search jobs, cancel jobs and
+  remove cached results. Search history is retained for 30 days by default.
 
 Admin uses a hashed password, HttpOnly/SameSite cookies, CSRF/origin checks and
 login throttling. API keys and account passwords/tokens are masked in forms and
@@ -88,6 +93,7 @@ A fresh booking context is created for each uncached search. See
 | Admin setting | Default / purpose |
 | --- | --- |
 | `EVA_RESULT_CACHE_TTL` | `30m`; `0s` disables caching; maximum `24h` |
+| `HISTORY_RETENTION_DAYS` | `30`; configurable from 1–365 days |
 | `SEARCH_CONCURRENCY` | `4`; 1–16 independent accounts |
 | `EVA_SESSION_MAX_AGE` | `3h`; a conservative maximum, not a guaranteed server lifetime |
 | `EVA_BACKGROUND_ENABLED` | `true`; prepare and periodically verify sessions |

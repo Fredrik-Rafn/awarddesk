@@ -69,6 +69,26 @@ func (s *Server) adminRoutes(mux *http.ServeMux) {
 			return
 		}
 		switch r.URL.Path {
+		case "/api/admin/history":
+			if r.Method == "GET" {
+				s.adminHistory(w, r)
+				return
+			}
+		case "/api/admin/analytics":
+			if r.Method == "GET" {
+				s.adminAnalytics(w, r)
+				return
+			}
+		case "/api/admin/search":
+			if r.Method == "GET" {
+				s.adminSearchDetail(w, r)
+				return
+			}
+		case "/api/admin/export":
+			if r.Method == "GET" {
+				s.adminExport(w, r)
+				return
+			}
 		case "/api/admin/overview":
 			if r.Method == "GET" {
 				s.adminOverview(w, r)
@@ -271,6 +291,11 @@ func validateSetting(k, v string) error {
 		d, e := time.ParseDuration(v)
 		if e != nil || d < 10*time.Minute || d > 24*time.Hour {
 			return errors.New("Session maximum must be between 10m and 24h")
+		}
+	case "HISTORY_RETENTION_DAYS":
+		n, e := strconv.Atoi(v)
+		if e != nil || n < 1 || n > 365 {
+			return errors.New("History retention must be 1 to 365 days")
 		}
 	case "SEARCH_CONCURRENCY":
 		n, e := strconv.Atoi(v)
@@ -527,5 +552,5 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 			proxyCount++
 		}
 	}
-	writeJSON(w, 200, map[string]any{"proxyCount": proxyCount, "accounts": accounts, "sessions": statuses, "flights": flights, "jobs": history, "now": time.Now().UTC(), "ready": a.Fleet.Ready()})
+	writeJSON(w, 200, map[string]any{"proxyCount": proxyCount, "accounts": accounts, "sessions": statuses, "flights": flights, "jobs": history, "now": time.Now().UTC(), "ready": a.Fleet.Ready(), "concurrency": a.DB.Setting("SEARCH_CONCURRENCY"), "retentionDays": a.DB.HistoryRetentionDays()})
 }

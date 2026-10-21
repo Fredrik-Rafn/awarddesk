@@ -11,6 +11,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -57,6 +58,10 @@ func Open(path string) (*Store, error) {
  CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,data BLOB NOT NULL,updated_at INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS admin_sessions(token TEXT PRIMARY KEY,expires INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS runtime(key TEXT PRIMARY KEY,data BLOB NOT NULL);
+ INSERT OR IGNORE INTO settings(key,value) VALUES('HISTORY_RETENTION_DAYS','30');
+ CREATE INDEX IF NOT EXISTS jobs_created_time ON jobs(julianday(json_extract(data,'$.createdAt')));
+ CREATE INDEX IF NOT EXISTS jobs_status ON jobs(json_extract(data,'$.status'));
+ CREATE INDEX IF NOT EXISTS jobs_updated ON jobs(updated_at);
  PRAGMA user_version=1;`)
 	if err != nil {
 		db.Close()
@@ -259,6 +264,13 @@ func (s *Store) RuntimeValue(key string, v any) {
 		_ = json.Unmarshal(b, v)
 	}
 }
+func (s *Store) HistoryRetentionDays() int {
+	n, e := strconv.Atoi(s.Setting("HISTORY_RETENTION_DAYS"))
+	if e != nil || n < 1 || n > 365 {
+		return 30
+	}
+	return n
+}
 func (s *Store) Prune() error {
 	tx, e := s.DB.Begin()
 	if e != nil {
@@ -268,7 +280,7 @@ func (s *Store) Prune() error {
 	for _, q := range []struct {
 		sql string
 		at  int64
-	}{{"DELETE FROM jobs WHERE updated_at<?", time.Now().Add(-24 * time.Hour).UnixMilli()}, {"DELETE FROM admin_sessions WHERE expires<?", time.Now().UnixMilli()}, {"DELETE FROM leases WHERE expires<?", time.Now().UnixMilli()}} {
+	}{{"DELETE FROM jobs WHERE updated_at<?", time.Now().Add(-time.Duration(s.HistoryRetentionDays()) * 24 * time.Hour).UnixMilli()}, {"DELETE FROM admin_sessions WHERE expires<?", time.Now().UnixMilli()}, {"DELETE FROM leases WHERE expires<?", time.Now().UnixMilli()}} {
 		if _, e = tx.Exec(q.sql, q.at); e != nil {
 			return e
 		}

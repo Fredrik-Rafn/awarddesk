@@ -32,7 +32,14 @@ identity, scoped cookies and the exact sticky proxy travel together. Flight
 results contain parsed display data, without traveller profiles or booking tokens.
 Only complete successes are cached; expiry is checked on every read. Maintenance
 prunes expired caches and bounds the cache at 1,000 entries. Job history is retained
-for 24 hours; interrupted jobs are recorded rather than replayed on restart.
+for 30 days by default (`HISTORY_RETENTION_DAYS`, 1–365). Increasing retention
+keeps future history longer; records pruned before the upgrade cannot be restored.
+Interrupted jobs are recorded rather than replayed on restart.
+
+Admin history is paginated on the server, with separate compact summaries and
+authenticated full-result inspection. Analytics cover the entire selected time
+window, rather than only the visible history page. CSV export reads one database
+snapshot and excludes account/session secrets and full result payloads.
 
 The `settings` table holds global runtime configuration and the proxy list;
 `accounts` holds individual EVA and Outlook credentials; `runtime` records

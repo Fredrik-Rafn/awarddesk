@@ -40,6 +40,7 @@ function showLogin() {
   $("setting-fields").replaceChildren();
   $("account-form").reset();
   overview = null;
+  if (typeof clearDashboard === "function") clearDashboard();
   for (const id of ["account-list", "flight-list", "job-list", "cache-json"])
     $(id).replaceChildren();
 }
@@ -76,6 +77,13 @@ function table(headers, rows) {
     }
     body.append(tr);
   }
+  if (!rows.length) {
+    const tr = el("tr"),
+      td = el("td", "No records to show yet.", "empty-cell");
+    td.colSpan = headers.length;
+    tr.append(td);
+    body.append(tr);
+  }
   t.append(thead, body);
   wrap.append(t);
   return wrap;
@@ -91,32 +99,6 @@ function render(data) {
   $("proxy-count").textContent =
     String(data.proxyCount || 0) + " configured endpoints";
   const status = new Map(data.sessions.map((s) => [s.id, s]));
-  $("summary").replaceChildren(
-    ...[
-      [data.accounts.length, "EVA accounts"],
-      [
-        data.sessions.filter(
-          (s) =>
-            s.session.ready &&
-            !s.busy &&
-            !s.needsAttention &&
-            s.state !== "disabled" &&
-            (!s.nextAttempt || new Date(s.nextAttempt) <= new Date()),
-        ).length,
-        "Ready sessions",
-      ],
-      [data.flights.filter((f) => !f.expired).length, "Cached searches"],
-      [
-        data.jobs.filter((j) => ["running", "queued"].includes(j.status))
-          .length,
-        "Ongoing searches",
-      ],
-    ].map(([n, label]) => {
-      const d = el("div", undefined, "stat");
-      d.append(el("strong", String(n)), el("span", label));
-      return d;
-    }),
-  );
   $("account-list").replaceChildren(
     table(
       ["Account", "Status", "Session expires", "Last check", "Actions"],
@@ -206,38 +188,12 @@ function render(data) {
       }),
     ),
   );
-  $("job-list").replaceChildren(
-    table(
-      ["Search", "Status", "Progress", "Started", "Actions"],
-      data.jobs.map((j) => {
-        const c = el("div");
-        if (["queued", "running"].includes(j.status))
-          c.append(
-            action("Cancel", async () => {
-              await api("/api/searches/" + j.id, { method: "DELETE" });
-              await refresh();
-            }),
-          );
-        return [
-          cell(
-            j.query.origin + " → " + j.query.destination,
-            j.query.date + " · " + j.query.cabin,
-          ),
-          el("span", j.status, "pill " + j.status),
-          cell(
-            j.progress?.stage || "—",
-            j.error?.message || j.progress?.message,
-          ),
-          date(j.createdAt),
-          c,
-        ];
-      }),
-    ),
-  );
+  if (typeof renderHealth === "function") renderHealth(data);
 }
 async function refresh() {
   if (!polling) return;
-  render(await api("/api/admin/overview"));
+  if (typeof refreshDashboard === "function") await refreshDashboard();
+  else render(await api("/api/admin/overview"));
 }
 function editAccount(a = { enabled: true }) {
   const form = $("account-form");
@@ -424,5 +380,6 @@ $("password-form").onsubmit = async (e) => {
   }
 })();
 setInterval(() => {
-  if (polling) refresh().catch((e) => message(e.message));
+  if (polling && !document.hidden && !dashboardPaused)
+    refresh().catch((e) => message(e.message));
 }, 3000);
