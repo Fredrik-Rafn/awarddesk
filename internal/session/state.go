@@ -138,7 +138,7 @@ func compactCookieEvents(events []CookieEvent, now time.Time) []CookieEvent {
 // Restore is only permitted before the first request. Replay preserves cookie
 // updates/deletions, host-only domains, paths and expiry across process restarts.
 func (c *Client) Restore(s State) error {
-	if c.count != 0 || len(s.Cookies) > 4096 {
+	if c.started || c.count != 0 || len(s.Cookies) > 4096 {
 		return errors.New("invalid saved session")
 	}
 	if err := c.SetUserAgent(s.UserAgent); err != nil {

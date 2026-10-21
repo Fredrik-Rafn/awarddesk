@@ -35,6 +35,8 @@ type Config struct {
 type Provider struct {
 	config Config
 	gate   chan struct{}
+	warm   *warmSession // Protected by gate and the on-disk account lock.
+	closed bool
 }
 
 func New(c Config) *Provider { return &Provider{config: c, gate: make(chan struct{}, 1)} }
@@ -78,13 +80,20 @@ func (p *Provider) withSession(ctx context.Context, report award.Reporter, use f
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+	if p.closed {
+		return award.Failure("closed", "EVA session service is closed")
+	}
 	store := p.store()
 	unlock, err := store.Lock()
 	if err != nil {
 		return award.Failure("busy", "EVA session store is locked")
 	}
 	defer unlock()
-	return sessionAttempts(func() error { return p.ensureLocked(ctx, report, store, use) }, store.Delete, report)
+	err = sessionAttempts(func() error { return p.ensureLocked(ctx, report, store, use) }, func() error { p.discardWarm(); return store.Delete() }, report)
+	if err != nil {
+		p.discardWarm()
+	}
+	return err
 }
 
 func sessionAttempts(run func() error, reset func() error, report award.Reporter) error {
@@ -154,11 +163,15 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 	}
 	failedProxy := false
 	defer func() { lease.Release(failedProxy) }()
-	c, err := session.NewWithTimeout(lease.URL, []string{"booking.evaair.com", "eservice.evaair.com", "book.evaair.com", "api.ipify.org"}, 90*time.Second)
+	c, reused, err := p.sessionClient(lease.URL, data, saved.HTTP.UserAgent != "")
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer func() {
+		if resultErr != nil {
+			p.discardWarm()
+		}
+	}()
 	progress := func(stage, message string) {
 		if report != nil {
 			report(award.Progress{Stage: stage, Message: message})
@@ -166,8 +179,10 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 	}
 	if saved.HTTP.UserAgent != "" {
 		progress("proxy verification", "Checking the saved EVA proxy connection")
-		if err = c.Restore(saved.HTTP); err != nil {
-			return award.Failure("session_store", "Could not restore EVA session")
+		if !reused {
+			if err = c.Restore(saved.HTTP); err != nil {
+				return award.Failure("session_store", "Could not restore EVA session")
+			}
 		}
 		if err = (antibot.Hyper{Key: p.config.HyperKey}).VerifyConnection(ctx, c); err != nil {
 			if proxyNeedsRenewal(err) {
@@ -180,6 +195,10 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 			}
 			return err
 		}
+		if use != nil && reused && p.recentlyVerified(time.Now()) {
+			progress("session reuse", "Reusing the recently verified EVA member session")
+			return p.finish(store, c, saved, use)
+		}
 		progress("session verification", "Validating the saved EVA member session")
 		body, target, e := verifySavedSession(ctx, func() ([]byte, string, error) { return navigate(ctx, c, "GET", ItineraryURL, nil) }, report)
 		if e != nil {
@@ -190,6 +209,7 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 			return e
 		}
 		if authenticated(body, target) {
+			p.markVerified(time.Now())
 			return p.finish(store, c, saved, use)
 		}
 		// A redirect to the member login is the only supported expiry signal.
@@ -330,6 +350,7 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 		}
 		return award.Failure("login_unverified", "EVA did not open the authenticated member page; no session was saved")
 	}
+	p.markVerified(time.Now())
 	err = p.finish(store, c, saved, use)
 	if err == nil {
 		progress("session ready", "EVA member session verified and saved for reuse")
@@ -423,6 +444,10 @@ func (p *Provider) save(store sessionstore.Store, c *session.Client, saved cache
 	}
 	if err != nil {
 		return award.Failure("session_store", "Could not save EVA session")
+	}
+	if p.warm != nil && p.warm.client == c {
+		p.warm.diskKey = sessionSnapshotKey(data)
+		p.warm.usedAt = time.Now()
 	}
 	return nil
 }

@@ -144,6 +144,7 @@ func priceFaresWithReplans(ctx context.Context, c pricingClient, page pageData, 
 	}
 	seen = map[string]bool{}
 	done := 0
+	reportPricingPreview(report, result, done, total)
 	for _, i := range result.Itineraries {
 		for _, f := range i.Fares {
 			if f.MilesCash != nil {
@@ -239,6 +240,7 @@ func priceFaresWithReplans(ctx context.Context, c pricingClient, page pageData, 
 				}
 			}
 			done++
+			reportPricingPreview(report, result, done, total)
 		}
 	}
 	result.Complete = done == total
@@ -246,4 +248,12 @@ func priceFaresWithReplans(ctx context.Context, c pricingClient, page pageData, 
 		result.Warnings = []string{"Miles & Cash amounts are maximum-offset estimates for aggregation, not award tickets. No payment or ticketing request was submitted."}
 	}
 	return nil
+}
+
+func reportPricingPreview(report award.Reporter, result *award.Result, done, total int) {
+	if report != nil {
+		preview := *result
+		preview.Warnings = []string{"Miles & Cash estimates are being calculated. Completed quotes appear as they become available."}
+		report(award.Progress{Stage: "miles pricing", Message: "Flights found; calculating Miles & Cash for each distinct fare", Completed: done, Total: total, Preview: &preview})
+	}
 }

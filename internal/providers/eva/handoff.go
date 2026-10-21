@@ -48,7 +48,7 @@ func canRetrySearchRejection(stage string, err error) bool {
 
 func canRenewSearch(stage string, err error) bool {
 	var failure *award.Error
-	if !errors.As(err, &failure) || (failure.Code != "connection" && failure.Code != "proxy_changed" && failure.Code != "response_read") {
+	if !errors.As(err, &failure) || failure.OutcomeUnknown || (failure.Code != "connection" && failure.Code != "proxy_changed" && failure.Code != "response_read" && failure.Code != "session_expired") {
 		return false
 	}
 	switch stage {

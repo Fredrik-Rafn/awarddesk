@@ -31,6 +31,46 @@ task. There are still three required sensor rounds and no fixed request spacing.
 Booking and pricing steps continue in order because page tickets, recommendation
 IDs and booking session state change after each request.
 
+## Warm connections and progressive results
+
+EVA retains one serialized HTTP client for its current account/proxy session.
+Every operation still locks and loads the portable JSON file and checks the proxy
+exit IP. A changed saved snapshot or proxy, any failed operation, or more than five
+minutes idle before reuse discards the warm client. The server closes retained
+connections at shutdown. Each operation receives a fresh request budget while
+the established HTTP identity remains immutable.
+
+Live searches may reuse a successful member verification for at most two minutes.
+This timestamp does not extend on cache hits or subsequent searches. Restarting
+the process or replacing session state requires verification again. Explicit
+Prepare EVA session checks always verify. A recognized redirect to EVA's member
+login before pricing permits the existing single fresh-session renewal; uncertain
+credential, OTP and checkout requests are not replayed.
+
+The API publishes isolated partial results while a job is still running: flight
+availability first, then completed mileage quotes after each distinct fare.
+The frontend labels outstanding calculations, preserves filters and expanded
+flight details during updates, and replaces the preview with the final result.
+Incomplete snapshots are not written to the complete-result cache.
+
+The EVA diagnostic CLI also records `firstResultsMs` and `firstQuoteMs`, alongside
+total duration, so first useful output is measured separately from completion.
+
+Two live uncached checks on 21 October passed with progressive results:
+
+| Route, 30 November 2026, business | First flights | First mileage quotes | Complete |
+| --- | ---: | ---: | ---: |
+| TPE–HKG, six flights / 18 fare quotes | 32.1 s | 47.1 s | 86.1 s |
+| HND–SIN, four flights / four fare quotes | 68.0 s | 84.1 s | 84.1 s |
+
+The second search used the warm transport and recent-verification path. The first
+member verification took 4.118 s; the second reuse stage took 3 ms after its normal
+proxy check. This confirms the skipped verification, not a paired end-to-end
+speedup: the second search's CAPTCHA/security preparation took 59.5 s versus
+16.3 s on the first. In Chrome, flights and partial mileage quotes appeared while
+the first job was running; airline/sort selections and expanded details survived
+subsequent quote updates and completion.
+
 Stage and pricing-operation timings are logged without credentials or payloads.
 Use these logs to identify future bottlenecks rather than removing required
 steps speculatively.

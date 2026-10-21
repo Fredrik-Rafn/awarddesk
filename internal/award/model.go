@@ -120,6 +120,9 @@ type Progress struct {
 	Completed int       `json:"completed,omitempty"`
 	Total     int       `json:"total,omitempty"`
 	Recovery  *Recovery `json:"recovery,omitempty"`
+	// Preview is borrowed for this synchronous callback; consumers must clone
+	// it before retaining it. It is exposed through Job.Result, not progress JSON.
+	Preview *Result `json:"-"`
 }
 type Recovery struct {
 	Stage   string `json:"stage"`

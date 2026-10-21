@@ -332,3 +332,28 @@ func TestIframeNavigationHasNoUserActivation(t *testing.T) {
 		t.Fatal("top-level navigation identity changed")
 	}
 }
+
+func TestWarmOperationResetsBudgetWithoutResettingIdentity(t *testing.T) {
+	var calls atomic.Int32
+	target := httptest.NewTLSServer(std.HandlerFunc(func(w std.ResponseWriter, r *std.Request) { calls.Add(1); w.Write([]byte("ok")) }))
+	defer target.Close()
+	c := testClient(t, target.URL, "")
+	c.max = 1
+	if _, _, err := c.Do(context.Background(), "GET", target.URL, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	saved := State{UserAgent: UserAgent}
+	c.BeginOperation()
+	if err := c.SetUserAgent(UserAgent); err == nil {
+		t.Fatal("budget reset unlocked user agent")
+	}
+	if err := c.Restore(saved); err == nil {
+		t.Fatal("budget reset unlocked session restoration")
+	}
+	if _, _, err := c.Do(context.Background(), "GET", target.URL, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if calls.Load() != 2 {
+		t.Fatal("operation budget not reset")
+	}
+}

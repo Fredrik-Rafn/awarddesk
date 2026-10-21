@@ -4,7 +4,18 @@ import (
 	"awarddesk/internal/award"
 	"context"
 	"errors"
+	"net/url"
+	"strings"
 )
+
+func isMemberLoginPage(body []byte, target string) bool {
+	u, err := url.Parse(target)
+	if err != nil || u.Scheme != "https" || u.Host != "eservice.evaair.com" || !strings.EqualFold(u.Path, "/flyeva/eva/ffp/login.aspx") {
+		return false
+	}
+	f, err := parseForm(body, target)
+	return err == nil && f.field("$txt_Member") != ""
+}
 
 // Only used before credentials/OTP, or for the saved-session read-only GET.
 // Never apply this classification to credential, OTP or pricing submissions.

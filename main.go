@@ -54,6 +54,9 @@ func run() error {
 	if e != nil {
 		return e
 	}
+	if evaProvider != nil {
+		defer evaProvider.Close()
+	}
 	var providers []award.Provider
 	if ready {
 		providers = append(providers, p)

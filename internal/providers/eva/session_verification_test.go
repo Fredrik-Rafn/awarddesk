@@ -21,6 +21,22 @@ func TestSavedSessionVerificationRecoversExplicitRejection(t *testing.T) {
 	}
 }
 
+func TestExpiredMemberFormTriggersOnlySafeSearchRenewal(t *testing.T) {
+	body := []byte(`<form action="login.aspx"><input name="ctl00$content$txt_Member"></form>`)
+	if !isMemberLoginPage(body, LoginURL) {
+		t.Fatal("explicit login page not recognized")
+	}
+	for _, target := range []string{BookingURL, overrideURL, "https://example.test/flyeva/eva/ffp/login.aspx"} {
+		if isMemberLoginPage(body, target) {
+			t.Fatal("unrelated page classified as member expiry")
+		}
+	}
+	err := award.Failure("session_expired", "expired")
+	if !canRenewSearch("flight search", err) || !canRenewSearch("availability", err) || canRenewSearch("miles pricing", err) || canRenewSearch("credentials", err) {
+		t.Fatal("expiry renewal crossed safe search boundary")
+	}
+}
+
 func TestSavedSessionRepeatedFailureUsesBoundedFreshSessionRecovery(t *testing.T) {
 	calls, resets := 0, 0
 	err := sessionAttempts(func() error {

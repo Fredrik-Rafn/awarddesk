@@ -197,6 +197,12 @@ func (s *Service) execute(id string) {
 			s.mu.Lock()
 			defer s.mu.Unlock()
 			if j.Status == "running" {
+				if p.Preview != nil {
+					preview := award.CloneResult(*p.Preview)
+					preview.Complete = false
+					j.Result = &preview
+					p.Preview = nil
+				}
 				if p.Recovery != nil {
 					j.Recoveries = append(j.Recoveries, *p.Recovery)
 				}

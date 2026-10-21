@@ -86,6 +86,9 @@ func (p *Provider) searchLive(ctx context.Context, q award.Query, report award.R
 				if err != nil {
 					return err
 				}
+				if isMemberLoginPage(body, target) {
+					return award.Failure("session_expired", "EVA member session expired before flight search")
+				}
 				if isAdaptiveBookingChallenge(body, target) {
 					if err = p.clearAvailabilityChallenge(ctx, c, body, target, attempt, progress); err != nil {
 						return err
@@ -142,6 +145,9 @@ func (p *Provider) searchLive(ctx context.Context, q award.Query, report award.R
 				body, target, err = navigate(ctx, c, "POST", f.action, f.values, target)
 				if err != nil {
 					return err
+				}
+				if isMemberLoginPage(body, target) {
+					return award.Failure("session_expired", "EVA member session expired before availability")
 				}
 				if isAdaptiveBookingChallenge(body, target) {
 					if err = p.clearAvailabilityChallenge(ctx, c, body, target, attempt, progress); err != nil {

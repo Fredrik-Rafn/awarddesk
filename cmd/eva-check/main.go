@@ -20,18 +20,20 @@ import (
 )
 
 type measurement struct {
-	Number      int              `json:"number"`
-	Query       award.Query      `json:"query"`
-	JobID       string           `json:"jobId,omitempty"`
-	Status      string           `json:"status"`
-	Complete    bool             `json:"complete"`
-	Cached      bool             `json:"cached"`
-	DurationMS  int64            `json:"durationMs"`
-	Itineraries int              `json:"itineraries"`
-	Quotes      int              `json:"quotes"`
-	Recoveries  []award.Recovery `json:"recoveries,omitempty"`
-	Error       *award.Error     `json:"error,omitempty"`
-	Warnings    []string         `json:"warnings,omitempty"`
+	Number         int              `json:"number"`
+	Query          award.Query      `json:"query"`
+	JobID          string           `json:"jobId,omitempty"`
+	Status         string           `json:"status"`
+	Complete       bool             `json:"complete"`
+	Cached         bool             `json:"cached"`
+	DurationMS     int64            `json:"durationMs"`
+	FirstResultsMS int64            `json:"firstResultsMs,omitempty"`
+	FirstQuoteMS   int64            `json:"firstQuoteMs,omitempty"`
+	Itineraries    int              `json:"itineraries"`
+	Quotes         int              `json:"quotes"`
+	Recoveries     []award.Recovery `json:"recoveries,omitempty"`
+	Error          *award.Error     `json:"error,omitempty"`
+	Warnings       []string         `json:"warnings,omitempty"`
 }
 
 type client struct {
@@ -176,9 +178,11 @@ func run() error {
 				if err = c.request(ctx, "GET", "/api/searches/"+job.ID, nil, &job); err != nil {
 					break
 				}
+				observePreview(&m, job, time.Since(started).Milliseconds())
 			}
 		}
 		m.DurationMS = time.Since(started).Milliseconds()
+		observePreview(&m, job, m.DurationMS)
 		m.Status = job.Status
 		m.Error = job.Error
 		m.Recoveries = job.Recoveries
@@ -220,6 +224,25 @@ func run() error {
 	totals, _ := json.Marshal(summarize(results))
 	fmt.Println("Summary: " + string(totals))
 	return nil
+}
+
+func observePreview(m *measurement, job jobs.Job, elapsed int64) {
+	if job.Result == nil || len(job.Result.Itineraries) == 0 {
+		return
+	}
+	if m.FirstResultsMS == 0 {
+		m.FirstResultsMS = elapsed
+	}
+	if m.FirstQuoteMS == 0 {
+		for _, i := range job.Result.Itineraries {
+			for _, f := range i.Fares {
+				if f.MilesCash != nil {
+					m.FirstQuoteMS = elapsed
+					return
+				}
+			}
+		}
+	}
 }
 
 func stopAtFailure(e *award.Error) bool {

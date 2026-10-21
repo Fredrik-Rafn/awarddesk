@@ -2,8 +2,22 @@ package main
 
 import (
 	"awarddesk/internal/award"
+	"awarddesk/internal/jobs"
 	"testing"
 )
+
+func TestPreviewTimingsKeepFirstArrival(t *testing.T) {
+	var m measurement
+	observePreview(&m, jobs.Job{}, 500)
+	r := award.Result{Itineraries: []award.Itinerary{{Fares: []award.Fare{{}}}}}
+	observePreview(&m, jobs.Job{Result: &r}, 1000)
+	r.Itineraries[0].Fares[0].MilesCash = &award.MilesCash{Miles: 123}
+	observePreview(&m, jobs.Job{Result: &r}, 2000)
+	observePreview(&m, jobs.Job{Result: &r}, 3000)
+	if m.FirstResultsMS != 1000 || m.FirstQuoteMS != 2000 {
+		t.Fatalf("incorrect first-arrival times: %+v", m)
+	}
+}
 
 func TestSummaryDistinguishesRecoveredSuccessFromUserFailure(t *testing.T) {
 	results := []measurement{

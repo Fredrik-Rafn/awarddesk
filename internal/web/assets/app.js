@@ -6,7 +6,7 @@ const cabinNames = {
   business: "Business",
   first: "First",
 };
-let config, currentJob, result, timer;
+let config, currentJob, result, timer, previewRevision;
 const number = (n) => new Intl.NumberFormat("en-GB").format(n);
 const money = (m) => number(Number(m.amount)) + " " + m.currency;
 const el = (tag, text, className) => {
@@ -64,7 +64,7 @@ async function poll() {
     }
     if (job.status === "failed" || job.status === "cancelled") {
       stop();
-      if (job.status === "failed" && job.result?.itineraries?.length) {
+      if (job.result?.itineraries?.length) {
         result = job.result;
         showResults();
       }
@@ -78,10 +78,16 @@ async function poll() {
       );
       return;
     }
+    if (job.result?.itineraries?.length && previewRevision !== job.updatedAt) {
+      result = job.result;
+      previewRevision = job.updatedAt;
+      showResults();
+    }
     status(
       job.progress.stage,
       job.progress.message,
-      "Saved EVA sessions are reused. Fresh login and pricing can take a few minutes.",
+      job.progress.total ? (job.progress.completed || 0) + " of " + job.progress.total + " price calculations complete."
+        : "Saved EVA sessions are reused. Fresh login and pricing can take a few minutes.",
     );
     timer = setTimeout(poll, 1800);
   } catch (e) {
@@ -103,6 +109,7 @@ async function poll() {
 }
 $("search").addEventListener("submit", async (e) => {
   e.preventDefault();
+  previewRevision = null;
   $("results").hidden = true;
   $("empty").hidden = true;
   busy(true);
@@ -254,9 +261,10 @@ function showResults() {
     " adult" +
     (q.adults === 1 ? "" : "s") +
     " · " +
-    (result.complete ? "Available quotes retrieved" : "Partial results") +
+    (result.complete ? "Available quotes retrieved" : currentJob ? "Calculating mileage quotes" : "Partial results") +
     (result.cached ? " · Cached" : " · Live") +
     (result.fetchedAt ? " · Checked " + new Date(result.fetchedAt).toLocaleTimeString() : "");
+  const selectedAirline = $("airline").value;
   $("airline").replaceChildren(new Option("All airlines", "all"));
   [
     ...new Set(
@@ -265,12 +273,15 @@ function showResults() {
   ]
     .sort()
     .forEach((a) => $("airline").append(new Option(a, a)));
+  if ([...$("airline").options].some((option) => option.value === selectedAirline)) $("airline").value = selectedAirline;
   $("warnings").replaceChildren(...result.warnings.map((w) => el("p", w)));
   $("warnings").hidden = !result.warnings.length;
   renderFlights();
 }
 function renderFlights() {
   const flights = $("flights");
+  const expanded = new Set([...flights.querySelectorAll("article[data-flight-key]")]
+    .filter((card) => card.querySelector("details")?.open).map((card) => card.dataset.flightKey));
   flights.replaceChildren();
   const list = result.itineraries
     .filter(
@@ -307,6 +318,7 @@ function renderFlights() {
     const card = el("article", undefined, "flight"),
       main = el("div", undefined, "flight-main"),
       carrier = el("div", undefined, "carrier");
+    card.dataset.flightKey = JSON.stringify(item.segments.map((s) => [s.flightNumber, s.origin, s.destination, s.departureLocal]));
     carrier.append(
       el("div", [...new Set(item.segments.map((s) => s.airline))].join(" + ")),
       el(
@@ -356,7 +368,7 @@ function renderFlights() {
       } else {
         price.append(el("strong", money(fare.cashPrice)),
           el("small", "Full cash fare"),
-          el("div", fare.milesCashEligible === false ? "Not eligible for Miles & Cash" : "Miles conversion unavailable", "cash"));
+          el("div", fare.milesCashEligible === false ? "Not eligible for Miles & Cash" : currentJob ? "Calculating miles…" : "Miles conversion unavailable", "cash"));
       }
     } else price.append(
       el("strong", number(fare.points)),
@@ -366,6 +378,7 @@ function renderFlights() {
     main.append(carrier, route, info, price);
     card.append(main);
     const details = el("details");
+    details.open = expanded.has(card.dataset.flightKey);
     details.append(
       el(
         "summary",
@@ -404,7 +417,7 @@ function renderFlights() {
           "strong",
           f.pricingType === "miles_cash"
           ? (f.milesCash ? number(f.milesCash.miles) + " miles + " + money(f.milesCash.remainingCash)
-            : money(f.cashPrice) + (f.milesCashEligible === false ? " cash · not eligible for Miles & Cash" : " cash · miles conversion unavailable"))
+            : money(f.cashPrice) + (f.milesCashEligible === false ? " cash · not eligible for Miles & Cash" : currentJob ? " cash · calculating miles…" : " cash · miles conversion unavailable"))
           : number(f.points) +
             " " +
             f.program +

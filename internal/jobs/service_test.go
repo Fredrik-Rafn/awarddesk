@@ -13,6 +13,44 @@ type fakeProvider struct {
 	run func(context.Context) (award.Result, error)
 }
 
+type previewProvider struct{ ready, release chan struct{} }
+
+func (p previewProvider) Capabilities() award.Capabilities { return fakeProvider{}.Capabilities() }
+func (p previewProvider) Search(ctx context.Context, q award.Query, report award.Reporter) (award.Result, error) {
+	r := award.Result{Query: q, Warnings: []string{}, Itineraries: []award.Itinerary{{ID: "flight", Fares: []award.Fare{{CashPrice: &award.Money{Amount: "100"}, MilesCash: &award.MilesCash{Miles: 123}}}}}}
+	report(award.Progress{Stage: "miles pricing", Preview: &r})
+	r.Itineraries[0].Fares[0].CashPrice.Amount = "200"
+	r.Itineraries[0].Fares[0].MilesCash.Miles = 456
+	close(p.ready)
+	select {
+	case <-p.release:
+		r.Complete = true
+		return r, nil
+	case <-ctx.Done():
+		return r, ctx.Err()
+	}
+}
+
+func TestRunningJobPublishesImmutablePartialPreview(t *testing.T) {
+	p := previewProvider{ready: make(chan struct{}), release: make(chan struct{})}
+	s := New(p)
+	defer s.Close()
+	j, err := s.Submit(query())
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-p.ready
+	j, _ = s.Get(j.ID)
+	if j.Status != "running" || j.Result == nil || j.Result.Complete || j.Progress.Preview != nil || j.Result.Itineraries[0].Fares[0].CashPrice.Amount != "100" || j.Result.Itineraries[0].Fares[0].MilesCash.Miles != 123 {
+		t.Fatal("running preview missing, mutable, or complete")
+	}
+	close(p.release)
+	j = await(t, s, j.ID, "completed")
+	if !j.Result.Complete || j.Result.Itineraries[0].Fares[0].MilesCash.Miles != 456 {
+		t.Fatal("final result did not replace preview")
+	}
+}
+
 func (p fakeProvider) Capabilities() award.Capabilities {
 	return award.Capabilities{ID: "test", Cabins: []award.Cabin{award.Economy}, MaxAdults: 9}
 }

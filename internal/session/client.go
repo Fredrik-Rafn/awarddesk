@@ -32,6 +32,7 @@ type Client struct {
 	http             tlsclient.HttpClient
 	hosts            map[string]bool
 	count            int
+	started          bool
 	max              int
 	userAgent        string
 	chromeVersion    string
@@ -75,6 +76,10 @@ func NewWithTimeout(proxy string, hosts []string, timeout time.Duration) (*Clien
 }
 func (c *Client) UserAgent() string { return c.userAgent }
 
+// BeginOperation resets only the request budget. The owner must hold exclusive
+// access; cookies, connections and the immutable HTTP identity remain unchanged.
+func (c *Client) BeginOperation() { c.count = 0 }
+
 // PinEgressIP checks a proxy's observed identity without exposing the IP.
 func (c *Client) PinEgressIP(value string) error {
 	ip := net.ParseIP(value)
@@ -92,7 +97,7 @@ func (c *Client) PinEgressIP(value string) error {
 // within an established cookie session is forbidden. This does not change the
 // TLS profile; callers must validate transport compatibility separately.
 func (c *Client) SetUserAgent(value string) error {
-	if c.count != 0 {
+	if c.started || c.count != 0 {
 		return errors.New("cannot change user-agent after session initialization")
 	}
 	match := regexp.MustCompile(`^Mozilla/5\.0 \(Windows NT 10\.0; Win64; x64\) AppleWebKit/537\.36 \(KHTML, like Gecko\) Chrome/([0-9]{2,3})\.0\.0\.0 Safari/537\.36$`).FindStringSubmatch(value)
@@ -172,6 +177,7 @@ func (c *Client) DoWithTimeout(ctx context.Context, method, raw string, body io.
 			return nil, nil, e
 		}
 		c.count++
+		c.started = true
 		requestCtx, cancelRequest := context.WithTimeout(ctx, timeout)
 		defer cancelRequest()
 		req, e := http.NewRequestWithContext(requestCtx, method, raw, body)
