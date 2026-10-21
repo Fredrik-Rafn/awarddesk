@@ -29,7 +29,7 @@ func retrySearchPreparation(ctx context.Context, run func() (string, error), rep
 			return err
 		}
 		if report != nil {
-			report(award.Progress{Stage: "search recovery", Message: "EVA rejected search preparation; automatically reopening the booking form with fresh verification"})
+			report(award.Progress{Stage: "search recovery", Message: "EVA rejected search preparation; automatically reopening the booking form with fresh verification", Recovery: recoveryDetail(stage, err, attempt+1)})
 		}
 	}
 }
@@ -48,7 +48,7 @@ func canRetrySearchRejection(stage string, err error) bool {
 
 func canRenewSearch(stage string, err error) bool {
 	var failure *award.Error
-	if !errors.As(err, &failure) || (failure.Code != "connection" && failure.Code != "proxy_changed") {
+	if !errors.As(err, &failure) || (failure.Code != "connection" && failure.Code != "proxy_changed" && failure.Code != "response_read") {
 		return false
 	}
 	switch stage {

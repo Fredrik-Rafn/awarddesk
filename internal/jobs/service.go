@@ -14,16 +14,17 @@ import (
 )
 
 type Job struct {
-	ID        string         `json:"id"`
-	Query     award.Query    `json:"query"`
-	Status    string         `json:"status"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"updatedAt"`
-	Progress  award.Progress `json:"progress"`
-	Result    *award.Result  `json:"result,omitempty"`
-	Error     *award.Error   `json:"error,omitempty"`
-	cancel    context.CancelFunc
-	ctx       context.Context
+	ID         string           `json:"id"`
+	Query      award.Query      `json:"query"`
+	Status     string           `json:"status"`
+	CreatedAt  time.Time        `json:"createdAt"`
+	UpdatedAt  time.Time        `json:"updatedAt"`
+	Progress   award.Progress   `json:"progress"`
+	Result     *award.Result    `json:"result,omitempty"`
+	Error      *award.Error     `json:"error,omitempty"`
+	Recoveries []award.Recovery `json:"recoveries,omitempty"`
+	cancel     context.CancelFunc
+	ctx        context.Context
 }
 type Service struct {
 	mu        sync.Mutex
@@ -196,6 +197,9 @@ func (s *Service) execute(id string) {
 			s.mu.Lock()
 			defer s.mu.Unlock()
 			if j.Status == "running" {
+				if p.Recovery != nil {
+					j.Recoveries = append(j.Recoveries, *p.Recovery)
+				}
 				j.Progress = p
 				j.UpdatedAt = time.Now().UTC()
 			}
@@ -216,6 +220,12 @@ func (s *Service) execute(id string) {
 		return
 	}
 	if err != nil {
+		// Keep validated flight data and any finished quotes when a later
+		// pricing step fails. The job remains failed, never a full success.
+		if len(result.Itineraries) > 0 {
+			result.Complete = false
+			j.Result = &result
+		}
 		j.Status = "failed"
 		if errors.Is(err, context.Canceled) {
 			j.Status = "cancelled"

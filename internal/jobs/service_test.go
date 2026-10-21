@@ -97,6 +97,21 @@ func TestRateLimitCooldownAndSanitizedErrors(t *testing.T) {
 	}
 }
 
+func TestLaterPricingFailureKeepsPartialFlightData(t *testing.T) {
+	s := New(fakeProvider{func(context.Context) (award.Result, error) {
+		return award.Result{Query: query(), Complete: true, Itineraries: []award.Itinerary{{ID: "flight", Fares: []award.Fare{{MilesCash: &award.MilesCash{Miles: 12345}}}}}}, award.Failure("search_protocol", "Pricing response missing")
+	}})
+	defer s.Close()
+	j, err := s.Submit(query())
+	if err != nil {
+		t.Fatal(err)
+	}
+	j = await(t, s, j.ID, "failed")
+	if j.Error == nil || j.Result == nil || j.Result.Complete || j.Result.Itineraries[0].Fares[0].MilesCash.Miles != 12345 {
+		t.Fatal("late failure discarded quotes or became a complete success")
+	}
+}
+
 func TestIdenticalInflightSearchesShareOneJob(t *testing.T) {
 	entered, release := make(chan struct{}), make(chan struct{})
 	var calls atomic.Int32
@@ -130,6 +145,35 @@ func TestIdenticalInflightSearchesShareOneJob(t *testing.T) {
 }
 
 type cachedProvider struct{ fakeProvider }
+
+type recoveryProvider struct{ failure error }
+
+func (p recoveryProvider) Capabilities() award.Capabilities { return fakeProvider{}.Capabilities() }
+func (p recoveryProvider) Search(_ context.Context, q award.Query, report award.Reporter) (award.Result, error) {
+	for attempt := 1; attempt <= 2; attempt++ {
+		report(award.Progress{Stage: "recovery", Message: "retrying", Recovery: &award.Recovery{Stage: "availability", Code: "session_denied", Attempt: attempt}})
+	}
+	return award.Result{Query: q, Complete: p.failure == nil}, p.failure
+}
+
+func TestRecoveryHistorySurvivesCompletionAndFailure(t *testing.T) {
+	for _, failure := range []error{nil, award.Failure("connection", "interrupted")} {
+		s := New(recoveryProvider{failure})
+		defer s.Close()
+		j, err := s.Submit(query())
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := "completed"
+		if failure != nil {
+			want = "failed"
+		}
+		finished := await(t, s, j.ID, want)
+		if len(finished.Recoveries) != 2 || finished.Recoveries[0].Code != "session_denied" || finished.Recoveries[1].Attempt != 2 {
+			t.Fatalf("recovery history lost: %+v", finished.Recoveries)
+		}
+	}
+}
 
 func (p cachedProvider) CachedSearch(q award.Query) (award.Result, bool) {
 	return award.Result{Query: q, Complete: true, Cached: true, FetchedAt: time.Now()}, q.Destination == "SFO" && !q.Refresh

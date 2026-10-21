@@ -190,6 +190,7 @@ func (c *Client) DoWithTimeout(ctx context.Context, method, raw string, body io.
 				return nil, nil, ctx.Err()
 			}
 			if attempt+1 < tries {
+				ReportRetry(ctx, transportFailure(e), attempt+1)
 				if e = Pause(ctx, 2*time.Second); e != nil {
 					return nil, nil, e
 				}
@@ -204,9 +205,18 @@ func (c *Client) DoWithTimeout(ctx context.Context, method, raw string, body io.
 				return nil, nil, ctx.Err()
 			}
 			if requestCtx.Err() != nil {
-				return nil, nil, transportFailure(requestCtx.Err())
+				e = transportFailure(requestCtx.Err())
+			} else {
+				e = award.Failure("response_read", "could not read provider response")
 			}
-			return nil, nil, award.Failure("response_read", "could not read provider response")
+			if attempt+1 < tries {
+				ReportRetry(ctx, e, attempt+1)
+				if pauseErr := Pause(ctx, 2*time.Second); pauseErr != nil {
+					return nil, nil, pauseErr
+				}
+				continue
+			}
+			return nil, nil, e
 		}
 		if len(b) > 8*1024*1024 {
 			return nil, nil, award.Failure("response_size", "provider response exceeded size limit")
@@ -221,6 +231,7 @@ func (c *Client) DoWithTimeout(ctx context.Context, method, raw string, body io.
 			return nil, nil, &award.Error{Code: "rate_limited", Message: "provider requested a pause", RetryAfterSeconds: delay}
 		}
 		if res.StatusCode >= 500 && attempt+1 < tries {
+			ReportRetry(ctx, award.Failure("site_unavailable", "provider returned a temporary server error"), attempt+1)
 			if e = Pause(ctx, 2*time.Second); e != nil {
 				return nil, nil, e
 			}

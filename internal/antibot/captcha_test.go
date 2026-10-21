@@ -1,6 +1,7 @@
 package antibot
 
 import (
+	"awarddesk/internal/session"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,50 @@ import (
 )
 
 type solverTransportFunc func(*http.Request) (*http.Response, error)
+
+func TestSolverStatusPollRecoversTemporaryFailureWithoutCreatingTask(t *testing.T) {
+	calls, notices := 0, 0
+	s := AnySolver{Key: "test-key", Client: &http.Client{Transport: solverTransportFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		if r.URL.Path != "/getTaskResult" {
+			t.Fatal("created a duplicate task")
+		}
+		var request map[string]any
+		if json.NewDecoder(r.Body).Decode(&request) != nil || request["taskId"] != "existing-task" {
+			t.Fatal("lost existing task ID")
+		}
+		if calls == 1 {
+			return &http.Response{StatusCode: 500, Body: io.NopCloser(strings.NewReader("unavailable"))}, nil
+		}
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"errorId":0,"status":"ready"}`))}, nil
+	})}}
+	ctx := session.WithRetryObserver(context.Background(), func(error, int) { notices++ })
+	v, err := s.call(ctx, "getTaskResult", map[string]any{"taskId": "existing-task"})
+	if err != nil || v["status"] != "ready" || calls != 2 || notices != 1 {
+		t.Fatalf("poll did not recover: calls=%d notices=%d err=%v", calls, notices, err)
+	}
+}
+
+func TestSolverCreationAndAccessErrorsAreNotRetried(t *testing.T) {
+	for _, tc := range []struct {
+		path   string
+		status int
+		body   string
+	}{
+		{"createTask", 500, "unavailable"},
+		{"getTaskResult", 403, "denied"},
+		{"getTaskResult", 200, `{"errorId":1,"errorCode":"ERROR_ZERO_BALANCE"}`},
+	} {
+		calls := 0
+		s := AnySolver{Key: "test-key", Client: &http.Client{Transport: solverTransportFunc(func(*http.Request) (*http.Response, error) {
+			calls++
+			return &http.Response{StatusCode: tc.status, Body: io.NopCloser(strings.NewReader(tc.body))}, nil
+		})}}
+		if _, err := s.call(context.Background(), tc.path, map[string]any{}); err == nil || calls != 1 {
+			t.Fatalf("unsafe replay: path=%s calls=%d err=%v", tc.path, calls, err)
+		}
+	}
+}
 
 func TestCaptchaSolutionPreservesActualIdentity(t *testing.T) {
 	got, err := decodeCaptchaSolution(map[string]any{"token": "test-token", "userAgent": "provider-selected-agent"})

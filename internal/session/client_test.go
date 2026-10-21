@@ -152,6 +152,50 @@ func TestExplicitPricingDeadlineDoesNotReplayPOST(t *testing.T) {
 		t.Fatal("explicit longer pricing deadline did not complete")
 	}
 }
+
+func TestTruncatedGETResponseRetriesOnce(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewTLSServer(std.HandlerFunc(func(w std.ResponseWriter, r *std.Request) {
+		if calls.Add(1) == 1 {
+			w.Header().Set("Content-Length", "100")
+			_, _ = w.Write([]byte("short"))
+			return
+		}
+		_, _ = w.Write([]byte("complete"))
+	}))
+	defer server.Close()
+	c := testClient(t, server.URL, "")
+	notices := 0
+	ctx := WithRetryObserver(context.Background(), func(err error, attempt int) {
+		var failure *award.Error
+		if !errors.As(err, &failure) || failure.Code != "response_read" || attempt != 1 {
+			t.Fatalf("bad recovery details: %v", err)
+		}
+		notices++
+	})
+	_, body, err := c.Do(ctx, "GET", server.URL, nil, nil)
+	if err != nil || string(body) != "complete" || calls.Load() != 2 {
+		t.Fatalf("truncated GET not recovered: calls=%d err=%v", calls.Load(), err)
+	}
+	if notices != 1 {
+		t.Fatalf("retry history missing: %d", notices)
+	}
+}
+
+func TestTruncatedPOSTResponseIsNotReplayed(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewTLSServer(std.HandlerFunc(func(w std.ResponseWriter, r *std.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Length", "100")
+		_, _ = w.Write([]byte("short"))
+	}))
+	defer server.Close()
+	c := testClient(t, server.URL, "")
+	_, _, err := c.Do(context.Background(), "POST", server.URL, strings.NewReader("operation"), nil)
+	if err == nil || calls.Load() != 1 {
+		t.Fatalf("POST replayed: calls=%d err=%v", calls.Load(), err)
+	}
+}
 func testClient(t *testing.T, serverURL, proxy string) *Client {
 	t.Helper()
 	u, _ := url.Parse(serverURL)

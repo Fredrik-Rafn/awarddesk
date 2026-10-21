@@ -13,15 +13,16 @@ import (
 
 type Check func(context.Context, award.Reporter) error
 type Status struct {
-	State          string    `json:"state"`
-	Message        string    `json:"message"`
-	ID             uint64    `json:"id"`
-	StartedAt      time.Time `json:"startedAt,omitempty"`
-	FinishedAt     time.Time `json:"finishedAt,omitempty"`
-	DurationMS     int64     `json:"durationMs,omitempty"`
-	Stage          string    `json:"stage,omitempty"`
-	Code           string    `json:"code,omitempty"`
-	OutcomeUnknown bool      `json:"outcomeUnknown,omitempty"`
+	State          string           `json:"state"`
+	Message        string           `json:"message"`
+	ID             uint64           `json:"id"`
+	StartedAt      time.Time        `json:"startedAt,omitempty"`
+	FinishedAt     time.Time        `json:"finishedAt,omitempty"`
+	DurationMS     int64            `json:"durationMs,omitempty"`
+	Stage          string           `json:"stage,omitempty"`
+	Code           string           `json:"code,omitempty"`
+	OutcomeUnknown bool             `json:"outcomeUnknown,omitempty"`
+	Recoveries     []award.Recovery `json:"recoveries,omitempty"`
 }
 type Service struct {
 	mu      sync.Mutex
@@ -77,6 +78,9 @@ func (s *Service) startLocked() error {
 			defer s.mu.Unlock()
 			s.status.Message = p.Message
 			s.status.Stage = p.Stage
+			if p.Recovery != nil {
+				s.status.Recoveries = append(s.status.Recoveries, *p.Recovery)
+			}
 		})
 		s.mu.Lock()
 		defer s.mu.Unlock()

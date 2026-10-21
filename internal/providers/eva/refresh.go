@@ -2,10 +2,13 @@ package eva
 
 import (
 	"awarddesk/internal/award"
+	"awarddesk/internal/session"
 	"context"
 	"encoding/json"
+	"errors"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Reopen flight selection in the current authenticated booking session. These
@@ -34,7 +37,21 @@ func refreshAvailability(ctx context.Context, c pricingClient, current, initial 
 	if json.Unmarshal(initial.Config["FPOW"], &cfg) == nil && cfg.DateRangeQualifier != "" {
 		v.Set("DATE_RANGE_QUALIFIER_1", cfg.DateRangeQualifier)
 	}
-	next, err := quoteRequest(ctx, c, current.SessionID, "refresh availability", v)
+	var next pageData
+	var err error
+	for attempt := 0; ; attempt++ {
+		next, err = quoteRequest(ctx, c, current.SessionID, "refresh availability", v)
+		if ctx.Err() != nil {
+			return current, award.Result{}, ctx.Err()
+		}
+		if attempt == 1 || !canRetryAvailabilityRead(err) {
+			break
+		}
+		session.ReportRetry(ctx, err, attempt+1)
+		if err = session.Pause(ctx, 2*time.Second); err != nil {
+			return current, award.Result{}, err
+		}
+	}
 	if err != nil {
 		return current, award.Result{}, err
 	}
@@ -44,6 +61,17 @@ func refreshAvailability(ctx context.Context, c pricingClient, current, initial 
 	}
 	r, err := parseAvailability(next.Business["Availability"], q)
 	return next, r, err
+}
+
+// This POST only reopens flight availability. A bounded retry is safe even if
+// its response was lost, and never repeats fare selection or ACTION=BOOK.
+func canRetryAvailabilityRead(err error) bool {
+	var failure *award.Error
+	if !errors.As(err, &failure) {
+		return false
+	}
+	return failure.Code == "connection" || failure.Code == "response_read" || failure.Code == "search_protocol" ||
+		(failure.Code == "provider_http" && failure.HTTPStatus >= 500 && failure.HTTPStatus <= 599)
 }
 
 func matchingSelection(fresh award.Result, wanted award.Itinerary, fare award.Fare) (string, string, error) {
@@ -69,4 +97,31 @@ func matchingSelection(fresh award.Result, wanted award.Itinerary, fare award.Fa
 		}
 	}
 	return "", "", award.Failure("price_changed", "EVA changed flight availability or fare prices during pricing; run a fresh search")
+}
+
+// A refreshed snapshot owns its identifiers and prices. Carry a quote forward
+// only when its flight segments, fare family, cabin and cash amount still match.
+// Never copy old recommendation IDs into the refreshed result.
+func preserveMatchingQuotes(fresh *award.Result, previous award.Result) {
+	for x := range fresh.Itineraries {
+		for y := range fresh.Itineraries[x].Fares {
+			fare := &fresh.Itineraries[x].Fares[y]
+			if fare.MilesCashEligible != nil && !*fare.MilesCashEligible {
+				continue
+			}
+			for _, old := range previous.Itineraries {
+				for _, priced := range old.Fares {
+					if priced.MilesCash == nil {
+						continue
+					}
+					candidate := award.Result{Itineraries: []award.Itinerary{{ID: fresh.Itineraries[x].ID, Segments: fresh.Itineraries[x].Segments, Fares: []award.Fare{*fare}}}}
+					if _, _, err := matchingSelection(candidate, old, priced); err == nil {
+						copy := *priced.MilesCash
+						fare.MilesCash = &copy
+						fare.Estimated = priced.Estimated
+					}
+				}
+			}
+		}
+	}
 }

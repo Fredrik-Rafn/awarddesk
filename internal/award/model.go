@@ -115,10 +115,16 @@ type Result struct {
 	CacheExpiresAt *time.Time  `json:"cacheExpiresAt,omitempty"`
 }
 type Progress struct {
-	Stage     string `json:"stage"`
-	Message   string `json:"message"`
-	Completed int    `json:"completed,omitempty"`
-	Total     int    `json:"total,omitempty"`
+	Stage     string    `json:"stage"`
+	Message   string    `json:"message"`
+	Completed int       `json:"completed,omitempty"`
+	Total     int       `json:"total,omitempty"`
+	Recovery  *Recovery `json:"recovery,omitempty"`
+}
+type Recovery struct {
+	Stage   string `json:"stage"`
+	Code    string `json:"code"`
+	Attempt int    `json:"attempt"`
 }
 type Reporter func(Progress)
 type Capabilities struct {

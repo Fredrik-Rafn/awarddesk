@@ -34,7 +34,7 @@ func TestProxyRenewalIsRestrictedToConnectionPreflightFailures(t *testing.T) {
 	for _, tc := range []struct {
 		code  string
 		renew bool
-	}{{"connection", true}, {"proxy_changed", true}, {"authentication", false}, {"login_response", false}, {"otp", false}, {"challenge_service", false}, {"proxy_authentication", false}} {
+	}{{"connection", true}, {"proxy_changed", true}, {"response_read", true}, {"authentication", false}, {"login_response", false}, {"otp", false}, {"challenge_service", false}, {"proxy_authentication", false}} {
 		if got := proxyNeedsRenewal(award.Failure(tc.code, "test")); got != tc.renew {
 			t.Fatalf("%s renewal=%v", tc.code, got)
 		}

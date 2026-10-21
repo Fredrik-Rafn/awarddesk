@@ -130,6 +130,12 @@ redemption. Availability is parsed once for all returned flights and fare
 families. Shared fare recommendations are calculated once.
 Each subsequent fare family refreshes availability inside the same booking
 session and matches the flight by its actual segments rather than stale IDs.
+If a fare changes or disappears during this refresh, pricing can adopt the
+new snapshot twice within the existing time/request limits. It retains finished
+quotes only for unchanged segments, fare family, cabin and cash price; changed
+fares receive fresh calculations. A failed later step preserves retrieved
+flights and finished quotes in the API and frontend as partial results, with
+the failure still visible. It never counts as a complete success.
 The configured member profile supports one adult. Pricing requests allow up to
 90 seconds, ordinary requests 40 seconds, and the full search ten minutes.
 Login-only checks retain their six-minute limit. These are time limits, not delays.
@@ -154,6 +160,13 @@ Offline tests cover captured availability, route/date mismatch detection,
 cash-versus-miles labeling, fresh login fields, OTP parsing, and local API
 CSRF/cancellation behavior. The supplied capture contains ten economy flight
 options and seven business options.
+
+Search jobs and login checks now retain sanitized `recoveries` records after
+completion or failure. These distinguish clean successes, successes after
+automatic recovery, and final failures. Read-only GET response truncation and
+temporary CAPTCHA task-status failures receive one retry; CAPTCHA creation
+and credential/OTP/checkout submissions are not blindly repeated.
+See [the 21 October reliability measurements](eva-reliability.md).
 
 Live EVA login has produced a verified saved session. Both the CLI and frontend
 successfully reused it; the frontend check took 3.9 seconds. OAuth/IMAP access and

@@ -142,6 +142,13 @@ is unnecessary; API and UI use the same origin.
 For a terminal-only ANA login check: `./login-ana.ps1`, or
 `go run ./cmd/ana-login` with the three ANA/Hyper environment variables set.
 
+For live EVA reliability measurements, start the app, then run
+`go run ./cmd/eva-check -cases cases.json -out measurements.json`.
+The case file is an array of EVA search queries. Every search bypasses the
+result cache and uses the website API, including its automatic recovery.
+Reports separate clean successes, automatically recovered successes, partial
+results and final failures. This command makes real airline and solver requests.
+
 ## Limits
 
 Localhost only; do not publicly reverse-proxy the app. POST/DELETE endpoints

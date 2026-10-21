@@ -57,6 +57,7 @@ func (p *Provider) store() sessionstore.Store {
 	return sessionstore.Store{Path: filepath.Join(".state", "eva", hex.EncodeToString(h[:])+".json")}
 }
 func (p *Provider) Ensure(ctx context.Context, report award.Reporter) error {
+	ctx, report = trackRequestRecoveries(ctx, report)
 	return p.withSession(ctx, report, nil)
 }
 func (p *Provider) withSession(ctx context.Context, report award.Reporter, use func(*session.Client, string) error) error {
@@ -94,7 +95,7 @@ func sessionAttempts(run func() error, reset func() error, report award.Reporter
 		if errors.As(err, &rejected) && rejected.Code == "captcha_incorrect" && !retriedCaptcha {
 			retriedCaptcha = true
 			if report != nil {
-				report(award.Progress{Stage: "captcha retry", Message: "EVA rejected the image CAPTCHA; starting one fresh verification attempt"})
+				report(award.Progress{Stage: "captcha retry", Message: "EVA rejected the image CAPTCHA; starting one fresh verification attempt", Recovery: recoveryDetail("credentials", err, attempt+1)})
 			}
 			continue
 		}
@@ -108,7 +109,7 @@ func sessionAttempts(run func() error, reset func() error, report award.Reporter
 				return award.Failure("session_store", "Could not replace the interrupted EVA search session")
 			}
 			if report != nil {
-				report(award.Progress{Stage: "session renewal", Message: "EVA session setup was interrupted; retrying with a fresh sticky session"})
+				report(award.Progress{Stage: "session renewal", Message: "EVA session setup was interrupted; retrying with a fresh sticky session", Recovery: recoveryDetail("session preparation", renew.cause, attempt+1)})
 			}
 			continue
 		}
@@ -344,7 +345,7 @@ func imageCaptchaRejected(original, next form, feedback string) bool {
 // the current stage permits recovery without replaying credentials or pricing.
 func proxyNeedsRenewal(err error) bool {
 	var e *award.Error
-	return errors.As(err, &e) && (e.Code == "connection" || e.Code == "proxy_changed")
+	return errors.As(err, &e) && (e.Code == "connection" || e.Code == "proxy_changed" || e.Code == "response_read")
 }
 func (p *Provider) resumeChallenge(ctx context.Context, c *session.Client, body []byte, target string, progress func(string, string)) ([]byte, string, error) {
 	if !strings.Contains(string(body), `name="sec_chlge_forward_wrap"`) {

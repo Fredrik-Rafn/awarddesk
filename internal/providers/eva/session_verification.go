@@ -29,7 +29,7 @@ func verifySavedSession(ctx context.Context, get func() ([]byte, string, error),
 			return nil, target, &searchRenewal{cause: err}
 		}
 		if report != nil {
-			report(award.Progress{Stage: "session verification retry", Message: "EVA interrupted the saved-session check; retrying verification automatically"})
+			report(award.Progress{Stage: "session verification retry", Message: "EVA interrupted the saved-session check; retrying verification automatically", Recovery: recoveryDetail("session verification", err, attempt+1)})
 		}
 	}
 }

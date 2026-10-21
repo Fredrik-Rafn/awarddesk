@@ -25,6 +25,11 @@ func TestSearchRenewalNeverReplaysCredentialsOrPricing(t *testing.T) {
 	if canRenewSearch("availability", context.Canceled) {
 		t.Fatal("cancelled search was restarted")
 	}
+	for _, stage := range []string{"availability", "credentials", "otp", "miles pricing", "checkout price"} {
+		if got := canRenewSearch(stage, award.Failure("response_read", "interrupted")); got != (stage == "availability") {
+			t.Fatalf("read failure recovery at %s: %v", stage, got)
+		}
+	}
 }
 
 func TestSearchRejectionRecoversWithoutRenewingMemberSession(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"awarddesk/internal/session"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/url"
@@ -116,11 +117,18 @@ func parseMilesCash(raw json.RawMessage, currency string) (*award.MilesCash, err
 }
 
 func priceFares(ctx context.Context, c *session.Client, page pageData, result *award.Result, report award.Reporter) error {
+	return priceFaresWithReplans(ctx, c, page, result, report, 2)
+}
+
+func priceFaresWithReplans(ctx context.Context, c pricingClient, page pageData, result *award.Result, report award.Reporter, replans int) error {
 	initialPage := page
 	seen := map[string]bool{}
 	total := 0
 	for _, i := range result.Itineraries {
 		for _, f := range i.Fares {
+			if f.MilesCash != nil {
+				continue
+			}
 			if f.MilesCashEligible != nil && !*f.MilesCashEligible {
 				continue
 			}
@@ -138,6 +146,9 @@ func priceFares(ctx context.Context, c *session.Client, page pageData, result *a
 	done := 0
 	for _, i := range result.Itineraries {
 		for _, f := range i.Fares {
+			if f.MilesCash != nil {
+				continue
+			}
 			if f.MilesCashEligible != nil && !*f.MilesCashEligible {
 				continue
 			}
@@ -162,6 +173,15 @@ func priceFares(ctx context.Context, c *session.Client, page pageData, result *a
 				}
 				flightID, recommendationID, refreshErr = matchingSelection(fresh, i, f)
 				if refreshErr != nil {
+					var changed *award.Error
+					if replans > 0 && errors.As(refreshErr, &changed) && changed.Code == "price_changed" {
+						preserveMatchingQuotes(&fresh, *result)
+						*result = fresh
+						if report != nil {
+							report(award.Progress{Stage: "miles pricing", Message: "EVA changed availability; continuing with refreshed fares and preserving unchanged quotes", Recovery: recoveryDetail("miles pricing", refreshErr, 3-replans)})
+						}
+						return priceFaresWithReplans(ctx, c, page, result, report, replans-1)
+					}
 					return refreshErr
 				}
 				values = ajaxContext(page)

@@ -2,12 +2,15 @@ package eva
 
 import (
 	"awarddesk/internal/award"
+	"awarddesk/internal/session"
 	"context"
 	"encoding/json"
 	http "github.com/bogdanfinn/fhttp"
 	"io"
 	"net/url"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -56,5 +59,38 @@ func TestRefreshedFareMatchedByFlightNotOldIdentifier(t *testing.T) {
 	r.Itineraries[0].Segments[0].FlightNumber = "BR999"
 	if _, _, err := matchingSelection(r, wanted, fare); err == nil {
 		t.Fatal("quote assigned to a different flight")
+	}
+}
+
+func TestAvailabilityReadRecoversMissingPageWithoutReplayingCheckout(t *testing.T) {
+	for _, permanent := range []bool{false, true} {
+		t.Run(strconv.FormatBool(permanent), func(t *testing.T) {
+			calls, retries := 0, 0
+			raw, _ := os.ReadFile("testdata/availability.json")
+			c := pricingTransport(func(ctx context.Context, method, target string, body io.Reader, h http.Header) (*http.Response, []byte, error) {
+				calls++
+				if !strings.Contains(target, "FlexPricerAvailability.action") {
+					t.Fatal("availability retry left read-only endpoint")
+				}
+				if calls == 1 || permanent {
+					return &http.Response{StatusCode: 200}, []byte("<html>Temporarily unavailable</html>"), nil
+				}
+				b, _ := json.Marshal(map[string]any{"data": pageData{PageTicket: "fresh", Business: map[string]json.RawMessage{"Availability": raw}}})
+				return &http.Response{StatusCode: 200}, b, nil
+			})
+			ctx := session.WithRetryObserver(context.Background(), func(error, int) { retries++ })
+			_, _, err := refreshAvailability(ctx, c, pageData{SessionID: "current"}, pageData{}, award.Query{Origin: "TPE", Destination: "HKG", Date: "2026-11-24", Cabin: award.Economy})
+			if (err != nil) != permanent || calls != 2 || retries != 1 {
+				t.Fatalf("retry result: err=%v calls=%d retries=%d", err, calls, retries)
+			}
+		})
+	}
+}
+
+func TestAvailabilityReadDoesNotRetryAccountOrRateLimitErrors(t *testing.T) {
+	for _, err := range []error{award.Failure("authentication", "denied"), award.Failure("rate_limited", "pause"), award.Failure("price_changed", "changed"), context.Canceled} {
+		if canRetryAvailabilityRead(err) {
+			t.Fatalf("unexpected availability retry: %v", err)
+		}
 	}
 }

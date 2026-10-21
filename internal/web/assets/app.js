@@ -64,10 +64,16 @@ async function poll() {
     }
     if (job.status === "failed" || job.status === "cancelled") {
       stop();
+      if (job.status === "failed" && job.result?.itineraries?.length) {
+        result = job.result;
+        showResults();
+      }
       status(
         job.status,
         job.error?.message || "Search cancelled",
-        (job.status === "failed" ? "Failed at " + (job.error?.stage || job.progress?.stage || "provider request") + ". " : "") + "No payment or ticketing request was submitted.",
+        (job.status === "failed" ? "Failed at " + (job.error?.stage || job.progress?.stage || "provider request") + ". " : "") +
+          (job.result?.itineraries?.length ? "Retrieved flights and finished quotes are shown below as partial results. " : "") +
+          "No payment or ticketing request was submitted.",
         job.status === "failed",
       );
       return;

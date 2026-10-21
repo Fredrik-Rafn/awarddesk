@@ -1,6 +1,7 @@
 package antibot
 
 import (
+	"awarddesk/internal/award"
 	"awarddesk/internal/session"
 	"bytes"
 	"context"
@@ -22,7 +23,28 @@ type AnySolver struct {
 	UserAgent string
 }
 
+type transientSolverError struct{ message string }
+
+func (e *transientSolverError) Error() string { return e.message }
+
 func (a AnySolver) call(ctx context.Context, path string, p map[string]any) (map[string]any, error) {
+	for attempt := 0; ; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		value, err := a.callOnce(ctx, path, p)
+		var temporary *transientSolverError
+		if err == nil || path != "getTaskResult" || attempt >= 1 || !errors.As(err, &temporary) || ctx.Err() != nil {
+			return value, err
+		}
+		session.ReportRetry(ctx, award.Failure("captcha_service", temporary.Error()), attempt+1)
+		if err = session.Pause(ctx, 2*time.Second); err != nil {
+			return nil, err
+		}
+	}
+}
+
+func (a AnySolver) callOnce(ctx context.Context, path string, p map[string]any) (map[string]any, error) {
 	p["clientKey"] = a.Key
 	b, e := json.Marshal(p)
 	if e != nil {
@@ -42,12 +64,15 @@ func (a AnySolver) call(ctx context.Context, path string, p map[string]any) (map
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		return nil, errors.New("CAPTCHA service connection failed")
+		return nil, &transientSolverError{"CAPTCHA service connection failed"}
 	}
 	defer res.Body.Close()
 	b, e = io.ReadAll(io.LimitReader(res.Body, 1024*1024))
 	if e != nil {
-		return nil, errors.New("CAPTCHA response could not be read")
+		return nil, &transientSolverError{"CAPTCHA response could not be read"}
+	}
+	if res.StatusCode >= 500 {
+		return nil, &transientSolverError{"CAPTCHA service temporarily unavailable"}
 	}
 	var v map[string]any
 	if res.StatusCode != 200 || json.Unmarshal(b, &v) != nil {

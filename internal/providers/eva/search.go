@@ -63,6 +63,7 @@ func (p *Provider) searchLive(ctx context.Context, q award.Query, report award.R
 			observer(p)
 		}
 	}
+	ctx, report = trackRequestRecoveries(ctx, report)
 	err := p.withSession(ctx, report, func(c *session.Client, proxy string) (useErr error) {
 		defer func() {
 			if canRenewSearch(stage, useErr) {
@@ -176,7 +177,9 @@ func (p *Provider) searchLive(ctx context.Context, q award.Query, report award.R
 						return (antibot.Hyper{Key: p.config.HyperKey}).PrepareReese(ctx, c, target, body)
 					}, func(ctx context.Context) error {
 						return (antibot.AnySolver{Key: p.config.AnyKey}).PrepareReese(ctx, c, target, body)
-					}, progress)
+					}, func(stage, message string) {
+						report(award.Progress{Stage: stage, Message: message, Recovery: &award.Recovery{Stage: "booking security", Code: "challenge_service", Attempt: 1}})
+					})
 				}
 				return (antibot.Hyper{Key: p.config.HyperKey}).PrepareReese(ctx, c, target, body)
 			}, func(ctx context.Context, target string, values url.Values, from string) ([]byte, string, error) {
