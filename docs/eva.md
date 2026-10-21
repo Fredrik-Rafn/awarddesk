@@ -91,7 +91,12 @@ If a proxy connection fails during search preparation, one fresh sticky session
 and login may replace it. This recovery is restricted to availability and
 security stages; credential, OTP, and pricing requests are never replayed.
 Connection failures before a fresh login submits credentials use the same
-bounded recovery. EVA's exact, explicit "Wrong CAPTCHA entry" rejection permits
+bounded recovery. Saved-member read-only verification retries a transient
+connection failure or explicit HTTP 403 once on the existing client. Repeated
+failure can trigger the single fresh sticky-session renewal. An explicit 403
+before credentials also permits that renewal; credential/OTP submissions do not.
+Public login-check status, stage, code and duration are logged so another click
+does not erase the diagnostic record. EVA's exact, explicit "Wrong CAPTCHA entry" rejection permits
 one new image-CAPTCHA attempt. Wrong passwords, OTP failures, HTTP 403 and
 uncertain credential outcomes do not permit that retry. The renewal and image
 retry budgets allow at most three session attempts within the overall time limit.

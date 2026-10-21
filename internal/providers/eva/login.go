@@ -108,7 +108,7 @@ func sessionAttempts(run func() error, reset func() error, report award.Reporter
 				return award.Failure("session_store", "Could not replace the interrupted EVA search session")
 			}
 			if report != nil {
-				report(award.Progress{Stage: "session renewal", Message: "The proxy connection interrupted search preparation; reopening on a fresh sticky session"})
+				report(award.Progress{Stage: "session renewal", Message: "EVA session setup was interrupted; retrying with a fresh sticky session"})
 			}
 			continue
 		}
@@ -180,8 +180,12 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 			return err
 		}
 		progress("session verification", "Validating the saved EVA member session")
-		body, target, e := navigate(ctx, c, "GET", ItineraryURL, nil)
+		body, target, e := verifySavedSession(ctx, func() ([]byte, string, error) { return navigate(ctx, c, "GET", ItineraryURL, nil) }, report)
 		if e != nil {
+			var renewal *searchRenewal
+			if errors.As(e, &renewal) {
+				failedProxy = true
+			}
 			return e
 		}
 		if authenticated(body, target) {
@@ -199,7 +203,7 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 	}
 	credentialsSubmitted := false
 	defer func() {
-		if !credentialsSubmitted && proxyNeedsRenewal(resultErr) {
+		if !credentialsSubmitted && canRecoverSessionSetup(resultErr) && ctx.Err() == nil {
 			failedProxy = true
 			resultErr = &searchRenewal{cause: resultErr}
 		}

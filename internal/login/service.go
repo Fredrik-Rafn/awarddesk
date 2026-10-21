@@ -1,11 +1,12 @@
 // Package login runs one bounded, cancellable verification at a time.
-// It retains public status only; the checker manages encrypted session storage.
+// It retains public status only; the checker manages session storage.
 package login
 
 import (
 	"awarddesk/internal/award"
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -83,6 +84,9 @@ func (s *Service) startLocked() error {
 		s.status.FinishedAt = time.Now()
 		s.status.DurationMS = time.Since(s.status.StartedAt).Milliseconds()
 		s.next = time.Now().Add(5 * time.Second)
+		defer func() {
+			slog.Info("login check finished", "provider", s.name, "status", s.status.State, "code", s.status.Code, "stage", s.status.Stage, "durationMs", s.status.DurationMS)
+		}()
 		switch {
 		case errors.Is(ctx.Err(), context.Canceled):
 			s.status.State, s.status.Message = "cancelled", s.name+" login check cancelled"
