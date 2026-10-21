@@ -35,6 +35,11 @@ Stage and pricing-operation timings are logged without credentials or payloads.
 Use these logs to identify future bottlenecks rather than removing required
 steps speculatively.
 
+For fresh Incapsula challenges, the [21 October solver comparison](solver-comparison.md)
+selects Hyper first: 2.918 s median verification versus AnySolver's 6.340 s,
+with both succeeding in five controlled tests. Full-search timings did not show
+a clear overall speedup. Normal searches retain reusable security cookies.
+
 ## Live verification, 20 October 2026
 
 HND to SIN, 27 November 2026, economy, one adult, two itineraries:

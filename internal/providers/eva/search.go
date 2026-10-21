@@ -171,6 +171,13 @@ func (p *Provider) searchLive(ctx context.Context, q award.Query, report award.R
 				if p.config.ImpervaSolver == "anysolver" {
 					return (antibot.AnySolver{Key: p.config.AnyKey}).PrepareReese(ctx, c, target, body)
 				}
+				if p.config.ImpervaSolver == "auto" {
+					return reeseWithFallback(ctx, func(ctx context.Context) error {
+						return (antibot.Hyper{Key: p.config.HyperKey}).PrepareReese(ctx, c, target, body)
+					}, func(ctx context.Context) error {
+						return (antibot.AnySolver{Key: p.config.AnyKey}).PrepareReese(ctx, c, target, body)
+					}, progress)
+				}
 				return (antibot.Hyper{Key: p.config.HyperKey}).PrepareReese(ctx, c, target, body)
 			}, func(ctx context.Context, target string, values url.Values, from string) ([]byte, string, error) {
 				return navigate(ctx, c, "POST", target, values, from)

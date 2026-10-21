@@ -4,10 +4,13 @@ Run the entire application from the repository directory with `go run .`.
 The backend, session jobs and embedded frontend share port 8080. Restart the
 process after editing Go, frontend files, or `.env`.
 
-`EVA_IMPERVA_SOLVER=anysolver` uses AnySolver's Salamoonder Reese84 sensor
-task for booking security. The generated sensor is submitted through the saved
-session's own sticky proxy. `hyper` selects Hyper instead (the default).
-The current local `.env` selects AnySolver while Hyper Incapsula access is pending.
+`EVA_IMPERVA_SOLVER=auto` (the default) uses Hyper for Incapsula/Reese84 and
+tries AnySolver if Hyper's generation service fails. `hyper` and `anysolver`
+force one provider for diagnostics. AnySolver uses its Salamoonder Reese84 sensor
+task. Both submit the generated sensor through the session's own sticky proxy.
+Provider connection errors, cancellations, unknown challenge formats and
+uncertain outcomes do not trigger a solver change. See the
+[live solver comparison](solver-comparison.md).
 
 ## Configuration
 
@@ -113,8 +116,9 @@ for the freshness rules, measurements and remaining bottlenecks.
 Current verification note (20 October 2026): five consecutive searches passed
 across economy, premium economy and business, including fresh login/Outlook OTP
 and repeated HND–SIN searches. Hyper Akamai access was restored after the balance
-was topped up. Hyper Reese84 still returns `access denied`, so booking security
-uses AnySolver. A local website test returned two HND–SIN options for 27 November
+was topped up. Reese84 access was also restored on 21 October; the comparison
+linked above selects Hyper first with AnySolver as a service-failure backup.
+A local website test returned two HND–SIN options for 27 November
 after a manual retry of an availability 403; this prompted the automatic search
 recovery described above. See the [results screenshot](screenshots/eva-results.png).
 AnySolver Akamai fallback trials were rejected by EVA and were removed. The alternate hCaptcha

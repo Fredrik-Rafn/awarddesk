@@ -5,6 +5,7 @@ import (
 	"awarddesk/internal/session"
 	"bytes"
 	"context"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -14,7 +15,11 @@ import (
 
 // PrepareReese asks for a raw sensor, then submits it from the airline's
 // existing connection. A proxyless finished cookie would use the solver's IP.
-func (a AnySolver) PrepareReese(ctx context.Context, c *session.Client, page string, body []byte) error {
+func (a AnySolver) PrepareReese(ctx context.Context, c *session.Client, page string, body []byte) (resultErr error) {
+	started := time.Now()
+	defer func() {
+		slog.Info("EVA Reese84 verification", "solver", "anysolver", "success", resultErr == nil, "elapsedMs", time.Since(started).Milliseconds())
+	}()
 	sensorPath, scriptPath, err := incapsula.ParseDynamicReeseScript(bytes.NewReader(body), page)
 	if err != nil {
 		return award.Failure("challenge_changed", "EVA booking security page was not recognized")

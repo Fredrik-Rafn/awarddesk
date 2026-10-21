@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/url"
 	"strings"
 	"time"
@@ -17,7 +18,11 @@ import (
 
 // PrepareReese handles only the fresh interstitial. The caller decides whether
 // its intercepted request is safe to resubmit.
-func (h Hyper) PrepareReese(ctx context.Context, c *session.Client, page string, body []byte) error {
+func (h Hyper) PrepareReese(ctx context.Context, c *session.Client, page string, body []byte) (resultErr error) {
+	started := time.Now()
+	defer func() {
+		slog.Info("EVA Reese84 verification", "solver", "hyper", "success", resultErr == nil, "elapsedMs", time.Since(started).Milliseconds())
+	}()
 	sensorPath, scriptPath, err := incapsula.ParseDynamicReeseScript(bytes.NewReader(body), page)
 	if err != nil {
 		return award.Failure("challenge_changed", "EVA booking security page was not recognized")

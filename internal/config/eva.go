@@ -26,10 +26,10 @@ func EVA() (*eva.Provider, bool, error) {
 		ImpervaSolver: os.Getenv("EVA_IMPERVA_SOLVER"),
 	}
 	if c.ImpervaSolver == "" {
-		c.ImpervaSolver = "hyper"
+		c.ImpervaSolver = "auto"
 	}
-	if c.ImpervaSolver != "hyper" && c.ImpervaSolver != "anysolver" {
-		return nil, false, fmt.Errorf("EVA_IMPERVA_SOLVER must be hyper or anysolver")
+	if c.ImpervaSolver != "hyper" && c.ImpervaSolver != "anysolver" && c.ImpervaSolver != "auto" {
+		return nil, false, fmt.Errorf("EVA_IMPERVA_SOLVER must be auto, hyper or anysolver")
 	}
 	m := outlook.Config{Email: os.Getenv("OUTLOOK_EMAIL"), ClientID: os.Getenv("OUTLOOK_CLIENT_ID"), RefreshToken: os.Getenv("OUTLOOK_REFRESH_TOKEN")}
 	c.Mailbox = outlook.New(m)
