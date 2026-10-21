@@ -21,7 +21,7 @@ type savedMailboxToken struct {
 
 func (r *Reader) tokenStore() sessionstore.Store {
 	hash := sha256.Sum256([]byte(strings.ToLower(r.config.Email) + "|" + r.config.ClientID))
-	return sessionstore.Store{Path: filepath.Join(".state", "outlook", hex.EncodeToString(hash[:])+".json")}
+	return sessionstore.Store{Backend: r.config.StateBackend, Path: filepath.Join(".state", "outlook", hex.EncodeToString(hash[:])+".json")}
 }
 
 func (r *Reader) loadRefreshToken(store sessionstore.Store) (string, error) {

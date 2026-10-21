@@ -11,7 +11,7 @@
   <body>
     <header>
       <a class="brand" href="/">◈ <span>awarddesk</span></a
-      ><span class="local">LOCAL WORKSPACE <i></i></span>
+      ><a href="/admin" class="admin-link">Admin</a><span class="local">LOCAL WORKSPACE <i></i></span>
     </header>
     <main>
       <section class="intro">
@@ -24,9 +24,9 @@
       </section>
       <section class="search-panel ana-panel" aria-labelledby="eva-title">
         <div class="panel-top"><div><div class="eyebrow">EVA AIR · MILES &amp; CASH</div><h2 id="eva-title">EVA saved session</h2></div><span>Outlook OTP</span></div>
-        <p>Prepare a session with your configured sticky proxy. Fresh verification codes are read automatically from your Outlook inbox. Verified sessions are saved in JSON files and reused.</p>
+        <p>Prepare a session with your configured sticky proxy. Fresh verification codes are read automatically from your Outlook inbox. Verified sessions are saved in SQLite and reused across searches. Manage multiple accounts in Admin.</p>
         <p id="eva-status" role="status" aria-live="polite">Checking configuration…</p>
-        <p id="eva-setup" class="notice" hidden>Configure EVA_EMAIL, EVA_PASSWORD, OUTLOOK_EMAIL, OUTLOOK_CLIENT_ID, OUTLOOK_REFRESH_TOKEN, AWARDDESK_PROXY_FILE and solver keys in .env, then restart.</p>
+        <p id="eva-setup" class="notice" hidden>Add EVA accounts, Outlook OAuth, proxies and solver keys in Admin.</p>
         <div class="ana-actions"><button id="eva-login" class="primary" type="button" disabled>Prepare EVA session</button><button id="eva-cancel" class="secondary" type="button" hidden>Cancel login check</button></div>
         <p class="hint">Searches aggregate maximum-offset Miles &amp; Cash estimates for each fare family, regardless of the test account's mileage balance.</p>
       </section>
@@ -37,12 +37,12 @@
         </div>
           <p>The background job validates and saves your session for reuse. It logs in when no valid session is available. Flight searches are not available yet.</p>
         <p id="ana-status" role="status" aria-live="polite">Checking configuration…</p>
-        <p id="ana-setup" class="notice" hidden>Set ANA_MEMBER_NUMBER, ANA_PASSWORD and HYPER_API_KEY in the local .env file, then restart with <code>go run .</code>.</p>
+        <p id="ana-setup" class="notice" hidden>Set ANA_MEMBER_NUMBER, ANA_PASSWORD and HYPER_API_KEY in Admin settings, then restart with <code>go run .</code>.</p>
         <div class="ana-actions">
           <button id="ana-login" class="primary" type="button" disabled>Prepare ANA session</button>
           <button id="ana-cancel" class="secondary" type="button" hidden>Cancel login check</button>
         </div>
-          <p class="hint">Sessions are saved in per-account JSON files. Checks run at startup and every five minutes; OTP or errors pause automatic checks until you retry.</p>
+          <p class="hint">Sessions are saved in the local SQLite database. Checks run at startup and every five minutes; OTP or errors pause automatic checks until you retry.</p>
       </section>
       <section class="search-panel" aria-label="Search award flights">
         <div class="panel-top">

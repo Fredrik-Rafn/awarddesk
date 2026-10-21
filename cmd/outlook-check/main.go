@@ -16,13 +16,23 @@ func main() {
 	}
 }
 func run() error {
-	if err := config.LoadEnv(".env"); err != nil {
+	db, err := config.Database()
+	if err != nil {
 		return err
 	}
-	reader := outlook.New(outlook.Config{Email: os.Getenv("OUTLOOK_EMAIL"), ClientID: os.Getenv("OUTLOOK_CLIENT_ID"), RefreshToken: os.Getenv("OUTLOOK_REFRESH_TOKEN")})
+	defer db.Close()
+	accounts, err := db.Accounts()
+	if err != nil {
+		return err
+	}
+	if len(accounts) == 0 {
+		return fmt.Errorf("Add an EVA account in Admin first")
+	}
+	a := accounts[0]
+	reader := outlook.New(outlook.Config{Email: a.OutlookEmail, ClientID: a.ClientID, RefreshToken: a.RefreshToken, StateBackend: db})
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
-	_, err := reader.Checkpoint(ctx)
+	_, err = reader.Checkpoint(ctx)
 	if err == nil {
 		fmt.Println("Outlook OAuth2 and read-only IMAP inbox access verified. No email bodies printed or messages modified.")
 	}

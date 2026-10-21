@@ -3,6 +3,7 @@
 package outlook
 
 import (
+	"awarddesk/internal/sessionstore"
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -32,7 +33,10 @@ import (
 const sender = "eservice@mh1.evaair.com"
 const subject = "EVA Air Infinity MileageLands- Login Verification Letter"
 
-type Config struct{ Email, ClientID, RefreshToken string }
+type Config struct {
+	Email, ClientID, RefreshToken string
+	StateBackend                  sessionstore.Backend
+}
 type Reader struct {
 	config  Config
 	mu      sync.Mutex

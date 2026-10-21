@@ -13,6 +13,9 @@ import (
 // Lock is released by Windows even when the process crashes. A leftover file
 // is harmless: ownership is an OS lock, not the existence of the file.
 func (s Store) Lock() (func(), error) {
+	if s.Backend != nil {
+		return s.Backend.LockState(s.Path)
+	}
 	if err := os.MkdirAll(filepath.Dir(s.Path), 0700); err != nil {
 		return nil, errors.New("cannot create session lock directory")
 	}

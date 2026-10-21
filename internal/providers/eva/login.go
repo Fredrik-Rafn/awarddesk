@@ -26,6 +26,8 @@ const LoginURL = "https://eservice.evaair.com/flyeva/eva/ffp/login.aspx"
 const ItineraryURL = "https://eservice.evaair.com/flyeva/eva/ffp/frequent-flyer.aspx"
 
 type Config struct {
+	StateBackend                      sessionstore.Backend
+	SessionMaxAge                     time.Duration
 	Email, Password, HyperKey, AnyKey string
 	ImpervaSolver                     string
 	Pool                              *proxies.Pool
@@ -46,6 +48,8 @@ type cached struct {
 	Account         string
 	Identity        string
 	Created         time.Time
+	ExpiresAt       time.Time
+	ExpirySource    string
 	Proxy, Template string
 	HTTP            session.State
 }
@@ -56,7 +60,7 @@ func (p *Provider) identity() string {
 }
 func (p *Provider) store() sessionstore.Store {
 	h := sha256.Sum256([]byte(strings.ToLower(p.config.Email)))
-	return sessionstore.Store{Path: filepath.Join(".state", "eva", hex.EncodeToString(h[:])+".json")}
+	return sessionstore.Store{Backend: p.config.StateBackend, Path: filepath.Join(".state", "eva", hex.EncodeToString(h[:])+".json")}
 }
 func (p *Provider) Ensure(ctx context.Context, report award.Reporter) error {
 	ctx, report = trackRequestRecoveries(ctx, report)
@@ -143,9 +147,16 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 		if json.Unmarshal(data, &saved) != nil || saved.Version != 1 {
 			return award.Failure("session_store", "EVA saved session is invalid")
 		}
-		if saved.Identity == p.identity() && !saved.Created.IsZero() && !saved.Created.After(time.Now()) && time.Since(saved.Created) < 24*time.Hour {
+		if saved.Identity == p.identity() && !saved.Created.IsZero() && !saved.Created.After(time.Now()) && time.Now().Before(p.sessionExpiry(saved)) {
 			lease, err = p.config.Pool.Resume(ctx, saved.Template, saved.Proxy)
 			if err != nil {
+				if errors.Is(err, proxies.ErrRemoved) {
+					p.discardWarm()
+					if e := store.Delete(); e != nil {
+						return award.Failure("session_store", "Could not replace the removed EVA proxy session")
+					}
+					return errExpired
+				}
 				return award.Failure("proxy_pool", "EVA saved proxy is unavailable")
 			}
 		} else if err = store.Delete(); err != nil {
@@ -437,6 +448,7 @@ func (p *Provider) save(store sessionstore.Store, c *session.Client, saved cache
 		return award.Failure("session_store", "Could not snapshot EVA session")
 	}
 	saved.HTTP = state
+	saved.ExpiresAt, saved.ExpirySource = p.expiry(saved)
 	saved.Account = p.config.Email
 	data, err := json.Marshal(saved)
 	if err == nil {

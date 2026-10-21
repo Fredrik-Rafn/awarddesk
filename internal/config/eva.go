@@ -11,12 +11,12 @@ import (
 
 // EVA is shared by the server and diagnostic command.
 func EVA() (*eva.Provider, bool, error) {
-	ttl := 2 * time.Minute
+	ttl := 30 * time.Minute
 	if value := os.Getenv("EVA_RESULT_CACHE_TTL"); value != "" {
 		var err error
 		ttl, err = time.ParseDuration(value)
-		if err != nil || ttl < 0 || ttl > 15*time.Minute {
-			return nil, false, fmt.Errorf("EVA_RESULT_CACHE_TTL must be a duration between 0s and 15m")
+		if err != nil || ttl < 0 || ttl > 24*time.Hour {
+			return nil, false, fmt.Errorf("EVA_RESULT_CACHE_TTL must be a duration between 0s and 24h")
 		}
 	}
 	c := eva.Config{

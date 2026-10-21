@@ -1,17 +1,9 @@
 # EVA search speed
 
-The app persists complete search results as JSON in `.state/eva-results/`.
-The default lifetime is **two minutes from availability retrieval**, not from
-the last cache hit. Set `EVA_RESULT_CACHE_TTL=2m` in `.env` to change it; `0s`
-disables the cache and the maximum accepted value is `15m`.
-
-The key includes the account configuration, provider, route, date, cabin and
-adult count. Only complete successful results are cached, including confirmed
-empty results. Errors, partial results, expired files, future timestamps and
-unrecognized file versions are never reused. At most 100 result files are kept.
-Cache writes are atomic; corrupt or unreadable cache files fall back to live
-searches. Cookies, page tickets, traveller profiles and booking tokens are not
-stored in these result files.
+Complete EVA results are stored in SQLite for **30 minutes from availability retrieval**.
+Change `EVA_RESULT_CACHE_TTL` in Admin; `0s` disables caching, up to `24h` is accepted.
+Only complete successes are cached, keyed by account and query. Expiry is checked
+on every read; periodic cleanup bounds storage at 1,000 entries.
 
 The frontend labels results **Live** or **Cached**, with their original retrieval
 time. **Refresh live (skip recent results)** bypasses cached results and updates
@@ -22,7 +14,8 @@ Recent cache hits bypass the live-search queue and provider cooldowns.
 Identical queued/running requests share one job, preventing duplicate solver and
 airline requests. The live-refresh flag must also match. This is single-process
 coalescing; cancelling a shared job cancels it for all callers using that ID.
-Different live searches still use the account sequentially.
+Different accounts can search concurrently; each individual account remains exclusive.
+The default concurrency limit is four, with up to 16 configurable in Admin.
 
 For uncached searches, the external CAPTCHA task runs alongside the full Akamai
 sensor sequence. Only the sensor task uses the airline HTTP client; CAPTCHA
@@ -34,7 +27,7 @@ IDs and booking session state change after each request.
 ## Warm connections and progressive results
 
 EVA retains one serialized HTTP client for its current account/proxy session.
-Every operation still locks and loads the portable JSON file and checks the proxy
+Every operation still locks and loads the portable JSON record in SQLite and checks the proxy
 exit IP. A changed saved snapshot or proxy, any failed operation, or more than five
 minutes idle before reuse discards the warm client. The server closes retained
 connections at shutdown. Each operation receives a fresh request budget while

@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Awarddesk · Admin</title>
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="/admin.css" />
+    <script src="/admin.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/">◈ <span>awarddesk</span></a
+      ><a class="admin-link" href="/">← Flight search</a>
+    </header>
+    <main>
+      <section class="intro">
+        <div class="eyebrow">LOCAL WORKSPACE</div>
+        <h1>Workspace admin.</h1>
+        <p>Accounts, ready sessions, saved flights and provider settings.</p>
+      </section>
+      <p id="message" role="status" aria-live="polite"></p>
+      <section id="login-panel" class="search-panel">
+        <h2>Admin access</h2>
+        <form id="login-form">
+          <label for="admin-password">Password</label
+          ><input
+            id="admin-password"
+            type="password"
+            autocomplete="current-password"
+            required
+          /><button class="primary" type="submit">Sign in</button>
+        </form>
+      </section>
+      <div id="workspace" hidden>
+        <div class="admin-toolbar">
+          <nav aria-label="Admin sections">
+            <a href="#accounts">Accounts &amp; sessions</a
+            ><a href="#flights">Saved flights</a><a href="#searches">Searches</a
+            ><a href="#proxies">Proxies</a><a href="#settings">Settings</a>
+          </nav>
+          <button id="logout" class="secondary">Sign out</button>
+        </div>
+        <div id="summary" class="stats"></div>
+        <section id="accounts" class="search-panel">
+          <div class="panel-top">
+            <h2>Accounts &amp; sessions</h2>
+            <button id="new-account" class="secondary">Add EVA account</button>
+          </div>
+          <p class="hint">
+            One active search per account. Separate accounts run concurrently.
+            Background preparation checks idle accounts every five minutes and
+            refreshes expired sessions.
+          </p>
+          <div id="account-list"></div>
+          <form id="account-form" hidden>
+            <h3 id="account-heading">Add EVA account</h3>
+            <input name="id" type="hidden" />
+            <div class="admin-grid">
+              <label>Label<input name="label" required maxlength="120" /></label
+              ><label
+                >EVA email<input name="email" type="email" required /></label
+              ><label
+                >EVA password<input
+                  name="password"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="Leave empty to keep existing" /></label
+              ><label
+                >Outlook email<input
+                  name="outlookEmail"
+                  type="email"
+                  required /></label
+              ><label
+                >Outlook OAuth client ID<input
+                  name="clientId"
+                  required /></label
+              ><label
+                >Outlook refresh token<input
+                  name="refreshToken"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="Leave empty to keep existing"
+              /></label>
+            </div>
+            <label class="check"
+              ><input name="enabled" type="checkbox" checked /> Enabled</label
+            >
+            <div class="ana-actions">
+              <button class="primary" type="submit">Save account</button
+              ><button id="cancel-account" class="secondary" type="button">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </section>
+        <section id="flights" class="search-panel">
+          <div class="panel-top">
+            <h2>Saved flights</h2>
+            <button id="clear-cache" class="secondary">
+              Clear flight cache
+            </button>
+          </div>
+          <p class="hint">
+            Complete results are reused for 30 minutes by default. Live searches
+            bypass expired entries. Cached results retain their original
+            retrieval time.
+          </p>
+          <div id="flight-list"></div>
+          <details id="cache-details" hidden>
+            <summary>Cached result details</summary>
+            <pre id="cache-json"></pre>
+          </details>
+        </section>
+        <section id="searches" class="search-panel">
+          <h2>Ongoing &amp; recent searches</h2>
+          <p class="hint">
+            Bounded workers queue searches when all accounts are busy. Identical
+            ongoing queries share one job. Interrupted searches are recorded on
+            restart.
+          </p>
+          <div id="job-list"></div>
+        </section>
+        <section id="proxies" class="search-panel">
+          <h2>Sticky proxies</h2>
+          <p class="hint">
+            One authenticated Evomi endpoint per line. Each fresh login gets a
+            new locked sticky ID; saved sessions keep their exact proxy. Changes
+            apply to new leases. Removing a session’s endpoint requires that
+            session to be prepared again.
+          </p>
+          <p id="proxy-count" class="hint"></p>
+          <button id="edit-proxies" class="secondary" type="button">
+            Edit proxy list
+          </button>
+          <form id="proxy-form" hidden>
+            <label for="proxy-list">Proxy list</label
+            ><textarea
+              id="proxy-list"
+              rows="9"
+              spellcheck="false"
+              autocomplete="off"
+            ></textarea
+            ><button class="primary" type="submit">Save proxies</button>
+          </form>
+        </section>
+        <section id="settings" class="search-panel">
+          <h2>Settings &amp; API keys</h2>
+          <p class="hint">
+            Saved immediately. EVA uses updates when an account next becomes
+            idle. ANA and BA startup settings require a server restart. Empty
+            secret fields keep their current value; use Clear to remove a key.
+          </p>
+          <form id="settings-form">
+            <div id="setting-fields" class="admin-grid"></div>
+            <div class="admin-grid">
+              <label
+                >Add setting name<input
+                  id="new-setting-key"
+                  placeholder="SETTING_NAME" /></label
+              ><label
+                >Value<input
+                  id="new-setting-value"
+                  type="password"
+                  autocomplete="off"
+              /></label>
+            </div>
+            <button class="primary" type="submit">Save settings</button>
+          </form>
+          <hr />
+          <form id="password-form">
+            <label for="new-password">Change admin password</label
+            ><input
+              id="new-password"
+              type="password"
+              autocomplete="new-password"
+              minlength="4"
+              maxlength="72"
+              required
+            /><button class="secondary" type="submit">
+              Change password &amp; sign out
+            </button>
+          </form>
+        </section>
+      </div>
+    </main>
+    <footer>
+      Local SQLite workspace · API keys and account secrets stay on this
+      computer.
+    </footer>
+  </body>
+</html>

@@ -16,6 +16,8 @@ import (
 	"time"
 )
 
+var ErrRemoved = errors.New("saved proxy slot was removed")
+
 var sessionTag = regexp.MustCompile(`_(?:session|hardsession|lockedsession)-[^_]+`)
 var lifetimeTag = regexp.MustCompile(`_lifetime-\d+`)
 
@@ -25,12 +27,14 @@ type entry struct {
 	until time.Time
 }
 type Pool struct {
-	mu      sync.Mutex
-	path    string
-	entries []*entry
-	next    int
-	mod     time.Time
-	size    int64
+	mu          sync.Mutex
+	path        string
+	source      func() (string, error)
+	sourceValue string
+	entries     []*entry
+	next        int
+	mod         time.Time
+	size        int64
 }
 type Lease struct {
 	URL      string
@@ -54,6 +58,20 @@ func (p *Pool) Count() int { p.mu.Lock(); defer p.mu.Unlock(); return len(p.entr
 // reload runs under the pool lock after initialization. Live leases survive
 // edits/removals; invalid replacement files fail closed without leaking lines.
 func (p *Pool) reload() error {
+	if p.source != nil {
+		value, err := p.source()
+		if err != nil {
+			return err
+		}
+		if value == p.sourceValue && len(p.entries) > 0 {
+			return nil
+		}
+		if err = p.apply([]byte(value)); err != nil {
+			return err
+		}
+		p.sourceValue = value
+		return nil
+	}
 	info, err := os.Stat(p.path)
 	if err != nil {
 		return errors.New("proxy list could not be opened")
@@ -68,6 +86,15 @@ func (p *Pool) reload() error {
 	if err != nil {
 		return errors.New("proxy list could not be read")
 	}
+	if err = p.apply(data); err != nil {
+		return err
+	}
+	p.mod, p.size = info.ModTime(), info.Size()
+	return nil
+}
+func NewSource(source func() (string, error)) *Pool { return &Pool{source: source} }
+func Validate(value string) error                   { return (&Pool{}).apply([]byte(value)) }
+func (p *Pool) apply(data []byte) error {
 	old := map[string]*entry{}
 	for _, e := range p.entries {
 		old[e.url] = e
@@ -105,7 +132,7 @@ func (p *Pool) reload() error {
 	if len(next) == 0 {
 		return errors.New("proxy list contains no endpoints")
 	}
-	p.entries, p.mod, p.size = next, info.ModTime(), info.Size()
+	p.entries = next
 	return nil
 }
 
@@ -212,5 +239,5 @@ func (p *Pool) Resume(ctx context.Context, template, raw string) (*Lease, error)
 			}
 		}}, nil
 	}
-	return nil, errors.New("saved proxy slot was removed")
+	return nil, ErrRemoved
 }

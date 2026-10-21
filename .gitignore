@@ -8,3 +8,10 @@ bin/
 *.log
 proxies.txt
 .state/
+
+data/
+*.db
+*.db-wal
+*.db-shm
+*.db.locks/
+*.db.server.lock

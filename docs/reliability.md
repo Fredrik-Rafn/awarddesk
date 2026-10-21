@@ -1,14 +1,13 @@
 # Login reliability and proxy operation
 
-`AWARDDESK_PROXY_FILE=proxies.txt` is configured locally. The file contains the
-100 supplied Evomi exports, one per line. It is git-ignored, as is `.env`.
-Replace/add lines in this file to update the pool; it reloads at the next
-acquisition. Malformed or empty replacements fail closed. In-flight leases
-remain valid. `proxies.example.txt` contains a fake format example.
+Current configuration and proxy lists are managed in Admin and stored in SQLite.
+Existing `.env`, `proxies.txt` and JSON session files are imported once. See
+[storage and migration](storage.md). The historical measurements below describe
+their recorded test runs; they are not a guarantee of zero provider failures.
 
 The pool currently supports authenticated Evomi endpoints. A new lease replaces
 the exported session ID with a fresh random ten-character `lockedsession` ID
-and removes `lifetime`, leaving the source file unchanged. All airline requests
+and removes `lifetime`, leaving the configured template unchanged. All airline requests
 in an attempt use that URL and one isolated cookie jar. An exit-IP lookup during
 initialization is compared with another immediately before credentials.
 
@@ -82,3 +81,32 @@ go run ./cmd/ana-login -runs 3 -report results.json
 The CLI performs fresh sequential checks, stops on MFA/account/rate-limit
 responses, and saves sanitized timing/error metadata. `-runs` is bounded to ten.
 No award searches were implemented or performed.
+
+## SQLite and multi-account verification (21 October 2026)
+
+The local workspace now uses SQLite and bounded account workers. Automated tests
+cover 18 searches across three simulated accounts with no per-account overlap,
+ready-session preference, safe account failover, uncertain-outcome exclusions,
+manual/background preparation coalescing, account edits while busy, cancellation,
+external account leases, concurrent SQLite writes, one-time migration, admin
+CSRF/authentication/secret masking, and persisted search results after restart.
+
+Live checks during this change:
+
+| Check | Result |
+| --- | --- |
+| First automatic login preparation | EVA HTTP 403; status recorded and backed off |
+| Next automatic preparation | Successful, session saved in SQLite |
+| TPE–HKG first search | Six flights found; selected-fare pricing context missing after a 41-second response; job failed with partial availability |
+| HND–SIN business, 30 November 2026 | Complete, four flights, 39.1 seconds |
+| TPE–HKG retest, same date/cabin | Complete, six flights, 75.2 seconds |
+| Cached HND–SIN | Complete in 4 ms; 1,800-second cache TTL; repeated requests shared a cached job |
+| Cached TPE–HKG after restart | Complete in 8 ms; six flights; 1,800-second cache TTL |
+| Concurrent authenticated admin overview requests | 24/24 successful; maximum 90 ms |
+
+The missing selected-fare-state case now has a bounded availability refresh before
+checkout, with regression coverage. It never infers a price or repeats a completed
+checkout. The live retest succeeded without needing that recovery, so its success
+must not be presented as live proof that the new recovery executed. These checks
+are functional evidence, not a meaningful new provider failure-rate estimate.
+Multiple real accounts are still needed for a live multi-account load test.

@@ -200,6 +200,24 @@ func priceFaresWithReplans(ctx context.Context, c pricingClient, page pageData, 
 			if selected.SessionID != "" {
 				page.SessionID = selected.SessionID
 			}
+			// A successful selection response may contain only an error/delta page.
+			// Reopen availability before checkout; never infer a price or repeat BOOK.
+			rawPrice := selected.Business["Price"]
+			if len(rawPrice) == 0 || strings.TrimSpace(string(rawPrice)) == "null" {
+				if replans <= 0 {
+					return award.Failure("pricing_protocol", "EVA did not return selected-fare pricing state after availability refresh")
+				}
+				refreshed, fresh, e := refreshAvailability(ctx, c, page, initialPage, result.Query)
+				if e != nil {
+					return e
+				}
+				preserveMatchingQuotes(&fresh, *result)
+				*result = fresh
+				if report != nil {
+					report(award.Progress{Stage: "miles pricing", Message: "EVA omitted selected-fare pricing state; refreshing availability before checkout", Recovery: recoveryDetail("fare selection", award.Failure("pricing_state_missing", "Missing selected-fare pricing state"), 3-replans)})
+				}
+				return priceFaresWithReplans(ctx, c, refreshed, result, report, replans-1)
+			}
 			var price struct {
 				IsMilesMode bool
 				TotalAmount struct {
@@ -207,7 +225,8 @@ func priceFaresWithReplans(ctx context.Context, c pricingClient, page pageData, 
 					Currency namedCode
 				}
 			}
-			if json.Unmarshal(selected.Business["Price"], &price) != nil || price.IsMilesMode || price.TotalAmount.Currency.Code != f.CashPrice.Currency {
+			if json.Unmarshal(rawPrice, &price) != nil || price.IsMilesMode || price.TotalAmount.Currency.Code != f.CashPrice.Currency {
+				slog.Warn("EVA selected-fare context rejected", "milesMode", price.IsMilesMode, "currencyMatches", price.TotalAmount.Currency.Code == f.CashPrice.Currency, "pricedGroups", done)
 				return award.Failure("pricing_protocol", "EVA pricing context changed")
 			}
 			want, e1 := strconv.ParseFloat(f.CashPrice.Amount, 64)

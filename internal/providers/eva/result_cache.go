@@ -24,7 +24,7 @@ func (p *Provider) resultStore(q award.Query) sessionstore.Store {
 	q.Refresh = false
 	data, _ := json.Marshal(q)
 	h := sha256.Sum256(append([]byte(p.identity()+"\x00"), data...))
-	return sessionstore.Store{Path: filepath.Join(".state", "eva-results", hex.EncodeToString(h[:])+".json")}
+	return sessionstore.Store{Backend: p.config.StateBackend, Path: filepath.Join(".state", "eva-results", hex.EncodeToString(h[:])+".json")}
 }
 
 func (p *Provider) CachedSearch(q award.Query) (award.Result, bool) {
@@ -70,7 +70,9 @@ func (p *Provider) searchCached(ctx context.Context, q award.Query, report award
 			if saveErr := store.Save(data); saveErr != nil {
 				slog.Warn("EVA result cache write failed")
 			} else {
-				pruneResultCache(filepath.Dir(store.Path), 100)
+				if store.Backend == nil {
+					pruneResultCache(filepath.Dir(store.Path), 100)
+				}
 			}
 		}
 	}

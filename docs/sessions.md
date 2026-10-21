@@ -7,13 +7,13 @@ same manager manually. No flight-search endpoints are called.
 
 ## Reuse and renewal
 
-1. Acquire an exclusive account/session file lock.
-2. Load `.state/ana/<account-hash>.json` as readable JSON.
+1. Acquire an exclusive account/session lock.
+2. Load the ANA account’s portable JSON record from SQLite.
 3. Restore cookies with original domain/path/expiry and deletion semantics,
    the authorization token, frontend API headers and browser identity.
 4. Reserve the original proxy pool slot and use its exact locked session ID.
    Check the exit IP and verify the authenticated member with ANA.
-5. If the file is absent, exceeds the one-day local reuse limit, or ANA confirms
+5. If the record is absent, exceeds the one-day local reuse limit, or ANA confirms
    unauthenticated membership (HTTP 401 or no matching member), log in afresh
    and save the newly verified session. Credential/configuration identity
    changes also invalidate the old cache.
@@ -24,13 +24,13 @@ same manager manually. No flight-search endpoints are called.
 The one-day cap is an application limit, not a claim about ANA's token lifetime.
 Cookie expiry and server-side revocation can invalidate a session earlier.
 Every use requires validation. HTTP 403, OTP, timeouts, changed/unavailable proxy
-identity, and unreadable/corrupt files stop the job instead of triggering
+identity, and unreadable/corrupt records stop the job instead of triggering
 repeated credential submissions. These errors pause background checks for that
 server run; manual retry or restarting the server resumes preparation.
 
-Existing good files are not overwritten on failed validation or OTP. An
-expired file is removed before a fresh login; unsuccessful login is never saved.
-All phases share a 150-second operation deadline. A saved file is not created
+Existing good records are not overwritten on failed validation or OTP. An
+expired record is removed before a fresh login; unsuccessful login is never saved.
+All phases share a 150-second operation deadline. A saved record is not created
 until the authenticated member number is verified.
 
 ## Proxies
@@ -40,7 +40,7 @@ round-robin order, with a new random locked-session ID. It does not rotate
 between requests. Restoring a session reserves its original slot and does not
 generate a new ID. Removing/changing that slot causes restore to stop.
 
-All 100 entries in the current `proxies.txt` specify `lifetime-1440`. The app
+The proxy list is managed in Admin and stored in SQLite. The app
 continues to use Evomi's stricter `lockedsession` mode, for which `lifetime`
 does not apply. It fails if the peer goes offline instead of switching IPs.
 Neither a one-day setting nor an unused pool slot guarantees a particular

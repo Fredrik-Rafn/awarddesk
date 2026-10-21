@@ -1,187 +1,138 @@
 # Awarddesk
 
-Local airline integration app. **Go backend + embedded HTML/CSS/JavaScript frontend.**
-One process serves both at http://127.0.0.1:8080. There is no Node, npm, frontend
-build pipeline, database, or separate frontend server.
+Local airline search app: one Go process serves the backend, embedded frontend,
+background session preparation and SQLite database. Works on Windows, macOS and
+Linux. Requires Go 1.25.5 or newer; no Node, separate frontend server, C compiler
+or external database is needed.
 
-| Module | Available functionality | Status |
-| --- | --- | --- |
-| EVA Air · Miles & Cash | Login, Outlook OAuth OTP, JSON session files, flight availability and checkout price preparation | Integrated and live-verified in economy, premium economy and business; one adult, one way |
-| ANA Mileage Club | Fresh login, Hyper/Akamai initialization, authenticated member verification | Direct login previously verified; current direct check requires MFA; proxy checks return HTTP 403 |
-| British Airways / Avios | Login and award-flight search | Experimental; repeatable standalone login remains unverified |
-
-ANA award searches are not implemented. The background job saves verified ANA
-sessions in per-account JSON files and validates them before reuse.
-See [saved sessions](docs/sessions.md).
-
-EVA also reuses complete identical search results for two minutes, marks them
-as cached, and offers **Refresh live** to bypass them. See
-[search speed and caching](docs/performance.md).
-
-## Start backend and frontend
-
-Supports **macOS, Windows and Linux**. Install Go 1.25.5 or newer.
-For a new macOS/Linux checkout:
+## Run
 
 ```sh
 git clone https://github.com/Fredrik-Rafn/awarddesk.git
 cd awarddesk
-cp .env.example .env
-cp proxies.example.txt proxies.txt
-# Fill in .env and proxies.txt, then start backend and frontend together:
 go run .
 ```
 
-On Windows, from PowerShell:
+Open http://127.0.0.1:8080 for flight searches, and
+http://127.0.0.1:8080/admin for administration. The initial admin password is
+**admin1234**, with no username. It can be changed in Admin.
+Use `go run . -port 8090` for another local port. Ctrl+C stops the server.
 
-```powershell
-git clone https://github.com/Fredrik-Rafn/awarddesk.git
-cd awarddesk
-Copy-Item .env.example .env
-Copy-Item proxies.example.txt proxies.txt
-# Fill in .env and replace the proxy examples with your proxy credentials.
-go run .
-```
+On the first run, existing `.env`, `proxies.txt` and valid `.state/**/*.json`
+files are imported automatically. After that **SQLite is authoritative**;
+editing old files does not override Admin changes. An empty checkout can be
+configured entirely in Admin. The old files are retained as migration backups.
+Do not run the previous file-based version against an already migrated workspace.
 
-Credentials, solver keys, proxy credentials and saved sessions are excluded from
-Git. Configure the new laptop's `.env` and `proxies.txt` separately. Sessions and
-rotated Outlook tokens are readable JSON files under `.state/`, one per account.
-They can be copied between operating systems, with no machine-specific encryption
-or key. A copied airline session still needs its original sticky proxy and must
-pass the provider's expiry and authentication checks. See [file storage](docs/storage.md).
+To move your configured workspace to another computer, stop Awarddesk cleanly
+and securely copy `data/awarddesk.db` into the new checkout's `data` directory.
+Do not copy only the main database file while its WAL is active. Git contains no
+accounts, keys, proxies or saved sessions. Live sessions still require their
+original proxy/IP to remain valid. No machine-specific encryption is used.
 
-Open **http://127.0.0.1:8080**. The ANA panel shows
-progress, success/failure, and cancellation. The session job starts automatically;
-**Prepare ANA session** also runs it on demand. No flight search runs automatically. EVA has its own session controls; its startup and periodic job is controlled by EVA_BACKGROUND_ENABLED. See [EVA integration](docs/eva.md).
+## Admin
 
-Other modes:
+- Add, edit, enable or remove EVA accounts, including their individual Outlook
+  OAuth client ID and refresh token. Blank secret fields keep existing values.
+- Inspect saved member sessions, expiry estimates, preparation status and errors;
+  prepare or invalidate a session explicitly. Busy accounts cannot be edited.
+- Replace the sticky Evomi proxy list. Each fresh login selects an available
+  endpoint with a new random locked ID; each saved session keeps its exact proxy.
+- Change Hyper/AnySolver keys, solver selection, caching and concurrency settings.
+  EVA applies changes when each account next becomes idle. ANA/BA startup settings
+  need a server restart.
+- Inspect cached flight results and ongoing/recent search jobs, cancel jobs and
+  remove cached results. Search history is retained for 24 hours.
 
-```powershell
-.\start.ps1                      # UI only, or use credentials already in the environment
-.\start.ps1 -Provider ba         # Prompt for BA and solver credentials
-.\start.ps1 -Provider all        # Prompt for both airlines
-.\start.ps1 -Provider ana -Port 8090
-```
+Admin uses a hashed password, HttpOnly/SameSite cookies, CSRF/origin checks and
+login throttling. API keys and account passwords/tokens are masked in forms and
+excluded from public configuration and job data. The app binds to localhost.
 
-The launcher runs current source every time, so an old executable cannot hide
-code changes. Ctrl+C stops the server and cancels active jobs. If PowerShell
-blocks scripts, use `powershell -ExecutionPolicy Bypass -File .\start.ps1 -Provider ana`
-for this invocation, or use `go run .` with environment configuration.
+## Search and session behavior
 
-## Configuration
+**EVA Air Miles & Cash** supports economy, premium economy and business, one adult,
+one way. It follows the supplied `IS_MILES_MODE=false` flow, including pricing
+preparation, and shows maximum-offset estimates regardless of account balance.
+It does not submit payment or ticketing. ANA is login-only; British Airways remains
+experimental. Actual award-ticket redemption is a different flow.
 
-The backend automatically loads `.env` from the current project directory at
-startup. Restart after changing it. Existing process environment variables take
-precedence. `.env` is excluded from Git; `.env.example` contains empty placeholders
-for a new checkout. Values can be unquoted, single-quoted (literal), or
-double-quoted (escaped); full-line `#` comments are supported. There is no variable
-expansion or inline-comment syntax.
+Complete identical EVA searches are cached for **30 minutes from availability
+retrieval**. Errors and partial results are never cached. **Refresh live** bypasses
+the cache. Cache entries are account-specific; identical ongoing queries share one
+job. Cancelling a shared job cancels it for every caller using that job ID.
 
-The optional PowerShell launcher can still prompt for overrides and restores
-the previous process environment on exit. It does not modify `.env`.
+Up to **four accounts** work concurrently by default, configurable from 1 to 16.
+Each account/session remains exclusive throughout a booking flow. Additional
+searches queue; one account cannot provide multiple independent live flows at once.
+Ready sessions are preferred, then rotated by last use. Safe preparation failures
+may use another account, at most three accounts per job. Pricing, credential and
+OTP requests with uncertain outcomes are not blindly replayed.
 
-| Variable | Used by |
+While Awarddesk is running, an in-process scheduler checks every 30 seconds and
+prepares up to two accounts at a time, within the configured concurrency limit.
+Idle ready accounts are reverified every five minutes. Transient preparation
+failures back off; credential/OTP or uncertain login outcomes need attention.
+The manual Prepare action resumes an account after inspection. No OS cron or
+Codex automation is required, and no flight searches run automatically.
+
+Member sessions retire five minutes before the earlier of their EVAID cookie
+expiry or configured maximum age (default 3h from creation). The cookie deadline
+is an upper bound: server revocation may happen sooner. EVA's booking page declares
+a separate 600-second booking timeout, which is not the member-login lifetime.
+A fresh booking context is created for each uncached search. See
+[storage and migration](docs/storage.md), [EVA details](docs/eva.md),
+[performance measurements](docs/performance.md) and [reliability](docs/reliability.md).
+
+## Settings
+
+| Admin setting | Default / purpose |
 | --- | --- |
-| `ANA_MEMBER_NUMBER`, `ANA_PASSWORD` | ANA ten-digit AMC number and web password |
-| `BA_EMAIL`, `BA_PASSWORD` | British Airways |
-| `HYPER_API_KEY` | Akamai and EVA booking security |
-| `ANYSOLVER_API_KEY` | BA CAPTCHA and EVA reCAPTCHA / image recognition |
-| `EVA_EMAIL`, `EVA_PASSWORD` | EVA member account |
-| `OUTLOOK_EMAIL`, `OUTLOOK_CLIENT_ID`, `OUTLOOK_REFRESH_TOKEN` | Read-only IMAP OAuth for fresh EVA OTP messages |
-| `ANA_BACKGROUND_ENABLED`, `EVA_BACKGROUND_ENABLED` | Set false to disable automatic session preparation |
-| `AWARDDESK_PROXY` | Optional sticky HTTP proxy shared by airline requests |
-| `AWARDDESK_PROXY_FILE` | ANA / EVA Evomi proxy pool; takes precedence over `AWARDDESK_PROXY` for ANA |
+| `EVA_RESULT_CACHE_TTL` | `30m`; `0s` disables caching; maximum `24h` |
+| `SEARCH_CONCURRENCY` | `4`; 1–16 independent accounts |
+| `EVA_SESSION_MAX_AGE` | `3h`; a conservative maximum, not a guaranteed server lifetime |
+| `EVA_BACKGROUND_ENABLED` | `true`; prepare and periodically verify sessions |
+| `EVA_IMPERVA_SOLVER` | `auto`: Hyper first, AnySolver fallback for generation errors |
+| `HYPER_API_KEY`, `ANYSOLVER_API_KEY` | Solver credentials |
+| `ANA_MEMBER_NUMBER`, `ANA_PASSWORD` | Optional ANA login settings |
+| `BA_EMAIL`, `BA_PASSWORD` | Optional experimental BA settings |
 
-Proxy formats: `host:port:user:password` or `http://user:password@host:port`.
-ANA does not require BA credentials or an AnySolver key. Missing configuration
-leaves the relevant action disabled. Credentials are stored only in the local
-`.env`, not in Go/JavaScript source or the tracked example.
+The database defaults to `data/awarddesk.db`. `AWARDDESK_DB` is an optional
+bootstrap environment variable selecting a different database path. It is not a
+runtime setting. Keep the database and its lock/WAL files on a local filesystem.
+Only one Awarddesk server should use a workspace at a time; local OS locks prevent
+simultaneous session use and release immediately when a process exits.
 
-## Project overview
+## Code overview
 
 ```text
-main.go                    Server entry point and module wiring
-cmd/ana-login/             Standalone ANA login verification command
-internal/
-  providers/ana/           ANA authorization, SSO and member verification
-  providers/eva/           EVA login, session reuse, availability and Miles & Cash
-  outlook/                 OAuth token rotation and read-only OTP mailbox reader
-  providers/ba/            BA login, booking-session flow and result parsing
-  antibot/                 Hyper Akamai adapter and AnySolver CAPTCHA adapter
-  session/                 HTTP/TLS, cookies, proxy and safe retries
-  proxies/                 Editable Evomi pool and exclusive locked-session leases
-  sessionstore/            Portable JSON files and per-account process locks
-  config/                  Local .env loading and environment precedence
-  login/                   Background login-check lifecycle and cancellation
-  award/                   Shared flight-search models and provider contract
-  jobs/                    Bounded flight-search queue and result lifetime
-  airports/                Embedded airport directory and autocomplete
-  web/                     Local HTTP API and security boundary
-    assets/                Frontend: index.html, app.css, app.js, sessions.js
- docs/                     Architecture, airline flows and verification scope
+main.go                         Startup, lifecycle and provider wiring
+internal/storage/               SQLite schema, migration, state and job persistence
+internal/fleet/                 EVA account scheduling, failover and maintenance
+internal/providers/eva/          Login, booking security, availability, pricing
+internal/providers/ana/          ANA login and saved-session manager
+internal/providers/ba/           Experimental BA integration
+internal/outlook/                OAuth rotation and read-only IMAP OTP lookup
+internal/proxies/                Sticky endpoint leasing and validation
+internal/session/               HTTP transport, scoped cookies and egress pinning
+internal/sessionstore/          Pluggable state storage and OS account locks
+internal/antibot/               Hyper and AnySolver clients
+internal/jobs/                  Bounded workers, progress, cancellation, history
+internal/web/assets/            Embedded flight-search and admin pages
+internal/config/                Database bootstrap and legacy import adapters
+cmd/                            Explicit diagnostic commands
 ```
 
-See [architecture and API](docs/architecture.md), [ANA login](docs/ana-login.md),
-[BA request flow](docs/ba-flow.md), and [verification limits](docs/verification-status.md).
+## Verify and diagnose
 
-## Development and checks
-
-```powershell
-go run .                    # Serve backend + frontend; loads local .env
-go test -timeout 45s ./...   # Offline tests, no airline requests or solver charges
-go vet ./...
-go build -trimpath -o bin/awarddesk.exe .
-.\bin\awarddesk.exe -port 8080
+```sh
+go test -p 1 ./...
+go vet -p 1 ./...
+go run ./cmd/eva-login
+go run ./cmd/outlook-check
+go run ./cmd/eva-check -help
 ```
 
-Frontend files are embedded at Go compile time. After editing files under
-`internal/web/assets`, stop and rerun `go run .`, then refresh the browser.
-Backend changes also require restarting. A separate development web server
-is unnecessary; API and UI use the same origin.
-
-For a terminal-only ANA login check: `./login-ana.ps1`, or
-`go run ./cmd/ana-login` with the three ANA/Hyper environment variables set.
-
-For live EVA reliability measurements, start the app, then run
-`go run ./cmd/eva-check -cases cases.json -out measurements.json`.
-The case file is an array of EVA search queries. Every search bypasses the
-result cache and uses the website API, including its automatic recovery.
-Reports separate clean successes, automatically recovered successes, partial
-results and final failures. This command makes real airline and solver requests.
-
-## Limits
-
-Localhost only; do not publicly reverse-proxy the app. POST/DELETE endpoints
-require the per-process CSRF token from `/api/config`. Secrets stay on the server.
-ANA permits one login check at a time with a 150-second total deadline.
-Concurrent starts share the current check. A successful result is reused for
-15 seconds with its original timestamp. Failures have a five-second cooldown
-(one minute for account/authentication responses); upstream cooldowns are honored. MFA/browser handoffs
-return explicit errors. Credential submissions are never automatically retried.
-Individual HTTP requests have no fixed spacing; dependent steps remain
-sequential. The optimized ANA flow was live-verified in 3.95 seconds with five
-Hyper generation calls and one cached-per-session IP lookup.
-
-The local `proxies.txt` contains the supplied 100 entries and is excluded from
-Git. Edit one endpoint per line; changes reload on the next lease without
-restarting. Blank lines and `#` comments are allowed. Invalid edits fail closed.
-ANA uses a fresh Evomi `lockedsession` ID per attempt, retaining that endpoint
-and cookie jar for the whole attempt. The original export remains unchanged.
-Locked sessions do not support Evomi's lifetime parameter; the application
-instead enforces its 150-second deadline and checks the exit IP before credentials.
-Fresh login uses the next unused pool slot; restored sessions use their original
-locked proxy ID. The current file has 100 one-day exports, but locked mode does
-not use their lifetime parameter. A one-day local cache limit does not guarantee
-ANA or the residential peer will remain available for that long.
-See [proxy and reliability details](docs/reliability.md).
-
-BA searches use a serial queue, bounded requests, and cancellation. Results are
-in memory for one hour. EVA price preparation uses the member profile and the captured checkout step; no payment or ticketing is performed. Current
-search scope is one-way, adults only, Denmark/English and DKK. Export JSON to
-keep search results.
-
-Historical HAR files, research scripts, diagnostic live tests, old reports,
-compiled binaries, and duplicate launchers are not part of this source tree.
-The previous project copy remains in its original Codex output folder.
-Third-party notices are retained in `THIRD_PARTY.md` and `THIRD_PARTY_LICENSES.txt`.
-
+Diagnostic login commands use the same database. EVA checks lease an account
+exclusively; explicit login checks can consume solver credits. The Outlook check
+uses the first stored EVA account and never sends mail or marks messages read.
+No live multi-account success rate is claimed before more real accounts are added.

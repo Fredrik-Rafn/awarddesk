@@ -34,11 +34,13 @@ func run() int {
 		fmt.Fprintln(os.Stderr, "runs must be 1-10")
 		return 1
 	}
-	if err := config.LoadEnv(".env"); err != nil {
+	db, err := config.Database()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	p, ready, err := config.ANA()
+	defer db.Close()
+	p, ready, err := config.ANAFromDatabase(db)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1

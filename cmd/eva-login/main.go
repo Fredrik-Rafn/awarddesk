@@ -3,6 +3,7 @@ package main
 import (
 	"awarddesk/internal/award"
 	"awarddesk/internal/config"
+	"awarddesk/internal/fleet"
 	"context"
 	"fmt"
 	"os"
@@ -16,13 +17,14 @@ func main() {
 	}
 }
 func run() error {
-	if err := config.LoadEnv(".env"); err != nil {
-		return err
-	}
-	p, ready, err := config.EVA()
+	db, err := config.Database()
 	if err != nil {
 		return err
 	}
+	defer db.Close()
+	p := fleet.New(db)
+	defer p.Close()
+	ready := p.Ready()
 	if !ready {
 		return fmt.Errorf("EVA, Outlook, proxy and solver configuration is incomplete")
 	}

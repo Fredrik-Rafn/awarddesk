@@ -24,6 +24,8 @@ import (
 var assets embed.FS
 
 type Server struct {
+	Admin        *Admin
+	Availability func() (bool, bool)
 	Jobs         *jobs.Service
 	Airports     []airports.Airport
 	Ready        bool
@@ -54,8 +56,17 @@ func fail(w http.ResponseWriter, status int, message string) {
 }
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	s.adminRoutes(mux)
 	mux.HandleFunc("GET /api/config", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, 200, map[string]any{"csrf": s.csrf, "ready": s.Ready, "proxyEnabled": s.ProxyEnabled, "providers": s.Jobs.Capabilities(), "anaLoginReady": s.ANALogin != nil && s.ANALogin.Ready(), "evaLoginReady": s.EVALogin != nil && s.EVALogin.Ready()})
+		ready, proxy := s.Ready, s.ProxyEnabled
+		if s.Availability != nil {
+			ready, proxy = s.Availability()
+		}
+		evaReady := s.EVALogin != nil && s.EVALogin.Ready()
+		if s.Admin != nil {
+			evaReady = s.Admin.Fleet.Ready()
+		}
+		writeJSON(w, 200, map[string]any{"csrf": s.csrf, "ready": ready, "proxyEnabled": proxy, "providers": s.Jobs.Capabilities(), "anaLoginReady": s.ANALogin != nil && s.ANALogin.Ready(), "evaLoginReady": evaReady})
 	})
 	mux.HandleFunc("GET /api/logins/eva", func(w http.ResponseWriter, r *http.Request) {
 		if s.EVALogin == nil {
@@ -65,8 +76,8 @@ func (s *Server) Handler() http.Handler {
 		writeJSON(w, 200, s.EVALogin.Status())
 	})
 	mux.HandleFunc("POST /api/logins/eva", func(w http.ResponseWriter, r *http.Request) {
-		if s.EVALogin == nil || !s.EVALogin.Ready() {
-			fail(w, 503, "Configure EVA credentials, Outlook OAuth, proxy file and solver keys, then restart")
+		if s.EVALogin == nil || !s.EVALogin.Ready() || (s.Admin != nil && !s.Admin.Fleet.Ready()) {
+			fail(w, 503, "Configure EVA accounts, Outlook OAuth, proxies and solver keys in Admin")
 			return
 		}
 		if err := s.EVALogin.Start(); err != nil {
@@ -150,8 +161,12 @@ func (s *Server) Handler() http.Handler {
 	})
 }
 func (s *Server) submit(w http.ResponseWriter, r *http.Request) {
-	if !s.Ready {
-		fail(w, 503, "Configure an airline account and its solver settings in .env, then restart")
+	ready := s.Ready
+	if s.Availability != nil {
+		ready, _ = s.Availability()
+	}
+	if !ready {
+		fail(w, 503, "Configure an airline account, proxies and solver settings in Admin")
 		return
 	}
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))

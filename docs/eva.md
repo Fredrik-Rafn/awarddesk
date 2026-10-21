@@ -2,7 +2,7 @@
 
 Run the entire application from the repository directory with `go run .`.
 The backend, session jobs and embedded frontend share port 8080. Restart the
-process after editing Go, frontend files, or `.env`.
+process after editing Go or frontend files. Configure accounts and keys in Admin.
 
 `EVA_IMPERVA_SOLVER=auto` (the default) uses Hyper for Incapsula/Reese84 and
 tries AnySolver if Hyper's generation service fails. `hyper` and `anysolver`
@@ -14,16 +14,14 @@ uncertain outcomes do not trigger a solver change. See the
 
 ## Configuration
 
-The local `.env` supplies `EVA_EMAIL`, `EVA_PASSWORD`, `HYPER_API_KEY`,
-`ANYSOLVER_API_KEY`, `AWARDDESK_PROXY_FILE`, `OUTLOOK_EMAIL`,
-`OUTLOOK_CLIENT_ID`, and `OUTLOOK_REFRESH_TOKEN`. No Outlook password is needed.
-Use `.env.example` for an empty configuration template. Never commit `.env`,
-`proxies.txt`, HAR captures, emails, or `.state`.
+Admin stores each EVA account and its Outlook OAuth details in SQLite, alongside
+global solver keys and the proxy list. No Outlook password is needed. Existing
+`.env` and state files are imported once. See [storage](storage.md).
 
-`EVA_BACKGROUND_ENABLED=false` disables automatic session preparation. Otherwise
-the session job runs at startup and checks every five minutes. A failed or
-cancelled check pauses automatic attempts; use **Prepare EVA session** to retry.
-Flight searches run only when requested.
+The in-process scheduler checks every 30 seconds, prepares up to two accounts at
+a time within the global limit, and reverifies ready idle sessions every five
+minutes. Transient failures back off; credential/OTP failures and uncertain login
+outcomes require an explicit Prepare action. Flight searches remain on demand.
 
 ## Modules
 
@@ -41,13 +39,14 @@ printing email contents.
 
 ## Sessions and OTP
 
-Verified cookies are saved as readable `.state/eva/<account-hash>.json` files.
-Each contains the account, cookie scopes/expiry, browser identity and sticky proxy.
+Verified cookies are saved as account-specific portable JSON records in SQLite.
+Each record contains the account, cookie scopes/expiry, browser identity and sticky proxy.
 Storage works on macOS, Windows and Linux without an encryption key.
 Each session retains its original locked proxy identity and browser identity.
 Fresh logins take an unused pool slot and a new locked proxy session.
-The cache has a 24-hour local limit, but EVA or the residential peer can expire
-sooner. A saved session is checked against the member page before use.
+Member sessions retire five minutes before the earlier of the EVAID cookie deadline
+or configured maximum age (default 3h). The server or residential peer can expire
+sooner; a cookie deadline is an upper bound, not a guaranteed lifetime. A saved session is checked against the member page before use.
 An expired-login response or a failed proxy/IP preflight permits one fresh
 authentication on a new locked proxy. This recovery occurs before submitting
 credentials or pricing. Requests within a flow retain the same proxy. Cookie
@@ -57,8 +56,8 @@ IP verification uses ipify through the same sticky proxy and checks the result
 against the saved pin. It does not depend on Hyper's IP-lookup permission or
 send a solver API key to the IP service. Hyper still generates Akamai sensors.
 
-Outlook refresh tokens rotate into `.state/outlook/<account-hash>.json`, alongside
-the email and OAuth client ID. Each mailbox has its own file.
+Outlook refresh tokens rotate into per-mailbox SQLite state records, alongside
+the email and OAuth client ID.
 Mailbox checks use read-only IMAP and `BODY.PEEK`; they never send mail or mark
 messages read. OTPs must match the sender, subject and configured recipient,
 arrive after the login checkpoint, and remain within EVA's three-minute lifetime.

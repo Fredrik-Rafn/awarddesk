@@ -12,9 +12,21 @@ import (
 
 const maxSize = 8 * 1024 * 1024
 
-type Store struct{ Path string }
+type Backend interface {
+	ReadState(string) ([]byte, error)
+	WriteState(string, []byte) error
+	DeleteState(string) error
+	LockState(string) (func(), error)
+}
+type Store struct {
+	Path    string
+	Backend Backend
+}
 
 func (s Store) Load() ([]byte, error) {
+	if s.Backend != nil {
+		return s.Backend.ReadState(s.Path)
+	}
 	info, err := os.Stat(s.Path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -40,6 +52,9 @@ func (s Store) Load() ([]byte, error) {
 	return data, nil
 }
 func (s Store) Save(data []byte) error {
+	if s.Backend != nil {
+		return s.Backend.WriteState(s.Path, data)
+	}
 	if len(data) == 0 || len(data) > maxSize {
 		return errors.New("invalid session size")
 	}
@@ -77,6 +92,9 @@ func (s Store) Save(data []byte) error {
 	return nil
 }
 func (s Store) Delete() error {
+	if s.Backend != nil {
+		return s.Backend.DeleteState(s.Path)
+	}
 	err := os.Remove(s.Path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil

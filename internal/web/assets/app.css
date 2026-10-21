@@ -626,3 +626,5 @@ summary:focus-visible {
 .ana-panel > p, .ana-actions { margin: 16px 24px; }
 .ana-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 .ana-actions .primary { padding: 14px 22px; }
+
+.admin-link{color:#db1764;text-decoration:none;font-size:14px}

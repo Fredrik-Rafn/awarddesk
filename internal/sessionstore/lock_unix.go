@@ -14,6 +14,9 @@ import (
 // The OS releases flock ownership on process exit; a leftover .lock file is
 // harmless. Each account has its own lock, allowing independent sessions.
 func (s Store) Lock() (func(), error) {
+	if s.Backend != nil {
+		return s.Backend.LockState(s.Path)
+	}
 	if err := os.MkdirAll(filepath.Dir(s.Path), 0700); err != nil {
 		return nil, errors.New("cannot create session lock directory")
 	}

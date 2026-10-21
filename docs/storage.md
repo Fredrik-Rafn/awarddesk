@@ -1,46 +1,55 @@
-# Portable session files
+# SQLite workspace storage
 
-The app reads and writes ordinary JSON files on macOS, Windows and Linux.
-There is no DPAPI, Keychain integration, encryption key or database requirement.
+The running application stores configuration, proxy lists, EVA accounts, scoped
+cookie/token snapshots, rotated Outlook refresh tokens, complete flight-result
+caches, search jobs and admin sessions in `data/awarddesk.db`.
 
-```text
-.env                              # Account credentials and solver configuration
-proxies.txt                       # Proxy pool
-.state/
-  eva/<account-hash>.json          # EVA cookies, account, expiry and exact proxy
-  ana/<account-hash>.json          # ANA tokens, browser state and exact proxy
-  outlook/<account-hash>.json      # Email, client_id, refresh_token, updated_at
-  eva-results/<query-hash>.json    # Recent complete parsed searches (default 2m)
-```
+The pure-Go SQLite driver works on Windows/macOS/Linux without CGo. WAL mode,
+a five-second busy timeout and a bounded connection pool allow readers during
+short writes. HTTP/solver requests never hold an SQL transaction. OS locks protect
+individual account/session operations across local processes and release on
+crashes; lock files contain no credentials. One server owns each workspace.
 
-The account hash is deterministic. EVA uses the email, ANA the member number,
-and Outlook the email plus OAuth client ID. Each account therefore has a separate
-file; updating one does not overwrite another. EVA's JSON also identifies its
-account in the `Account` field.
+## Migration
 
-Cookies retain their domain, path, expiry and other attributes. The app loads the
-file, restores the browser state and verifies the logged-in session before reuse.
-The original sticky proxy stays attached to the session. Missing or expired
-sessions follow the existing bounded login/renewal flow.
+The first boot imports the existing `.env`, configured proxy file and valid JSON
+state under `.state` in a transaction. Imported JSON keys retain their account
+hashes and normalize path separators for cross-platform use. The first EVA account
+is created from the old credentials. Caching is set to 30 minutes. A migration
+marker prevents later startups from overwriting Admin changes with stale files.
+Old files remain as backups, and are no longer read by the server or diagnostics.
 
-Outlook's newest refresh token is saved in its JSON file and takes precedence
-over the original `.env` token on subsequent refreshes. The token file is checked
-against the configured email and client ID.
+A fresh checkout needs only `go run .`: sign into `/admin` using `admin1234`,
+then add accounts, proxies and solver keys. The password is stored as a bcrypt
+hash. Admin cookie tokens are hashed in SQLite, expire after 12 hours, and can be
+revoked by signing out or changing the admin password.
 
-Files are readable plaintext and remain excluded from Git. Writes use a flushed
-temporary file before replacement. On macOS/Linux directories are created with
-0700 permissions and files with 0600. Per-account OS locks prevent concurrent
-writes and are released when a process exits.
+## State and retention
 
-You can copy `.state` between computers without conversion. A copied airline
-session is usable only while its original sticky proxy and provider session
-remain valid; the app validates them instead of assuming portability preserves
-authentication. A file lock coordinates local processes, not separate computers.
+The `states` table stores portable JSON blobs, keyed separately for each EVA/ANA
+account, Outlook mailbox/client ID, and account/query cache combination. Browser
+identity, scoped cookies and the exact sticky proxy travel together. Flight
+results contain parsed display data, without traveller profiles or booking tokens.
+Only complete successes are cached; expiry is checked on every read. Maintenance
+prunes expired caches and bounds the cache at 1,000 entries. Job history is retained
+for 24 hours; interrupted jobs are recorded rather than replayed on restart.
 
-The current `.env` selects one active account for each provider. The storage
-already keeps accounts separate for a future session pool; automatic selection
-and scheduling across multiple accounts/sessions are not implemented yet.
+The `settings` table holds global runtime configuration and the proxy list;
+`accounts` holds individual EVA and Outlook credentials; `runtime` records
+per-account status, backoff and manual-attention flags. Configuration edits apply
+when an EVA account becomes idle. Rotated mailbox tokens take precedence over the
+original refresh token; explicitly replacing an account's OAuth configuration
+invalidates its old saved mailbox token.
 
-Previous Windows-encrypted `.session` and `.token` files are not loaded by the new
-format. Start fresh on the laptop using `.env`, or copy the migrated `.json` files
-from this machine. Do not rename encrypted legacy files to `.json`.
+## Back up or move
+
+Stop Awarddesk with Ctrl+C before copying `data/awarddesk.db`. SQLite may have
+uncheckpointed writes in `-wal` while running; copying only the main file then is
+not a safe backup. Copy a cleanly stopped database to the new checkout to retain
+configuration, accounts, sessions and caches. Lock files need not be copied.
+
+The database contains plaintext account/API/proxy secrets and portable tokens.
+It remains excluded from Git. Local directories/files request 0700/0600 permissions
+on Unix. There is no DPAPI, Keychain binding or machine-specific encryption key.
+A copied live session is useful only while its provider authentication and original
+sticky proxy/IP remain valid. Separate computers do not share local locks.
