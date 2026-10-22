@@ -33,6 +33,8 @@ type RegistrationProfile struct {
 	Day       string `json:"day"`
 }
 
+var memberNumber = regexp.MustCompile(`^[0-9]{10}$`)
+
 func NewRegistrationProfile() (RegistrationProfile, error) {
 	var b [20]byte
 	if _, err := rand.Read(b[:]); err != nil {
@@ -310,7 +312,7 @@ func (p *Provider) Register(ctx context.Context, c *session.Client, proxy string
 		return err
 	}
 	state.MemberNumber = f.values.Get(f.field("$hid_Member"))
-	if !regexp.MustCompile(`^[0-9]{10}$`).MatchString(state.MemberNumber) {
+	if !memberNumber.MatchString(state.MemberNumber) {
 		return registrationFailure(body, p.config.Email, state.Profile.Password)
 	}
 	if err = registrationEvent(&f, "btn_Confirm_Email"); err != nil {

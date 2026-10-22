@@ -10,6 +10,8 @@ import (
 	"awarddesk/internal/session"
 )
 
+var solverProviderName = regexp.MustCompile(`^[A-Za-z]{3,24}$`)
+
 func (a AnySolver) SolveRecaptchaV3(ctx context.Context, page, key, action, title string) (CaptchaSolution, error) {
 	if a.Key == "" {
 		return CaptchaSolution{}, errors.New("AnySolver API key is not configured")
@@ -48,7 +50,7 @@ func (a AnySolver) SolveRecaptchaV3(ctx context.Context, page, key, action, titl
 		if err != nil {
 			return CaptchaSolution{}, err
 		}
-		if provider, ok := value["provider"].(string); ok && provider != lastProvider && regexp.MustCompile(`^[A-Za-z]{3,24}$`).MatchString(provider) {
+		if provider, ok := value["provider"].(string); ok && provider != lastProvider && solverProviderName.MatchString(provider) {
 			log.Printf("reCAPTCHA solver provider: %s", provider)
 			lastProvider = provider
 		}

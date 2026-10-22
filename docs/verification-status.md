@@ -43,3 +43,18 @@ HKG–TPE, 10 December 2026, two adults (115 seconds, seven flights), and TPE–
 results. Their unchanged polls returned 115 empty 304 responses in total. A repeat
 of the latter query returned complete cached results in 6 ms on localhost.
 These are two smoke checks, not a replacement mixed-load benchmark or an SLA.
+
+## Code review cleanup
+
+Additional regressions cover notification wakeups for imports/retries/restarts,
+single ownership of a queued signup, lowered onboarding limits, deduplicated fare
+plans, missing cash prices stopping before upstream calls, and quote reuse rejecting
+changed flights, departure times, connections, families, cabins, currencies and
+prices. Preserved quotes retain fresh IDs and do not share mutable mileage data.
+The full Go suite and vet are rerun after these changes; offline checks use no
+airline requests or solver credits.
+
+The reviewed build also passed an uncached HKG–TPE search for 10 December 2026,
+two adults: 131 seconds, seven flights, all 21 displayed fares quoted, complete
+results and no recorded recoveries. This single smoke check validates the changed
+pricing path; it does not establish a new latency or failure-rate benchmark.

@@ -15,6 +15,9 @@ import (
 	"awarddesk/internal/session"
 )
 
+var bookingSiteKey = regexp.MustCompile(`^[A-Za-z0-9_-]{20,100}$`)
+var bookingCaptchaEndpoint = regexp.MustCompile(`xhr\.open\(\s*["']POST["']\s*,\s*["']([^"']+)["']`)
+
 func verifyBookingCaptcha(ctx context.Context, c pricingClient, solver antibot.Captcha, body []byte, page string, progress func(string, string)) (bool, error) {
 	key, endpoint, found, err := bookingCaptcha(body, page)
 	if !found || err != nil {
@@ -85,10 +88,10 @@ func bookingCaptcha(body []byte, page string) (key, endpoint string, found bool,
 	fail := func() (string, string, bool, error) {
 		return "", "", true, award.Failure("challenge_changed", "EVA additional booking CAPTCHA format changed")
 	}
-	if count != 1 || !regexp.MustCompile(`^[A-Za-z0-9_-]{20,100}$`).MatchString(key) || !bytes.Contains(body, []byte("g-recaptcha-response=")) {
+	if count != 1 || !bookingSiteKey.MatchString(key) || !bytes.Contains(body, []byte("g-recaptcha-response=")) {
 		return fail()
 	}
-	matches := regexp.MustCompile(`xhr\.open\(\s*["']POST["']\s*,\s*["']([^"']+)["']`).FindAllSubmatch(body, -1)
+	matches := bookingCaptchaEndpoint.FindAllSubmatch(body, -1)
 	if len(matches) != 1 {
 		return fail()
 	}

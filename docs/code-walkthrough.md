@@ -191,6 +191,12 @@ copies nested pointers and slices.
 7. Parse maxRankAvailable and distribute the quote to every fare sharing QuoteID.
 8. Publish completed-quote previews and continue.
 
+[pricing_plan.go](../internal/providers/eva/pricing_plan.go) builds that work list
+once, so counting and executing use the same eligibility/deduplication rules.
+[quote_matching.go](../internal/providers/eva/quote_matching.go) matches refreshed
+flights/fares and indexes completed quotes for reuse. It keeps fresh booking IDs
+and copies a quote only when its flights, family, cabin, currency and price match.
+
 [checkout.go](../internal/providers/eva/checkout.go), checkoutQuote:
 travellers -> dynamic catalogue -> checkout price preparation.
 [pricing.go](../internal/providers/eva/pricing.go), quoteRequest, maps those stages
@@ -286,14 +292,20 @@ will fix itself. It ensures transient failures are not permanent manual pauses.
 
 ## Bulk onboarding
 
-[registration/service.go](../internal/registration/service.go):
-ParseMailboxes -> Import -> worker -> run -> create.
+[mailboxes.go](../internal/registration/mailboxes.go): ParseMailboxes validates input.
+[service.go](../internal/registration/service.go): Import saves the batch, then
+[workers.go](../internal/registration/workers.go): worker claims a queued row and
+calls run -> create in service.go.
 [providers/eva/registration.go](../internal/providers/eva/registration.go):
 NewRegistrationProfile -> Register.
 
 Each line has email:password:refresh_token:client_id. The service validates and
 deduplicates identities, generates a profile once, and persists a private request.
 Each worker leases a separate proxy and consumes the shared concurrency budget.
+Idle workers wait for import/retry/limit-change notifications instead of querying
+SQLite every second. A 15-second upkeep tick wakes them as a fallback after
+temporary database errors. Claiming a row is serialized, so only one worker starts
+each signup. Workers above a lowered concurrency setting wait for capacity.
 It verifies mailbox access before submission, then uses the fresh registration
 form/CAPTCHA and generated profile.
 

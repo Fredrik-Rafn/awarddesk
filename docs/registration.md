@@ -57,3 +57,9 @@ session job later recovers the account, onboarding updates to Ready automaticall
 
 Server shutdown/restart resumes queued or safe email-polling checkpoints. No
 payment, ticketing or flight search is triggered by onboarding itself.
+
+Code entry points: [mailboxes.go](../internal/registration/mailboxes.go) validates
+and deduplicates input; [service.go](../internal/registration/service.go) owns
+checkpoints and recovery; [workers.go](../internal/registration/workers.go) claims
+work once and waits for notifications when idle. Imports and retries wake workers
+immediately. The 15-second upkeep tick provides a fallback after database errors.

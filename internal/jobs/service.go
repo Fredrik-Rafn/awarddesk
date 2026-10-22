@@ -118,6 +118,9 @@ func (s *Service) Capabilities() []award.Capabilities {
 	sort.Slice(a, func(i, j int) bool { return a[i].ID < a[j].ID })
 	return a
 }
+
+// Submit reuses an identical active search or a complete cache entry first.
+// Only new live work needs a queue slot and an available account.
 func (s *Service) Submit(q award.Query) (Job, error) {
 	if e := q.Validate(time.Now()); e != nil {
 		return Job{}, e
@@ -286,6 +289,9 @@ func (s *Service) work() {
 		s.mu.Unlock()
 	}
 }
+
+// Run one claimed job. A cancelled or timed-out job keeps its final state even
+// if the provider returns later, so late progress cannot bring it back to life.
 func (s *Service) execute(id string) {
 	s.mu.Lock()
 	j := s.items[id]
@@ -330,34 +336,7 @@ func (s *Service) execute(id string) {
 				err = award.Failure("internal", "provider failed unexpectedly")
 			}
 		}()
-		result, err = s.providers[q.Provider].Search(ctx, q, func(p award.Progress) {
-			s.mu.Lock()
-			defer s.mu.Unlock()
-			if j.Status == "running" {
-				if p.Stage != j.Progress.Stage || p.Completed != j.Progress.Completed || p.Total != j.Progress.Total || p.Recovery != nil {
-					event := StageEvent{At: time.Now().UTC(), Stage: p.Stage, Completed: p.Completed, Total: p.Total}
-					if p.Recovery != nil {
-						recovery := *p.Recovery
-						event.Recovery = &recovery
-					}
-					j.Timeline = append(j.Timeline, event)
-				}
-				if p.Preview != nil {
-					preview := award.CloneResult(*p.Preview)
-					preview.Complete = false
-					j.Result = &preview
-					p.Preview = nil
-				}
-				if p.Recovery != nil {
-					j.Recoveries = append(j.Recoveries, *p.Recovery)
-					recovery := *p.Recovery
-					p.Recovery = &recovery
-				}
-				j.Progress = p
-				j.UpdatedAt = time.Now().UTC()
-				s.persist(j)
-			}
-		})
+		result, err = s.providers[q.Provider].Search(ctx, q, func(p award.Progress) { s.reportProgress(id, p) })
 	}()
 	s.mu.Lock()
 	defer s.mu.Unlock()

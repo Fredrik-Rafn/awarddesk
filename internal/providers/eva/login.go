@@ -90,6 +90,9 @@ func loginStageError(err error, stage string) error {
 	}
 	return &copy
 }
+
+// Hold this account for the whole operation. Searches and login preparation
+// share its cookies and must not change the same session at the same time.
 func (p *Provider) withSession(ctx context.Context, report award.Reporter, use func(*session.Client, string) error) error {
 	if p.config.Email == "" || p.config.Password == "" || p.config.Pool == nil || p.config.Mailbox == nil {
 		return award.Failure("configuration", "EVA login, proxy pool and Outlook OAuth must be configured")
@@ -124,6 +127,8 @@ func (p *Provider) withSession(ctx context.Context, report award.Reporter, use f
 	return err
 }
 
+// Retry only known safe setup failures or an explicit wrong-CAPTCHA response.
+// A lost credential or OTP response is not permission to submit it again.
 func sessionAttempts(run func() error, reset func() error, report award.Reporter) error {
 	renewedSession, retriedCaptcha := false, false
 	for attempt := 0; attempt < 3; attempt++ {

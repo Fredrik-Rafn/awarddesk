@@ -10,6 +10,8 @@ import (
 	"awarddesk/internal/session"
 )
 
+var imageAnswer = regexp.MustCompile(`^[A-Za-z0-9]{4,12}$`)
+
 // SolveText sends only the CAPTCHA image, never the surrounding login form.
 func (a AnySolver) SolveText(ctx context.Context, page string, image []byte) (string, error) {
 	if len(image) == 0 || len(image) > 512*1024 {
@@ -29,7 +31,7 @@ func (a AnySolver) SolveText(ctx context.Context, page string, image []byte) (st
 		if value["status"] == "ready" {
 			s, _ := value["solution"].(map[string]any)
 			text, _ := s["text"].(string)
-			if !regexp.MustCompile(`^[A-Za-z0-9]{4,12}$`).MatchString(text) {
+			if !imageAnswer.MatchString(text) {
 				return "", errors.New("CAPTCHA recognition returned an invalid code")
 			}
 			return text, nil

@@ -26,6 +26,8 @@ type AnySolver struct {
 
 type transientSolverError struct{ message string }
 
+var solverErrorCode = regexp.MustCompile(`^[A-Z][A-Z_]{2,63}$`)
+
 func (e *transientSolverError) Error() string { return e.message }
 
 func (a AnySolver) call(ctx context.Context, path string, p map[string]any) (map[string]any, error) {
@@ -90,7 +92,7 @@ func (a AnySolver) callOnce(ctx context.Context, path string, p map[string]any) 
 		case "ERROR_KEY_DENIED_ACCESS":
 			return nil, errors.New("CAPTCHA API key was rejected")
 		}
-		if code, ok := v["errorCode"].(string); ok && regexp.MustCompile(`^[A-Z][A-Z_]{2,63}$`).MatchString(code) {
+		if code, ok := v["errorCode"].(string); ok && solverErrorCode.MatchString(code) {
 			return nil, errors.New("CAPTCHA service rejected the task: " + code)
 		}
 		return nil, errors.New("CAPTCHA service rejected the task")

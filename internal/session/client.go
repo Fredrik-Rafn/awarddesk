@@ -43,6 +43,8 @@ type Client struct {
 	transportTimeout time.Duration
 }
 
+var browserUserAgent = regexp.MustCompile(`^Mozilla/5\.0 \(Windows NT 10\.0; Win64; x64\) AppleWebKit/537\.36 \(KHTML, like Gecko\) Chrome/([0-9]{2,3})\.0\.0\.0 Safari/537\.36$`)
+
 func New(proxy string, hosts []string) (*Client, error) {
 	return NewWithTimeout(proxy, hosts, 40*time.Second)
 }
@@ -102,7 +104,7 @@ func (c *Client) SetUserAgent(value string) error {
 	if c.started || c.count != 0 {
 		return errors.New("cannot change user-agent after session initialization")
 	}
-	match := regexp.MustCompile(`^Mozilla/5\.0 \(Windows NT 10\.0; Win64; x64\) AppleWebKit/537\.36 \(KHTML, like Gecko\) Chrome/([0-9]{2,3})\.0\.0\.0 Safari/537\.36$`).FindStringSubmatch(value)
+	match := browserUserAgent.FindStringSubmatch(value)
 	if match == nil {
 		return errors.New("unsupported HTTP user-agent")
 	}

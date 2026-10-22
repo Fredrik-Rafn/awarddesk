@@ -28,6 +28,8 @@ type timedPricingClient interface {
 	DoWithTimeout(context.Context, string, string, io.Reader, http.Header, time.Duration) (*http.Response, []byte, error)
 }
 
+var bookingSessionID = regexp.MustCompile(`^[A-Za-z0-9_!.~-]{1,256}$`)
+
 func ajaxContext(page pageData) url.Values {
 	values := url.Values{"IS_MILES_MODE": {"false"}, "PAGE_TICKET": {page.PageTicket}}
 	for _, key := range []string{"LANGUAGE", "COUNTRY_SITE", "SITE", "BOOKING_FLOW", "TRIP_FLOW", "EXTERNAL_ID", "OFFICE_ID", "TRIP_TYPE", "PRICING_TYPE"} {
@@ -43,7 +45,7 @@ func quoteRequest(ctx context.Context, c pricingClient, sessionID, action string
 	defer func() {
 		slog.Info("EVA pricing request", "action", action, "elapsed", time.Since(started).Round(time.Millisecond))
 	}()
-	if !regexp.MustCompile(`^[A-Za-z0-9_!.~-]{1,256}$`).MatchString(sessionID) {
+	if !bookingSessionID.MatchString(sessionID) {
 		return pageData{}, award.Failure("pricing_protocol", "EVA booking session identifier missing or invalid")
 	}
 	endpoint := ajaxURL + ";jsessionid=" + sessionID
@@ -123,146 +125,123 @@ func priceFares(ctx context.Context, c *session.Client, page pageData, result *a
 
 func priceFaresWithReplans(ctx context.Context, c pricingClient, page pageData, result *award.Result, report award.Reporter, replans int) error {
 	initialPage := page
-	seen := map[string]bool{}
-	total := 0
-	for _, i := range result.Itineraries {
-		for _, f := range i.Fares {
-			if f.MilesCash != nil {
-				continue
-			}
-			if f.MilesCashEligible != nil && !*f.MilesCashEligible {
-				continue
-			}
-			if !seen[f.QuoteID] {
-				seen[f.QuoteID] = true
-				total++
-			}
-		}
-	}
+	plan := unpricedFares(*result)
+	total := len(plan)
 	if total > 30 {
 		result.Warnings = append(result.Warnings, "EVA returned more fare groups than the bounded pricing limit.")
 		return nil
 	}
-	seen = map[string]bool{}
 	done := 0
 	reportPricingPreview(report, result, done, total)
-	for _, i := range result.Itineraries {
-		for _, f := range i.Fares {
-			if f.MilesCash != nil {
-				continue
-			}
-			if f.MilesCashEligible != nil && !*f.MilesCashEligible {
-				continue
-			}
-			if seen[f.QuoteID] {
-				continue
-			}
-			seen[f.QuoteID] = true
-			if _, err := strconv.Atoi(f.QuoteID); err != nil {
-				return award.Failure("pricing_protocol", "EVA fare identifier missing")
-			}
-			if report != nil {
-				report(award.Progress{Stage: "miles pricing", Message: "Calculating Miles & Cash for each distinct fare", Completed: done, Total: total})
-			}
-			values := ajaxContext(page)
-			flightID, recommendationID := i.ID, f.QuoteID
-			if done > 0 {
-				var fresh award.Result
-				var refreshErr error
-				page, fresh, refreshErr = refreshAvailability(ctx, c, page, initialPage, result.Query)
-				if refreshErr != nil {
-					return refreshErr
-				}
-				flightID, recommendationID, refreshErr = matchingSelection(fresh, i, f)
-				if refreshErr != nil {
-					var changed *award.Error
-					if replans > 0 && errors.As(refreshErr, &changed) && changed.Code == "price_changed" {
-						preserveMatchingQuotes(&fresh, *result)
-						*result = fresh
-						if report != nil {
-							report(award.Progress{Stage: "miles pricing", Message: "EVA changed availability; continuing with refreshed fares and preserving unchanged quotes", Recovery: recoveryDetail("miles pricing", refreshErr, 3-replans)})
-						}
-						return priceFaresWithReplans(ctx, c, page, result, report, replans-1)
-					}
-					return refreshErr
-				}
-				values = ajaxContext(page)
-			}
-			values.Set("RECOMMENDATION_ID_1", recommendationID)
-			values.Set("FLIGHT_ID_1", flightID)
-			selected, err := quoteRequest(ctx, c, page.SessionID, "fare", values)
-			if err != nil {
-				return err
-			}
-			if selected.PageTicket == "" {
-				return award.Failure("pricing_protocol", "EVA omitted updated pricing state")
-			}
-			page.PageTicket = selected.PageTicket
-			if selected.SessionID != "" {
-				page.SessionID = selected.SessionID
-			}
-			// A successful selection response may contain only an error/delta page.
-			// Reopen availability before checkout; never infer a price or repeat BOOK.
-			rawPrice := selected.Business["Price"]
-			if len(rawPrice) == 0 || strings.TrimSpace(string(rawPrice)) == "null" {
-				if replans <= 0 {
-					return award.Failure("pricing_protocol", "EVA did not return selected-fare pricing state after availability refresh")
-				}
-				refreshed, fresh, e := refreshAvailability(ctx, c, page, initialPage, result.Query)
-				if e != nil {
-					return e
-				}
-				preserveMatchingQuotes(&fresh, *result)
-				*result = fresh
-				if report != nil {
-					report(award.Progress{Stage: "miles pricing", Message: "EVA omitted selected-fare pricing state; refreshing availability before checkout", Recovery: recoveryDetail("fare selection", award.Failure("pricing_state_missing", "Missing selected-fare pricing state"), 3-replans)})
-				}
-				return priceFaresWithReplans(ctx, c, refreshed, result, report, replans-1)
-			}
-			var price struct {
-				IsMilesMode bool
-				TotalAmount struct {
-					Amount   json.Number
-					Currency namedCode
-				}
-			}
-			if json.Unmarshal(rawPrice, &price) != nil || price.IsMilesMode || price.TotalAmount.Currency.Code != f.CashPrice.Currency {
-				slog.Warn("EVA selected-fare context rejected", "milesMode", price.IsMilesMode, "currencyMatches", price.TotalAmount.Currency.Code == f.CashPrice.Currency, "pricedGroups", done)
-				return award.Failure("pricing_protocol", "EVA pricing context changed")
-			}
-			want, e1 := strconv.ParseFloat(f.CashPrice.Amount, 64)
-			got, e2 := price.TotalAmount.Amount.Float64()
-			if e1 != nil || e2 != nil || !equalCashAmounts(f.CashPrice.Amount, price.TotalAmount.Amount.String()) {
-				slog.Warn("EVA selected-fare total mismatch", "adults", result.Query.Adults, "availabilityAmount", want, "selectedAmount", got)
-				return award.Failure("price_changed", "EVA changed the selected fare; run a fresh search")
-			}
-			calculated, err := checkoutQuote(ctx, c, page, result.Query)
-			if err != nil {
-				return err
-			}
-			if calculated.PageTicket != "" {
-				page.PageTicket = calculated.PageTicket
-			}
-			if calculated.SessionID != "" {
-				page.SessionID = calculated.SessionID
-			}
-			quote, err := parseMilesCash(calculated.Business["MilesAndCashView"], f.CashPrice.Currency)
-			if err != nil {
-				result.Warnings = append(result.Warnings, err.Error())
-				return nil
-			}
-			for x := range result.Itineraries {
-				for y := range result.Itineraries[x].Fares {
-					fare := &result.Itineraries[x].Fares[y]
-					if fare.QuoteID == f.QuoteID && (fare.MilesCashEligible == nil || *fare.MilesCashEligible) {
-						fare.MilesCash = quote
-						fare.Estimated = true
-					}
-				}
-			}
-			done++
-			reportPricingPreview(report, result, done, total)
+	for _, selection := range plan {
+		i, f := selection.flight, selection.fare
+		if f.CashPrice == nil {
+			return award.Failure("pricing_protocol", "EVA fare has no cash price to verify")
 		}
+		if _, err := strconv.Atoi(f.QuoteID); err != nil {
+			return award.Failure("pricing_protocol", "EVA fare identifier missing")
+		}
+		if report != nil {
+			report(award.Progress{Stage: "miles pricing", Message: "Calculating Miles & Cash for each distinct fare", Completed: done, Total: total})
+		}
+		values := ajaxContext(page)
+		flightID, recommendationID := i.ID, f.QuoteID
+		if done > 0 {
+			var fresh award.Result
+			var refreshErr error
+			page, fresh, refreshErr = refreshAvailability(ctx, c, page, initialPage, result.Query)
+			if refreshErr != nil {
+				return refreshErr
+			}
+			flightID, recommendationID, refreshErr = matchingSelection(fresh, i, f)
+			if refreshErr != nil {
+				var changed *award.Error
+				if replans > 0 && errors.As(refreshErr, &changed) && changed.Code == "price_changed" {
+					preserveMatchingQuotes(&fresh, *result)
+					*result = fresh
+					if report != nil {
+						report(award.Progress{Stage: "miles pricing", Message: "EVA changed availability; continuing with refreshed fares and preserving unchanged quotes", Recovery: recoveryDetail("miles pricing", refreshErr, 3-replans)})
+					}
+					return priceFaresWithReplans(ctx, c, page, result, report, replans-1)
+				}
+				return refreshErr
+			}
+			values = ajaxContext(page)
+		}
+		values.Set("RECOMMENDATION_ID_1", recommendationID)
+		values.Set("FLIGHT_ID_1", flightID)
+		selected, err := quoteRequest(ctx, c, page.SessionID, "fare", values)
+		if err != nil {
+			return err
+		}
+		if selected.PageTicket == "" {
+			return award.Failure("pricing_protocol", "EVA omitted updated pricing state")
+		}
+		page.PageTicket = selected.PageTicket
+		if selected.SessionID != "" {
+			page.SessionID = selected.SessionID
+		}
+		// A successful selection response may contain only an error/delta page.
+		// Reopen availability before checkout; never infer a price or repeat BOOK.
+		rawPrice := selected.Business["Price"]
+		if len(rawPrice) == 0 || strings.TrimSpace(string(rawPrice)) == "null" {
+			if replans <= 0 {
+				return award.Failure("pricing_protocol", "EVA did not return selected-fare pricing state after availability refresh")
+			}
+			refreshed, fresh, e := refreshAvailability(ctx, c, page, initialPage, result.Query)
+			if e != nil {
+				return e
+			}
+			preserveMatchingQuotes(&fresh, *result)
+			*result = fresh
+			if report != nil {
+				report(award.Progress{Stage: "miles pricing", Message: "EVA omitted selected-fare pricing state; refreshing availability before checkout", Recovery: recoveryDetail("fare selection", award.Failure("pricing_state_missing", "Missing selected-fare pricing state"), 3-replans)})
+			}
+			return priceFaresWithReplans(ctx, c, refreshed, result, report, replans-1)
+		}
+		var price struct {
+			IsMilesMode bool
+			TotalAmount struct {
+				Amount   json.Number
+				Currency namedCode
+			}
+		}
+		if json.Unmarshal(rawPrice, &price) != nil || price.IsMilesMode || price.TotalAmount.Currency.Code != f.CashPrice.Currency {
+			slog.Warn("EVA selected-fare context rejected", "milesMode", price.IsMilesMode, "currencyMatches", price.TotalAmount.Currency.Code == f.CashPrice.Currency, "pricedGroups", done)
+			return award.Failure("pricing_protocol", "EVA pricing context changed")
+		}
+		want, e1 := strconv.ParseFloat(f.CashPrice.Amount, 64)
+		got, e2 := price.TotalAmount.Amount.Float64()
+		if e1 != nil || e2 != nil || !equalCashAmounts(f.CashPrice.Amount, price.TotalAmount.Amount.String()) {
+			slog.Warn("EVA selected-fare total mismatch", "adults", result.Query.Adults, "availabilityAmount", want, "selectedAmount", got)
+			return award.Failure("price_changed", "EVA changed the selected fare; run a fresh search")
+		}
+		calculated, err := checkoutQuote(ctx, c, page, result.Query)
+		if err != nil {
+			return err
+		}
+		if calculated.PageTicket != "" {
+			page.PageTicket = calculated.PageTicket
+		}
+		if calculated.SessionID != "" {
+			page.SessionID = calculated.SessionID
+		}
+		quote, err := parseMilesCash(calculated.Business["MilesAndCashView"], f.CashPrice.Currency)
+		if err != nil {
+			result.Warnings = append(result.Warnings, err.Error())
+			return nil
+		}
+		for x := range result.Itineraries {
+			for y := range result.Itineraries[x].Fares {
+				fare := &result.Itineraries[x].Fares[y]
+				if fare.QuoteID == f.QuoteID && (fare.MilesCashEligible == nil || *fare.MilesCashEligible) {
+					fare.MilesCash = quote
+					fare.Estimated = true
+				}
+			}
+		}
+		done++
+		reportPricingPreview(report, result, done, total)
 	}
 	result.Complete = done == total
 	if result.Complete {

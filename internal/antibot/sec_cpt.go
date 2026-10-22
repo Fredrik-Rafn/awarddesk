@@ -18,6 +18,8 @@ import (
 	"awarddesk/internal/session"
 )
 
+var challengeDuration = regexp.MustCompile(`data-duration=(\d+)`)
+
 func (h Hyper) PrepareAdaptive(ctx context.Context, c *session.Client, page string, body []byte) error {
 	root, err := html.Parse(bytes.NewReader(body))
 	if err != nil {
@@ -44,7 +46,7 @@ func (h Hyper) PrepareAdaptive(ctx context.Context, c *session.Client, page stri
 	walk(root)
 	raw, err := base64.StdEncoding.DecodeString(challengeEncoded)
 	var limits struct{ Difficulty, Count int }
-	durationMatch := regexp.MustCompile(`data-duration=(\d+)`).FindSubmatch(body)
+	durationMatch := challengeDuration.FindSubmatch(body)
 	if err != nil || json.Unmarshal(raw, &limits) != nil || provider != "adaptive" || limits.Count < 1 || limits.Count > 4 || limits.Difficulty < 1 || limits.Difficulty > 100000 || len(durationMatch) != 2 {
 		return award.Failure("challenge_changed", "EVA requested an unsupported security challenge")
 	}

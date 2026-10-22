@@ -7,9 +7,9 @@ import (
 	"time"
 )
 
-// historyWriter coalesces superseded progress for each job. SQL and JSON
-// encoding run outside the scheduler mutex; terminal snapshots are flushed on
-// shutdown and before a historical read. One writer preserves per-job order.
+// Keep only the newest pending update for each search. One writer saves them in
+// order without making status checks wait for SQLite. Flush before dispatch,
+// before reading old history, and when shutting down.
 type historyWriter struct {
 	mu      sync.Mutex
 	store   Persistence

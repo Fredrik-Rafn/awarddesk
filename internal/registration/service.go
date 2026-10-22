@@ -6,9 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"net/mail"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -56,46 +53,6 @@ func (r request) summary() Summary {
 	return out
 }
 
-type Mailbox struct{ Email, ClientID, RefreshToken string }
-
-var uuid = regexp.MustCompile(`^[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}$`)
-
-// Passwords in the colon format are accepted but not retained or used: Outlook
-// access uses OAuth2 exclusively. Never include raw input in validation errors.
-func ParseMailboxes(text string) ([]Mailbox, error) {
-	var result []Mailbox
-	seen := map[string]bool{}
-	for i, line := range strings.Split(strings.TrimPrefix(text, "\ufeff"), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		parts := strings.Split(line, ":")
-		if len(parts) < 4 {
-			return nil, fmt.Errorf("Line %d: expected email:password:refresh_token:client_id", i+1)
-		}
-		email := strings.ToLower(strings.TrimSpace(parts[0]))
-		parsed, err := mail.ParseAddress(email)
-		clientID := strings.TrimSpace(parts[len(parts)-1])
-		refreshToken := strings.TrimSpace(parts[len(parts)-2])
-		if err != nil || parsed.Address != email || !uuid.MatchString(clientID) || len(refreshToken) < 20 || len(refreshToken) > 16384 {
-			return nil, fmt.Errorf("Line %d: invalid email, OAuth client ID or refresh token", i+1)
-		}
-		if seen[email] {
-			continue
-		}
-		seen[email] = true
-		result = append(result, Mailbox{email, clientID, refreshToken})
-		if len(result) > 500 {
-			return nil, errors.New("Import at most 500 mailboxes per batch")
-		}
-	}
-	if len(result) == 0 {
-		return nil, errors.New("Enter at least one Outlook credential line")
-	}
-	return result, nil
-}
-
 type Service struct {
 	db              *storage.Store
 	fleet           *fleet.Fleet
@@ -105,6 +62,8 @@ type Service struct {
 	wg              sync.WaitGroup
 	started, closed bool
 	workers         int
+	limit           int
+	changed         chan struct{}
 }
 
 func New(db *storage.Store, f *fleet.Fleet) (*Service, error) {
@@ -116,7 +75,7 @@ func New(db *storage.Store, f *fleet.Fleet) (*Service, error) {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	s := &Service{db: db, fleet: f, ctx: ctx, cancel: cancel}
+	s := &Service{db: db, fleet: f, ctx: ctx, cancel: cancel, changed: make(chan struct{})}
 	if _, err = db.DB.Exec("CREATE TABLE IF NOT EXISTS registration_attempts(id INTEGER PRIMARY KEY,registration_id TEXT NOT NULL,data BLOB NOT NULL,created_at INTEGER NOT NULL)"); err != nil {
 		cancel()
 		return nil, err
@@ -231,7 +190,11 @@ func (s *Service) Import(text string) (ImportResult, error) {
 		result.Added++
 		result.IDs = append(result.IDs, r.ID)
 	}
-	return result, tx.Commit()
+	if err = tx.Commit(); err != nil {
+		return result, err
+	}
+	s.notifyLocked()
+	return result, nil
 }
 
 // Current reads only this browser page's explicitly submitted batch. Durable
@@ -280,25 +243,10 @@ func (s *Service) List(page, limit int) ([]Summary, int, error) {
 	if e := s.db.DB.QueryRow("SELECT count(*) FROM registrations").Scan(&total); e != nil {
 		return nil, 0, e
 	}
-	rows, e := s.db.DB.Query("SELECT data FROM registrations ORDER BY created_at DESC,id LIMIT ? OFFSET ?", limit, (page-1)*limit)
-	if e != nil {
-		return nil, 0, e
-	}
-	defer rows.Close()
-	out := []Summary{}
-	for rows.Next() {
-		var b []byte
-		var r request
-		if e = rows.Scan(&b); e != nil {
-			return nil, 0, e
-		}
-		if e = json.Unmarshal(b, &r); e != nil {
-			return nil, 0, e
-		}
-		out = append(out, r.summary())
-	}
-	return out, total, rows.Err()
+	items, err := s.summaries("SELECT data FROM registrations ORDER BY created_at DESC,id LIMIT ? OFFSET ?", limit, (page-1)*limit)
+	return items, total, err
 }
+
 func (s *Service) Start() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -328,6 +276,8 @@ func (s *Service) Start() {
 
 func (s *Service) growWorkersLocked() {
 	limit := award.ConcurrencyLimit(s.db.Setting("SEARCH_CONCURRENCY"))
+	s.limit = limit
+	s.notifyLocked()
 	for s.workers < limit {
 		index := s.workers
 		s.workers++
@@ -379,55 +329,6 @@ func (s *Service) syncReady(states []fleet.Status) {
 		r.Error = ""
 		r.Message = "Account created and verified; background preparation saved its reusable session"
 		_ = s.save(r)
-	}
-}
-func (s *Service) Close() { s.mu.Lock(); s.closed = true; s.cancel(); s.mu.Unlock(); s.wg.Wait() }
-func (s *Service) next() (request, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed {
-		return request{}, false
-	}
-	var b []byte
-	e := s.db.DB.QueryRow("SELECT data FROM registrations WHERE json_extract(data,'$.status')='queued' ORDER BY created_at LIMIT 1").Scan(&b)
-	if e != nil {
-		return request{}, false
-	}
-	var r request
-	if json.Unmarshal(b, &r) != nil {
-		return r, false
-	}
-	r.Status = "running"
-	r.Stage = "waiting for worker"
-	if s.save(r) != nil {
-		return r, false
-	}
-	return r, true
-}
-func (s *Service) worker(index int) {
-	defer s.wg.Done()
-	for {
-		if s.ctx.Err() != nil {
-			return
-		}
-		if index >= award.ConcurrencyLimit(s.db.Setting("SEARCH_CONCURRENCY")) {
-			select {
-			case <-s.ctx.Done():
-				return
-			case <-time.After(time.Second):
-			}
-			continue
-		}
-		r, ok := s.next()
-		if ok {
-			s.run(r)
-			continue
-		}
-		select {
-		case <-s.ctx.Done():
-			return
-		case <-time.After(time.Second):
-		}
 	}
 }
 func (s *Service) run(r request) {
@@ -605,7 +506,11 @@ func (s *Service) Retry(id string) error {
 	r.Stage = "queued"
 	r.Error = ""
 	r.Message = "Resuming safe steps from the saved checkpoint"
-	return s.save(r)
+	if err := s.save(r); err != nil {
+		return err
+	}
+	s.notifyLocked()
+	return nil
 }
 
 // Restart requires explicit confirmation and an expired, unverified checkpoint.
@@ -651,5 +556,9 @@ func (s *Service) Restart(id string) error {
 	if _, err = tx.Exec("UPDATE registrations SET data=? WHERE id=?", data, id); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	s.notifyLocked()
+	return nil
 }
