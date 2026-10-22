@@ -61,12 +61,13 @@ type Fleet struct {
 	prepareQueue   []prepareTask
 	prepareWake    chan struct{}
 	prepareWorkers int
+	changed        chan struct{}
 }
 
 func New(db *storage.Store) *Fleet {
 	ctx, cancel := context.WithCancel(context.Background())
-	f := &Fleet{db: db, entries: map[string]*entry{}, pending: map[string]bool{}, ctx: ctx, cancel: cancel, prepareWake: make(chan struct{}, 16)}
-	f.pool = proxies.NewSource(func() (string, error) { m, e := db.Settings(); return m["PROXY_LIST"], e })
+	f := &Fleet{db: db, entries: map[string]*entry{}, pending: map[string]bool{}, ctx: ctx, cancel: cancel, prepareWake: make(chan struct{}, 16), changed: make(chan struct{})}
+	f.pool = proxies.NewSource(func() (string, error) { return db.Setting("PROXY_LIST"), nil })
 	f.build = func(a storage.Account, m map[string]string) airline {
 		ttl, _ := time.ParseDuration(m["EVA_RESULT_CACHE_TTL"])
 		if m["FLIGHT_CACHE_ENABLED"] == "false" {
@@ -92,14 +93,15 @@ func New(db *storage.Store) *Fleet {
 func (f *Fleet) Capabilities() award.Capabilities { return eva.New(eva.Config{}).Capabilities() }
 
 // Cooldowns are per account; one rejected login must not pause the whole fleet.
-func (f *Fleet) ManagesCooldowns() bool { return true }
+func (f *Fleet) ManagesCooldowns() bool     { return true }
+func (f *Fleet) DefersExecutionStart() bool { return true }
 func (f *Fleet) Ready() bool {
 	a, e := f.db.Accounts()
 	if e != nil {
 		return false
 	}
-	m, e := f.db.Settings()
-	if e != nil || m["HYPER_API_KEY"] == "" || m["ANYSOLVER_API_KEY"] == "" || m["PROXY_LIST"] == "" {
+	m, e := f.db.RuntimeSettings()
+	if e != nil || m["HYPER_API_KEY"] == "" || m["ANYSOLVER_API_KEY"] == "" || !f.db.HasProxies() {
 		return false
 	}
 	for _, v := range a {
@@ -140,21 +142,26 @@ func (f *Fleet) CachedSearch(q award.Query) (award.Result, bool) {
 	if e != nil {
 		return award.Result{}, false
 	}
-	m, e := f.db.Settings()
+	m, e := f.db.RuntimeSettings()
 	if e != nil {
 		return award.Result{}, false
 	}
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	if f.closed {
+		f.mu.Unlock()
 		return award.Result{}, false
 	}
+	var providers []airline
 	for _, a := range accounts {
 		if !configured(a) {
 			continue
 		}
 		en := f.providerLocked(a, m)
-		if r, ok := en.provider.CachedSearch(q); ok {
+		providers = append(providers, en.provider)
+	}
+	f.mu.Unlock()
+	for _, provider := range providers {
+		if r, ok := provider.CachedSearch(q); ok {
 			return r, true
 		}
 	}
@@ -165,17 +172,21 @@ func (f *Fleet) Statuses() ([]Status, error) {
 	if e != nil {
 		return nil, e
 	}
-	m, e := f.db.Settings()
+	m, e := f.db.RuntimeSettings()
 	if e != nil {
 		return nil, e
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	runtime, e := f.db.AccountRuntime()
+	if e != nil {
+		return nil, e
+	}
 	out := []Status{}
 	for _, a := range accounts {
 		en := f.providerLocked(a, m)
 		st := Status{ID: a.ID, State: "idle"}
-		f.db.RuntimeValue("account:"+a.ID, &st)
+		_ = json.Unmarshal(runtime["account:"+a.ID], &st)
 		st.ID = a.ID
 		st.RetryLimit = MaxPreparationFailures
 		st.Configured = configured(a)
@@ -210,7 +221,7 @@ func (f *Fleet) claim(ctx context.Context, want string, excluded map[string]bool
 		if err != nil {
 			return storage.Account{}, nil, nil, err
 		}
-		m, err := f.db.Settings()
+		m, err := f.db.RuntimeSettings()
 		if err != nil {
 			return storage.Account{}, nil, nil, err
 		}
@@ -218,6 +229,11 @@ func (f *Fleet) claim(ctx context.Context, want string, excluded map[string]bool
 		if f.closed {
 			f.mu.Unlock()
 			return storage.Account{}, nil, nil, errors.New("fleet is closed")
+		}
+		runtime, err := f.db.AccountRuntime()
+		if err != nil {
+			f.mu.Unlock()
+			return storage.Account{}, nil, nil, err
 		}
 		limit := award.ConcurrencyLimit(m["SEARCH_CONCURRENCY"])
 		active := f.registrations
@@ -233,13 +249,17 @@ func (f *Fleet) claim(ctx context.Context, want string, excluded map[string]bool
 		}
 		var candidates []candidate
 		eligible := false
+		recovering := false
 		for _, a := range accounts {
 			if !configured(a) || excluded[a.ID] || (want != "" && want != a.ID) {
 				continue
 			}
 			st := Status{}
-			f.db.RuntimeValue("account:"+a.ID, &st)
+			_ = json.Unmarshal(runtime["account:"+a.ID], &st)
 			if !force && (st.NeedsAttention || time.Now().Before(st.NextAttempt)) {
+				if !st.NeedsAttention {
+					recovering = true
+				}
 				continue
 			}
 			eligible = true
@@ -265,18 +285,27 @@ func (f *Fleet) claim(ctx context.Context, want string, excluded map[string]bool
 			f.mu.Unlock()
 			var once sync.Once
 			return chosen, best.provider, func() {
-				once.Do(func() { unlock(); f.mu.Lock(); best.busy = false; best.last = time.Now(); f.mu.Unlock() })
+				once.Do(func() {
+					unlock()
+					f.mu.Lock()
+					best.busy = false
+					best.last = time.Now()
+					f.notifyLocked()
+					f.mu.Unlock()
+				})
 			}, nil
 		}
 
+		changed := f.changed
 		f.mu.Unlock()
-		if !eligible {
+		if !eligible && !recovering {
 			return storage.Account{}, nil, nil, award.Failure("accounts_unavailable", "No enabled EVA account is ready; check account status in Admin")
 		}
 		select {
 		case <-ctx.Done():
 			return storage.Account{}, nil, nil, ctx.Err()
-		case <-time.After(150 * time.Millisecond):
+		case <-changed:
+		case <-time.After(time.Second):
 		}
 	}
 }
@@ -331,6 +360,7 @@ func (f *Fleet) Search(ctx context.Context, q award.Query, report award.Reporter
 			return result, e
 		}
 		excluded[a.ID] = true
+		award.ExecutionStarted(ctx)
 		status := Status{ID: a.ID}
 		f.db.RuntimeValue("account:"+a.ID, &status)
 		status.State = "searching"
@@ -510,6 +540,7 @@ func (f *Fleet) maintain() {
 func (f *Fleet) Edit(id string, fn func() error) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	defer f.notifyLocked()
 	if en := f.entries[id]; f.pending[id] || (en != nil && en.busy) {
 		return errors.New("account is busy; wait for its search to finish")
 	}

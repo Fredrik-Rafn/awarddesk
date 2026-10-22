@@ -35,7 +35,7 @@ retry-policy changes also have not had a multi-hour soak test.
 ## Practical operating estimate today
 
 Keep 30 as the tested live-concurrency ceiling for now. With enough ready accounts,
-independent usable proxy templates and funded/healthy solvers, planning around
+independent usable sticky identities and funded/healthy solvers, planning around
 10–15 new uncached searches per minute is a conservative starting range based on
 the mixed benchmark, not an SLA. Long-haul searches with many quote groups can
 reduce that; cache hits and identical-query coalescing can increase user-facing
@@ -72,12 +72,14 @@ Illustrative saturation estimates, without queue/maintenance/solver bottlenecks:
 
 These are arithmetic scenarios, not additional measurements. Operating at
 saturation leaves no room for variance or account recovery. Queue latency grows
-quickly when arrivals exceed completions. A 15-minute job deadline also limits
-how large a burst can wait: the channel size is not a promise those jobs finish.
+quickly when arrivals exceed completions. Capacity waiting is bounded to 30 minutes;
+execution gets a separate 15-minute budget from first account acquisition. The
+FIFO size is not a promise those jobs finish before either deadline.
 
 At 30 active browsers polling every 1.8 seconds, job polling alone is roughly
-17 requests/second (about 56 at 100 browsers). Responses can carry full flight
-previews, and admin analytics/cache lookups have additional cost. Cached-request
+17 requests/second (about 56 at 100 browsers). Unchanged live snapshots return empty
+304 responses without cloning results; changed snapshots can carry full flight
+previews. Admin analytics/cache lookups have additional cost. Cached-request
 RPS, hundreds of browser viewers and long-term large-history performance have not
 been benchmarked.
 
@@ -90,8 +92,11 @@ consume or constrain shared capacity, so 100 is a ceiling rather than a guarante
 number of simultaneous airline searches.
 
 Queued searches retain the ordinary searching/loading view without exposing a
-queue position. The queue is bounded: its channel holds 1,024 entries, an in-memory
-item limit also applies, and the 15-minute overall job deadline includes waiting.
+queue position. The queue is bounded: it admits 1,024 queued searches independently
+of finished history. Cancellation frees queue space immediately. Cache hits and
+identical in-flight queries bypass new live admission. Capacity waiting has
+30 minutes; execution gets 15 minutes from first account acquisition. Lowered
+limits drain active work. Storage failure/backlog also pauses new admission.
 Overload can therefore still reject or expire work; this is not unlimited buffering.
 
 ## Constraints even with enough accounts
@@ -99,7 +104,8 @@ Overload can therefore still reject or expire work; this is not unlimited buffer
 - Upstream latency and dependent per-fare pricing dominate slot time.
 - The shared ceiling includes searches, preparation and onboarding.
 - Background preparation can occupy up to eight slots at a 30-slot setting.
-- Template-based proxy locking can serialize otherwise distinct sticky sessions.
+- Exact sticky identities remain exclusive; distinct saved IDs can overlap on
+  one template. Fresh logins still prefer unused templates.
 - External solver quotas, funding and provider outages remain hard dependencies.
 - SQL/JSON analytics, cache scans and repeated progress persistence can become
   local contention points; the SQLite pool currently has four connections.
@@ -119,15 +125,16 @@ Overload can therefore still reject or expire work; this is not unlimited buffer
    fresh/warm, live/cached, route/fare-group count and passenger-count cohorts.
 2. Record arrival rate, p50/p95/p99 queue time, account/lease wait, upstream stage
    times, solver latency/cost, final outcomes and recovered outcomes.
-3. Resolve proxy-template contention through durable per-session allocation or
-   actual sticky-identity leases, preserving same-IP ownership and quarantine.
-4. Add bounded admission/backpressure based on queue age and expected work,
+3. Observe actual sticky-identity contention and proxy churn. Identity-based
+   resume leases, isolated quarantine and release notifications are implemented.
+4. Add predictive admission based on queue age and expected work,
    rather than accepting a burst that cannot finish before its deadline.
 5. Prioritize preparation by expiry deadline; spread renewals and reserve explicit
    login/search capacity. Add error-class circuit breakers and monitor retry spend.
-6. Move fleet/cache metadata lookup out of broad scheduler locks and index a
-   normalized shared-result cache. Throttle/coalesce progress writes.
+6. Index a normalized shared-result cache. Cache I/O is outside scheduler/fleet
+   locks; progress writes coalesce. Some fleet metadata reads still hold its lock.
 7. Use incremental progress delivery and cached/precomputed admin analytics.
+   Revision-aware polling already avoids unchanged payloads.
    Keep permanent history queryable without scanning every full JSON job.
 8. Increase live concurrency in measured steps, with rollback thresholds for
    latency, terminal error rate, solver saturation and proxy churn.
@@ -150,3 +157,10 @@ Overload can therefore still reject or expire work; this is not unlimited buffer
 External-account and solver dependencies still limit scale after local
 infrastructure is distributed. More servers cannot remove sequential work inside
 one booking context or guarantee airline acceptance.
+
+## Local concurrency regression
+
+A deterministic test uses real SQLite with 300 jobs and 100 fake-provider workers:
+270 completions, 30 queued cancellations, all terminal records retained, and
+identical in-flight requests coalesced. This validates local scheduling and
+persistence, not live EVA throughput, latency or success rate at 100 flows.

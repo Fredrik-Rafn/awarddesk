@@ -45,8 +45,17 @@ func TestRunningJobPublishesImmutablePartialPreview(t *testing.T) {
 	if j.Status != "running" || j.Result == nil || j.Result.Complete || j.Progress.Preview != nil || j.Result.Itineraries[0].Fares[0].CashPrice.Amount != "100" || j.Result.Itineraries[0].Fares[0].MilesCash.Miles != 123 {
 		t.Fatal("running preview missing, mutable, or complete")
 	}
+	tag := j.ETag()
+	j.Result.Itineraries[0].Fares[0].CashPrice.Amount = "modified by reader"
+	copy, _ := s.Get(j.ID)
+	if copy.Result.Itineraries[0].Fares[0].CashPrice.Amount != "100" || !s.Unchanged(j.ID, tag) {
+		t.Fatal("public snapshot modified live state or revision changed without progress")
+	}
 	close(p.release)
 	j = await(t, s, j.ID, "completed")
+	if s.Unchanged(j.ID, tag) {
+		t.Fatal("completion reused the preview revision")
+	}
 	if !j.Result.Complete || j.Result.Itineraries[0].Fares[0].MilesCash.Miles != 456 {
 		t.Fatal("final result did not replace preview")
 	}

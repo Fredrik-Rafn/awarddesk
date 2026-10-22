@@ -24,19 +24,27 @@ var sessionTag = regexp.MustCompile(`_(?:session|hardsession|lockedsession)-[^_]
 var lifetimeTag = regexp.MustCompile(`_lifetime-\d+`)
 
 type entry struct {
-	url   string
+	url    string
+	active int
+	until  time.Time
+}
+
+type stickyState struct {
 	busy  bool
 	until time.Time
 }
 type Pool struct {
-	mu          sync.Mutex
-	path        string
-	source      func() (string, error)
-	sourceValue string
-	entries     []*entry
-	next        int
-	mod         time.Time
-	size        int64
+	mu            sync.Mutex
+	path          string
+	source        func() (string, error)
+	sourceValue   string
+	entries       []*entry
+	next          int
+	mod           time.Time
+	size          int64
+	sticky        map[string]*stickyState
+	changed       chan struct{}
+	sourceChecked time.Time
 }
 type Lease struct {
 	URL      string
@@ -61,17 +69,22 @@ func (p *Pool) Count() int { p.mu.Lock(); defer p.mu.Unlock(); return len(p.entr
 // edits/removals; invalid replacement files fail closed without leaking lines.
 func (p *Pool) reload() error {
 	if p.source != nil {
+		if len(p.entries) > 0 && time.Since(p.sourceChecked) < time.Second {
+			return nil
+		}
 		value, err := p.source()
 		if err != nil {
 			return err
 		}
 		if value == p.sourceValue && len(p.entries) > 0 {
+			p.sourceChecked = time.Now()
 			return nil
 		}
 		if err = p.apply([]byte(value)); err != nil {
 			return err
 		}
 		p.sourceValue = value
+		p.sourceChecked = time.Now()
 		return nil
 	}
 	info, err := os.Stat(p.path)
@@ -96,6 +109,15 @@ func (p *Pool) reload() error {
 }
 func NewSource(source func() (string, error)) *Pool { return &Pool{source: source} }
 func Validate(value string) error                   { return (&Pool{}).apply([]byte(value)) }
+func (p *Pool) Invalidate() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.sourceChecked = time.Time{}
+	if p.changed != nil {
+		close(p.changed)
+	}
+	p.changed = make(chan struct{})
+}
 func (p *Pool) apply(data []byte) error {
 	old := map[string]*entry{}
 	for _, e := range p.entries {
@@ -168,23 +190,15 @@ func (p *Pool) Acquire(ctx context.Context) (*Lease, error) {
 	for offset := 0; offset < len(p.entries); offset++ {
 		i := (p.next + offset) % len(p.entries)
 		e := p.entries[i]
-		if e.busy || time.Now().Before(e.until) {
+		if e.active > 0 || time.Now().Before(e.until) {
 			continue
 		}
 		value, err := lockedURL(e.url)
 		if err != nil {
 			return nil, err
 		}
-		e.busy = true
 		p.next = (i + 1) % len(p.entries)
-		return &Lease{URL: value, Template: e.url, release: func(failed bool) {
-			p.mu.Lock()
-			defer p.mu.Unlock()
-			e.busy = false
-			if failed {
-				e.until = time.Now().Add(time.Minute)
-			}
-		}}, nil
+		return p.leaseLocked(e, value, true), nil
 	}
 	return nil, ErrUnavailable
 }
@@ -193,6 +207,12 @@ func (p *Pool) Acquire(ctx context.Context) (*Lease, error) {
 // identity or replaying any airline request. The caller bounds the queue time.
 func (p *Pool) WaitResume(ctx context.Context, template, raw string) (*Lease, error) {
 	for {
+		p.mu.Lock()
+		if p.changed == nil {
+			p.changed = make(chan struct{})
+		}
+		changed := p.changed
+		p.mu.Unlock()
 		lease, err := p.Resume(ctx, template, raw)
 		if !errors.Is(err, ErrUnavailable) {
 			return lease, err
@@ -203,6 +223,8 @@ func (p *Pool) WaitResume(ctx context.Context, template, raw string) (*Lease, er
 			timer.Stop()
 			return nil, ctx.Err()
 		case <-timer.C:
+		case <-changed:
+			timer.Stop()
 		}
 	}
 }
@@ -245,19 +267,46 @@ func (p *Pool) Resume(ctx context.Context, template, raw string) (*Lease, error)
 		if e.url != template {
 			continue
 		}
-		if e.busy || time.Now().Before(e.until) {
+		if state := p.sticky[raw]; state != nil && (state.busy || time.Now().Before(state.until)) {
 			return nil, ErrUnavailable
 		}
-		e.busy = true
 		p.next = (i + 1) % len(p.entries)
-		return &Lease{URL: raw, Template: template, release: func(failed bool) {
-			p.mu.Lock()
-			defer p.mu.Unlock()
-			e.busy = false
-			if failed {
-				e.until = time.Now().Add(time.Minute)
-			}
-		}}, nil
+		return p.leaseLocked(e, raw, false), nil
 	}
 	return nil, ErrRemoved
+}
+
+// Exclusivity belongs to the actual sticky identity, not its export template.
+// Fresh allocation still prefers an unused template; saved independent sessions
+// may run together without changing either session's proxy or cookies.
+func (p *Pool) leaseLocked(e *entry, raw string, fresh bool) *Lease {
+	if p.sticky == nil {
+		p.sticky = make(map[string]*stickyState)
+	}
+	for key, state := range p.sticky {
+		if !state.busy && !time.Now().Before(state.until) {
+			delete(p.sticky, key)
+		}
+	}
+	state := &stickyState{busy: true}
+	p.sticky[raw] = state
+	e.active++
+	return &Lease{URL: raw, Template: e.url, release: func(failed bool) {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		e.active--
+		state.busy = false
+		if failed {
+			state.until = time.Now().Add(time.Minute)
+			if fresh {
+				e.until = state.until
+			}
+		} else {
+			delete(p.sticky, raw)
+		}
+		if p.changed != nil {
+			close(p.changed)
+		}
+		p.changed = make(chan struct{})
+	}}
 }

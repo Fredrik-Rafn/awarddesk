@@ -13,6 +13,9 @@ automatic recovery to their implementing functions. Then read
 [design decisions and alternatives](docs/design-decisions.md),
 [capacity and scaling](docs/capacity.md) and the [architecture map](docs/architecture.md).
 
+See [solver calls, proxy bandwidth and operating costs](docs/operating-costs.md)
+for per-flow estimates, pricing assumptions and background renewal costs.
+
 ## Airline and scope
 
 EVA Air is the focus because its Miles & Cash flow combines flight availability,

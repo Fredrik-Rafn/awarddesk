@@ -45,9 +45,26 @@ separate durable checkpoint rules; see [registration](registration.md).
   successful snapshot, so it acquires a fresh sticky identity on that later check.
 - More proxy strings do not guarantee different exit IPs or healthy peers.
 
-A known capacity limitation remains: leases are exclusive by template, so different
-saved sticky URLs derived from the same template can contend. More accounts do
-not automatically remove that bottleneck.
+Resumed leases are exclusive by actual sticky URL. Different saved sticky IDs from
+one template can run concurrently; the same identity cannot. A failed resumed
+identity cools down independently of healthy peers. A failed fresh allocation also
+quarantines its source template briefly. Fresh allocation still prefers unused
+templates. Release notifications wake waiters promptly, with a one-second fallback.
+
+## Queue and storage recovery
+
+Capacity waiting has a 30-minute budget, separate from the 15-minute execution
+budget that begins at first account acquisition. Provider operations retain their
+shorter limits. Lowering the live concurrency setting delays new dispatches while
+active work finishes. Cancelled queued entries free capacity immediately.
+
+The FIFO admits at most 1,024 queued jobs. Identical in-flight queries coalesce and
+valid cache hits bypass that queue. Accepted work is flushed before dispatch;
+database I/O does not hold the scheduler mutex. A single writer coalesces progress,
+retries failed snapshots every second and rejects new admissions while storage is
+failing or its pending map reaches 2,048 jobs. Rejection carries Retry-After.
+Hard crashes or disk failure at shutdown can still lose the latest update; this
+is not a durable broker that replays pending airline operations after restart.
 
 ## Search retry boundaries
 

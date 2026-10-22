@@ -17,7 +17,7 @@ flows; different accounts provide concurrency.
 ## Reuse rules
 
 1. Load the snapshot and verify format, configuration identity and timestamps.
-2. Resume its original sticky proxy. If its template is busy, wait within the
+2. Resume its original sticky proxy. If that exact sticky identity is busy, wait within the
    operation deadline; do not change IP underneath existing cookies.
 3. Restore scoped cookies and verify the exit IP.
 4. Verify the authenticated member page. An exclusively retained warm client may

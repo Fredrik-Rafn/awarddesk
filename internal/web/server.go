@@ -12,6 +12,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -74,9 +75,19 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.HandleFunc("POST /api/searches", s.submit)
 	mux.HandleFunc("GET /api/searches/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if s.Jobs.Unchanged(r.PathValue("id"), r.Header.Get("If-None-Match")) {
+			w.Header().Set("ETag", r.Header.Get("If-None-Match"))
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
 		j, ok := s.Jobs.Get(r.PathValue("id"))
 		if !ok {
 			fail(w, 404, "search not found")
+			return
+		}
+		w.Header().Set("ETag", j.ETag())
+		if r.Header.Get("If-None-Match") == j.ETag() {
+			w.WriteHeader(http.StatusNotModified)
 			return
 		}
 		writeJSON(w, 200, j)
@@ -149,7 +160,14 @@ func (s *Server) submit(w http.ResponseWriter, r *http.Request) {
 	if e != nil {
 		var ae *award.Error
 		if errors.As(e, &ae) {
-			writeJSON(w, 429, ae)
+			if ae.RetryAfterSeconds > 0 {
+				w.Header().Set("Retry-After", strconv.Itoa(ae.RetryAfterSeconds))
+			}
+			status := http.StatusTooManyRequests
+			if ae.Code == "storage_unavailable" {
+				status = http.StatusServiceUnavailable
+			}
+			writeJSON(w, status, ae)
 		} else {
 			fail(w, 400, e.Error())
 		}

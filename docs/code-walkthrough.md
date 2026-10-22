@@ -71,10 +71,18 @@ mutation failed, so it is not automatically replayed.
 
 - Coalesce an identical queued/running Query, including its refresh flag.
 - Ask the fleet for a complete valid cache result before entering live queues.
-- Otherwise create a cancellable job with a 15-minute overall deadline.
-- Queue into a bounded channel of 1,024 entries; an in-memory item bound of 1,000
-  and cleanup of old finished items also apply. This is not an unlimited queue.
-- Workers call execute, timestamp start, publish progress and persist snapshots.
+- Otherwise create a cancellable job with a 30-minute capacity-wait budget.
+- Admit at most 1,024 queued searches into a FIFO. Cancellation removes queued
+  entries immediately. Finished snapshots have a separate hot-memory bound (256
+  with persistence, 1,000 without); their permanent database history remains.
+- Flush the accepted snapshot before dispatch, outside the scheduler lock.
+- Start the separate 15-minute execution budget when the fleet claims an account,
+  rather than while waiting for an account. Later failovers share that budget.
+- Apply increased or decreased concurrency live; lowering it drains active work.
+
+See [queue.go](../internal/jobs/queue.go) for admission/timers and
+[persistence.go](../internal/jobs/persistence.go) for the history writer. Cache
+lookup and historical database reads also run outside the scheduler mutex.
 
 Cache identity includes account configuration and query, with refresh normalized
 away for the cache key. A fleet cache lookup visits configured accounts. Default
@@ -98,9 +106,13 @@ writes from in-flight searches; permanent job history remains.
 5. Acquire the account's OS state lock and mark its in-process entry busy.
 6. Keep ownership through the entire search; release exactly once.
 
-When all eligible accounts are busy, claim polls every 150 ms within the job's
-deadline. If no account is eligible, it returns accounts_unavailable. It does not
-queue indefinitely waiting for a 15-minute cooldown to expire.
+When eligible accounts are busy or temporarily cooling down, claim waits for a
+release/configuration notification, with a one-second fallback for retry deadlines
+and external changes. The 30-minute capacity budget bounds this wait. If every
+account is disabled, incomplete or attention-paused, it returns accounts_unavailable.
+Runtime statuses are read in one database query; small settings reads exclude the
+large proxy list. Actual sticky identities, rather than whole templates, own
+resumed proxy leases, so independent saved sessions can overlap.
 
 Up to three different accounts may be tried for recognized safe preparation
 failures. safeFailover excludes uncertain outcomes, credential/OTP/pricing stages,
@@ -200,8 +212,16 @@ aggregation does not hide a maximum estimate because the test account lacks mile
 
 The job records final Result/Error, timestamps, stage timeline and recoveries.
 [storage/analytics.go](../internal/storage/analytics.go) computes retained history
-statistics. The browser polls active job status every 1.8 seconds (five seconds
-after a connection error), replaces previews
+statistics. One history writer coalesces superseded snapshots and performs SQL/JSON
+work outside the scheduler lock. Failed writes are retained for retry; admissions
+pause while storage is failing or its pending map reaches 2,048 jobs. Shutdown
+flushes pending snapshots. Sudden crashes may lose the latest progress update;
+uncertain mutations are never resumed from history.
+
+The browser polls active job status every 1.8 seconds (five seconds
+after a connection error). ETag/If-None-Match returns an empty 304 for unchanged
+snapshots and avoids cloning large live results. The browser keeps at most four
+poll snapshots. Changed progress replaces previews
 with the final result and offers filters/export. Cancellation applies to the
 shared job ID, so all callers coalesced to it see that cancellation.
 
@@ -323,7 +343,8 @@ limits are layered; they are not additive promises of total execution time.
 
 | Layer | Current rule | Source |
 | --- | --- | --- |
-| Search job | 15 minutes including queue wait | jobs/service.go, Submit |
+| Search capacity wait | 30 minutes before account acquisition | jobs/queue.go, expire |
+| Search execution | 15 minutes from first account acquisition; shorter provider budgets still apply | jobs/queue.go, started; fleet/fleet.go, Search |
 | Fleet preparation | 6 minutes after account claim | fleet/fleet.go, Prepare |
 | Provider session operation | 6 minutes for prepare; 10 for search | eva/login.go, withSession |
 | Registration worker | 15 minutes | registration/service.go, run |
@@ -347,7 +368,9 @@ limits are layered; they are not additive promises of total execution time.
 | Registration email | Five-minute wait, three-second polls, one-hour original verification window | outlook/registration.go |
 | Delayed account recovery | 15–30 minutes, longer Retry-After honored, pause after 15 consecutive failures | fleet/recovery.go; fleet/fleet.go |
 
-The proxy pool checks saved-template availability every second. Each generated
+The proxy pool wakes saved-identity waiters on release, with a one-second fallback.
+Database proxy-list reads are cached for one second; Admin edits invalidate them
+immediately. Fresh allocation prefers an unused non-quarantined template. Each generated
 sticky ID contains ten random hexadecimal characters; lockedURL removes ordinary
 session/lifetime modifiers so a provider cannot silently swap a failed exit.
 

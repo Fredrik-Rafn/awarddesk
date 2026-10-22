@@ -71,7 +71,7 @@ func run() error {
 	defer registrations.Close()
 	app.Admin = &web.Admin{DB: db, Fleet: evaProvider, Registrations: registrations, Searches: j}
 	app.Availability = func() (bool, bool) {
-		return evaProvider.Ready(), db.Setting("PROXY_LIST") != ""
+		return evaProvider.Ready(), db.HasProxies()
 	}
 	app.EVALogin = login.New(evaProvider.Ensure)
 	defer app.EVALogin.Close()

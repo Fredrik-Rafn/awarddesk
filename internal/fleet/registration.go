@@ -41,18 +41,22 @@ func (f *Fleet) RegistrationLease(ctx context.Context, saved ...string) (*proxie
 				f.registrations++
 				f.mu.Unlock()
 				var once sync.Once
-				return lease, func() { once.Do(func() { lease.Release(false); f.mu.Lock(); f.registrations--; f.mu.Unlock() }) }, nil
+				return lease, func() {
+					once.Do(func() { lease.Release(false); f.mu.Lock(); f.registrations--; f.notifyLocked(); f.mu.Unlock() })
+				}, nil
 			}
 			if !errors.Is(err, proxies.ErrUnavailable) {
 				f.mu.Unlock()
 				return nil, nil, err
 			}
 		}
+		changed := f.changed
 		f.mu.Unlock()
 		select {
 		case <-ctx.Done():
 			return nil, nil, ctx.Err()
-		case <-time.After(150 * time.Millisecond):
+		case <-changed:
+		case <-time.After(time.Second):
 		}
 	}
 }

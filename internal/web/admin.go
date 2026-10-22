@@ -189,6 +189,7 @@ func (s *Server) adminRoutes(mux *http.ServeMux) {
 					fail(w, 500, "Could not save proxies")
 					return
 				}
+				a.Fleet.ProxyListChanged()
 				writeJSON(w, 200, map[string]bool{"saved": true})
 				return
 			}
@@ -315,7 +316,7 @@ func secretSetting(k string) bool {
 	return strings.Contains(k, "KEY") || strings.Contains(k, "PASSWORD") || strings.Contains(k, "TOKEN")
 }
 func (a *Admin) settings(w http.ResponseWriter) {
-	m, e := a.DB.Settings()
+	m, e := a.DB.RuntimeSettings()
 	if e != nil {
 		fail(w, 500, "Could not read settings")
 		return

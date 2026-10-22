@@ -28,3 +28,27 @@ test('token recovery is bounded to one replay',async()=>{
   let actions=0,refresh=0;const api=client(async(url)=>{if(url==='/api/config'){refresh++;return response(200,{csrf:'b'.repeat(64)})}actions++;return response(403,{code:'request_token_invalid'})});
   await assert.rejects(api.request('/api/admin/accounts',{method:'PUT'}),e=>e.status===403);assert.equal(actions,2);assert.equal(refresh,1);
 });
+
+test('unchanged search polls reuse the snapshot without parsing an empty response',async()=>{
+  let requests=0;
+  const api=client(async(url,options)=>{
+    requests++;
+    if(requests===1){assert.equal(options.headers['If-None-Match'],undefined);return {...response(200,{id:'job',status:'running'}),headers:{get:name=>name==='ETag'?'"first"':null}}}
+    if(requests===2){assert.equal(options.headers['If-None-Match'],'"first"');return {status:304,ok:false,json:async()=>{throw Error('must not parse 304')}}}
+    assert.equal(options.headers['If-None-Match'],'"first"');return {...response(200,{id:'job',status:'completed'}),headers:{get:name=>name==='ETag'?'"second"':null}};
+  });
+  const first=await api.request('/api/searches/job');
+  assert.equal((await api.request('/api/searches/job')),first);
+  assert.equal((await api.request('/api/searches/job')).status,'completed');
+});
+
+test('search snapshot storage is bounded and never conditions mutations',async()=>{
+  const api=client(async(url,options)=>{
+    if(options.method==='DELETE'){assert.equal(options.headers['If-None-Match'],undefined);return response(204,null)}
+    if(url==='/api/searches/0')assert.equal(options.headers['If-None-Match'],undefined);
+    return {...response(200,{id:url}),headers:{get:name=>name==='ETag'?'"snapshot"':null}};
+  });
+  for(let i=0;i<5;i++)await api.request('/api/searches/'+i);
+  await api.request('/api/searches/0');
+  await api.request('/api/searches/4',{method:'DELETE'});
+});

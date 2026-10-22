@@ -64,6 +64,7 @@ func (f *Fleet) growPrepareWorkersLocked() {
 func (f *Fleet) RefreshPreparationWorkers() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.notifyLocked()
 	if !f.closed {
 		f.growPrepareWorkersLocked()
 	}

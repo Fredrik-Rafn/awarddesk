@@ -37,6 +37,15 @@ default. The former retention setting is removed and ignored. Records pruned
 before this upgrade cannot be restored.
 Interrupted jobs are recorded rather than replayed on restart.
 
+Search admission flushes its accepted snapshot before dispatch without holding
+the scheduler lock. Subsequent snapshots pass through one coalescing writer, so
+superseded progress updates need not each become a database write. Failed writes
+remain pending for retry; storage failure or 2,048 pending job snapshots pauses
+new admission. Graceful shutdown flushes the writer before closing SQLite. This
+does not guarantee the latest progress survives a hard crash or failing disk.
+Runtime settings reads exclude the large proxy list; account runtime snapshots
+use one query instead of a separate query for every account.
+
 Admin provides a flight-cache switch (`FLIGHT_CACHE_ENABLED`). Disabling it
 requires a custom confirmation dialog and atomically clears every cached flight.
 Cache reads and writes stop immediately, including writes from running searches.

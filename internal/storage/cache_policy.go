@@ -22,7 +22,7 @@ func cachePolicy(values map[string]string) CachePolicy {
 	return CachePolicy{Enabled: values["FLIGHT_CACHE_ENABLED"] != "false" && e == nil && d > 0, TTL: ttl}
 }
 func (s *Store) CachePolicy() (CachePolicy, error) {
-	m, e := s.Settings()
+	m, e := s.RuntimeSettings()
 	if e != nil {
 		return CachePolicy{}, e
 	}

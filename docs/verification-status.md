@@ -25,3 +25,21 @@ Offline tests do not contact EVA or consume solver credits.
 A fresh-workspace HTTP smoke check verifies startup, embedded pages, configuration,
 admin authentication and unconfigured-login behavior. This is not a new live airline
 benchmark. See [capacity](capacity.md) for measured facts versus estimates.
+
+## Queue and contention regressions
+
+Tests cover separate queue/execution budgets, first-account timing, 1,024 queued
+admissions, cancellation freeing space, cache/deduplication at saturation, lower
+concurrency draining active work, blocked SQL/cache leaving status/cancellation
+responsive, immutable snapshots and ETag/304 polling in Go and JavaScript. Proxy
+tests cover independent saved IDs sharing a template, same-ID exclusion, isolated
+quarantine, release wakeups and immediate invalidation after Admin edits. A real
+SQLite/fake-provider load test covers 300 jobs at peak 100 workers: 270 completed,
+30 cancelled, all terminal records retained. This is not a live EVA benchmark.
+
+After deploying these changes, two simultaneous uncached economy searches passed:
+HKG–TPE, 10 December 2026, two adults (115 seconds, seven flights), and TPE–HKG,
+24 November 2026, one adult (175 seconds, seven flights). Both returned complete
+results. Their unchanged polls returned 115 empty 304 responses in total. A repeat
+of the latter query returned complete cached results in 6 ms on localhost.
+These are two smoke checks, not a replacement mixed-load benchmark or an SLA.

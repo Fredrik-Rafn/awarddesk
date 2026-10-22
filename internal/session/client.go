@@ -142,7 +142,7 @@ func Headers(extra http.Header) http.Header {
 		}
 	}
 	h[http.PHeaderOrderKey] = []string{":method", ":authority", ":scheme", ":path"}
-	h[http.HeaderOrderKey] = []string{"content-length", "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform", "upgrade-insecure-requests", "user-agent", "accept", "authorization", "origin", "content-type", "x-amzn-waf-ba-rule", "x-ba-action-name", "x-ba-application-name", "x-ba-channel", "x-ba-client-name", "x-ba-device-id", "x-ba-interaction-id", "x-ba-language", "x-ba-market", "x-ba-request-id", "x-ba-session-id", "x-ba-track-id", "x-ba-user-anon-id", "x-xsrf-token", "sec-fetch-site", "sec-fetch-mode", "sec-fetch-user", "sec-fetch-dest", "referer", "accept-encoding", "accept-language", "cookie", "priority"}
+	h[http.HeaderOrderKey] = []string{"content-length", "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform", "upgrade-insecure-requests", "user-agent", "accept", "authorization", "origin", "content-type", "x-xsrf-token", "sec-fetch-site", "sec-fetch-mode", "sec-fetch-user", "sec-fetch-dest", "referer", "accept-encoding", "accept-language", "cookie", "priority"}
 	if mode := h["sec-fetch-mode"]; len(mode) > 0 && mode[0] == "navigate" {
 		// Observed on a Chrome 155 form POST at an HTTP/2 echo endpoint.
 		// HAR exports alphabetize headers and cannot establish wire order.

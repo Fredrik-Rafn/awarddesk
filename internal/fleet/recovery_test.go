@@ -46,7 +46,9 @@ func TestPreparationRetriesUntilFifteenthFailureThenPauses(t *testing.T) {
 func TestRetryCooldownExcludesAccountUntilDue(t *testing.T) {
 	f, providers := setup(t, 1)
 	f.outcome("a", providers["a"], &award.Error{Code: "timeout", Stage: "credentials", OutcomeUnknown: true})
-	_, _, _, err := f.claim(context.Background(), "a", nil, false)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	_, _, _, err := f.claim(ctx, "a", nil, false)
 	if err == nil {
 		t.Fatal("uncertain login was immediately replayed")
 	}

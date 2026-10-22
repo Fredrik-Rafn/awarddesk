@@ -495,11 +495,11 @@ func (s *Service) create(ctx context.Context, r *request, report award.Reporter)
 		return award.Failure("registration_expired", "The original one-hour verification window expired; inspect the mailbox and restart signup instead of polling the old submission.")
 	}
 	if r.State.Phase != "created" {
-		settings, e := s.db.Settings()
+		settings, e := s.db.RuntimeSettings()
 		if e != nil {
 			return e
 		}
-		if settings["PROXY_LIST"] == "" || settings["HYPER_API_KEY"] == "" || settings["ANYSOLVER_API_KEY"] == "" {
+		if !s.db.HasProxies() || settings["HYPER_API_KEY"] == "" || settings["ANYSOLVER_API_KEY"] == "" {
 			return errors.New("Configure proxies and solver keys first")
 		}
 		var saved []string

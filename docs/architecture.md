@@ -74,3 +74,11 @@ onboarding and permanent search history remain intact.
 Mutation requests require X-CSRF-Token. Host/Origin checks restrict the local
 boundary; admin operations also require a valid HttpOnly/SameSite cookie.
 Public results/configuration exclude credentials.
+
+## Contention boundaries
+
+The bounded FIFO separates capacity-wait and execution budgets. Account/proxy
+release notifications wake waiters. A coalescing history writer keeps SQL outside
+the scheduler lock and flushes admission before dispatch. Revision-aware polling
+avoids resending unchanged results. See the walkthrough for exact limits and the
+reliability guide for failure/backpressure rules.

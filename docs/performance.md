@@ -96,3 +96,18 @@ CAPTCHA 7.0 s, booking handoff/security 8.2 s, and mileage pricing 13.7 s. Prici
 already deduplicates shared recommendations. Reusing a conversion ratio across
 different routes/fares, persisting one-use CAPTCHA answers or skipping traveller
 and catalog transitions has not been validated and is not implemented.
+
+## Local contention improvements
+
+The live workspace is configured for 100. The FIFO admits up to 1,024 queued
+searches independently of finished history. Capacity waiting has 30 minutes,
+separate from 15 minutes of execution after first account acquisition. Lowered
+limits drain active work; cancellation immediately frees queued capacity.
+Release notifications replace tight capacity polling, with a one-second fallback.
+Distinct saved sticky IDs no longer serialize their whole proxy template.
+
+Cache/history I/O and SQL/JSON progress writes run outside the job scheduler mutex.
+One writer coalesces superseded snapshots and flushes admission before dispatch.
+Unchanged polls use ETag/304 without full result cloning/transmission. Small
+settings reads omit the large proxy list, and account runtime statuses batch.
+These reduce local overhead; dependent EVA pricing calls still dominate latency.

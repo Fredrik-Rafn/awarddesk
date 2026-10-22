@@ -26,7 +26,7 @@ func TestWaitResumePreservesIdentityAndHonorsCancellation(t *testing.T) {
 	original := a.URL
 	a.Release(true)
 	p.mu.Lock()
-	p.entries[0].until = time.Now().Add(20 * time.Millisecond)
+	p.sticky[original].until = time.Now().Add(20 * time.Millisecond)
 	p.mu.Unlock()
 	ctx2, cancel2 := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel2()
