@@ -5,56 +5,54 @@ background session preparation and SQLite database. Works on Windows, macOS and
 Linux. Requires Go 1.25.5 or newer; no Node, separate frontend server, C compiler
 or external database is needed.
 
-## Airline choices and scope
+## Airline and scope
 
-| Airline | Why it is included | Current support |
-| --- | --- | --- |
-| EVA Air | The supplied end-to-end captures include login, email verification, availability and mileage pricing, making it the main integration. | Public search UI, saved sessions, multiple accounts, one-way Miles & Cash estimates for 1–9 adults. |
-| British Airways | The original integration provides an Avios award-search flow and a separate example of OAuth/PKCE authentication. | Experimental search provider retained in the backend when configured; hidden from the public selector. |
-| ANA | Added to investigate Mileage Club authentication and reusable sessions independently of flight search. | Login and session verification only; no availability or award pricing. Hidden from the public page. |
+EVA Air is the focus because its Miles & Cash flow combines flight availability,
+fare families and mileage offsets in a single booking journey. The integration
+covers authentication, email verification, reusable sessions and pricing across
+all eligible flights returned for a date.
 
-EVA uses **`IS_MILES_MODE=false`**, as requested: Miles & Cash against a paid
+EVA uses **`IS_MILES_MODE=false`**: Miles & Cash against a paid
 fare, rather than an award ticket. The displayed estimate maximizes the cash
 offset using miles, irrespective of the selected account's balance. Cash and
 mileage totals apply to the entire search party.
 
-## How the airline APIs were investigated
+## Reverse engineering the request flow
 
-The starting evidence was browser DevTools HAR exports supplied for each airline,
-plus exported EVA verification emails. Request methods, redirects, form fields,
-cookies, embedded page JSON and response bodies were mapped into Go HTTP flows.
-The implementation uses `tls-client`/`fhttp` for isolated HTTP sessions, HTML/JSON
-parsers for fresh state, explicit diagnostic commands and sanitized stage timings
-for live checks, and `httptest`/local fixtures for offline regression tests.
-The application does not read HARs or depend on captured cookies at runtime.
+The implementation follows EVA's browser request flow from member login through
+flight selection and mileage pricing. Browser DevTools was used to inspect
+request order, redirects, form fields, cookies and response data, then identify
+which values are fixed configuration and which must be generated for each session.
 
-**EVA:** the captures revealed separate member and booking sessions, Outlook OTP,
-image CAPTCHA, Akamai checks, and Imperva/Reese84 booking security. Availability
-contains cash fares, but mileage options arrive later through fare selection,
-traveller/catalogue and checkout preparation (`ACTION=BOOK`). Those steps carry
-rotating state and cannot be replaced with an availability-only request. Login
-snapshots and complete searches are cached independently. Challenges included
-late OTP delivery, OAuth refresh-token rotation, expired proxy identities, changing
-security pages and partial pricing responses. Availability cash amounts are per
-adult while checkout amounts are party totals; normalizing those units fixed
-false `price_changed` failures. See [EVA flow](docs/eva.md),
-[registration](docs/registration.md) and [solver comparisons](docs/solver-comparison.md).
+The flow has several distinct stages:
 
-**British Airways:** the captures exposed OAuth authorization with PKCE, hCaptcha,
-an authorization-code exchange, and a separate classic booking session. Fresh
-CSRF/form tokens and exact live selection values are carried into Avios quotes.
-A Bearer header absent from the sanitized capture proved necessary in live
-requests. Rotating form tokens, interstitial pages and high-demand responses
-needed explicit parsing rather than treating every page as empty availability.
-Hyper handles Akamai; AnySolver handles CAPTCHA. See [BA flow](docs/ba-flow.md).
+1. **Authentication:** initialize the member session, complete the security checks,
+   submit credentials and verify the resulting authenticated state. Outlook OAuth
+   and read-only IMAP retrieve the fresh email OTP when verification is required.
+2. **Booking handoff:** carry the authenticated session into a fresh booking
+   context while preserving its cookies, browser identity and sticky proxy.
+3. **Availability:** submit route, date, cabin and passenger count, then parse
+   flight recommendations and fare families from the returned page data.
+4. **Mileage pricing:** follow fare selection, traveller/catalogue and checkout
+   preparation (`ACTION=BOOK`) to retrieve the Miles & Cash options. Availability
+   alone exposes cash fares, so these later state-dependent steps are required.
+5. **Normalization:** map the responses into a shared result model, omit explicitly
+   ineligible fares and express cash and mileage amounts for the whole party.
 
-**ANA:** the login HAR and captured frontend JavaScript exposed frontend client
-configuration, authorization, SSO credential submission and an authenticated
-member-cookie check. An empty token in a successful SSO response means retaining
-the authorization token. Hyper's Akamai rounds depend on cookies from earlier
-rounds; they are sequential, rather than one reusable batch. HTTP 403, OTP and
-uncertain credential outcomes are separate failures, and are not counted as a
-successful login. See [ANA flow](docs/ana-login.md) and [session lifecycle](docs/sessions.md).
+The main challenges are rotating form state, separate member and booking session
+lifetimes, delayed OTP delivery and security interstitials that resemble ordinary
+pages. Availability also reports cash per adult while checkout reports party
+totals; these units are normalized before checking for a genuine price change.
+Login snapshots and complete search results are cached separately.
+
+Go's `tls-client`/`fhttp` provides isolated HTTP sessions, while HTML/JSON parsers
+extract fresh state from each response. Hyper and AnySolver adapters handle the
+security challenges encountered in the flow. Diagnostic commands and sanitized
+stage timings support live investigation; local fixtures and `httptest` cover
+parsing, state transitions and recovery without contacting the airline.
+
+See [EVA flow](docs/eva.md), [registration](docs/registration.md) and
+[solver comparisons](docs/solver-comparison.md).
 
 ## Run
 
@@ -83,13 +81,6 @@ For a fresh installation, open Admin and:
 4. Prepare the account, or let background maintenance do so. Once ready, use the
    public search page. Change the initial admin password in Admin.
 
-BA/ANA credentials remain supported but are intentionally hidden from Settings.
-For a new workspace, copy `.env.example` to `.env` before the first launch and
-fill `BA_EMAIL`/`BA_PASSWORD` or `ANA_MEMBER_NUMBER`/`ANA_PASSWORD`, the solver keys,
-and any proxy settings. These values import once. An existing migrated workspace
-keeps its stored legacy settings; editing `.env` does not replace them.
-The explicit ANA environment diagnostic below is available without changing SQLite.
-
 On the first run, existing `.env`, `proxies.txt` and valid `.state/**/*.json`
 files are imported automatically. After that **SQLite is authoritative**;
 editing old files does not override Admin changes. An empty checkout can be
@@ -115,8 +106,7 @@ original proxy/IP to remain valid. No machine-specific encryption is used.
 - Replace the sticky Evomi proxy list. Each fresh login selects an available
   endpoint with a new random locked ID; each saved session keeps its exact proxy.
 - Change Hyper/AnySolver keys, solver selection, caching and concurrency settings.
-  EVA applies changes when each account next becomes idle. Legacy ANA/BA values
-  remain stored but are hidden from Settings.
+  EVA applies changes when each account next becomes idle.
 - Explore the activity chart, success/live reliability rates, median/P95 timings,
   cache use, recovered successes, route rankings and failure stages. Select a time
   window from one hour to all retained history.
@@ -139,11 +129,10 @@ See [bulk account creation](docs/registration.md) for import format and recovery
 ## Search and session behavior
 
 **EVA Air Miles & Cash** supports economy, premium economy and business, 1–9 adults,
-one way. It follows the supplied `IS_MILES_MODE=false` flow, including pricing
+one way. It follows the `IS_MILES_MODE=false` flow, including pricing
 preparation, and shows maximum-offset estimates regardless of account balance.
-It does not submit payment or ticketing. The public page offers EVA only. Legacy
-ANA and BA modules remain available in the codebase. Actual award-ticket
-redemption is a different flow.
+It does not submit payment or ticketing. Actual award-ticket redemption is a
+different flow.
 
 Complete identical EVA searches are cached for **30 minutes from availability
 retrieval**. Errors and partial results are never cached. Admin can disable and
@@ -171,7 +160,7 @@ is an upper bound: server revocation may happen sooner. EVA's booking page decla
 a separate 600-second booking timeout, which is not the member-login lifetime.
 A fresh booking context is created for each uncached search. See
 [storage and migration](docs/storage.md), [EVA details](docs/eva.md),
-[performance measurements](docs/performance.md) and [reliability](docs/reliability.md).
+[performance measurements](docs/performance.md) and [reliability](docs/eva-reliability.md).
 
 ## Settings
 
@@ -198,8 +187,6 @@ main.go                         Startup, lifecycle and provider wiring
 internal/storage/               SQLite schema, migration, state and job persistence
 internal/fleet/                 EVA account scheduling, failover and maintenance
 internal/providers/eva/          Login, booking security, availability, pricing
-internal/providers/ana/          ANA login and saved-session manager
-internal/providers/ba/           Experimental BA integration
 internal/outlook/                OAuth rotation and read-only IMAP OTP lookup
 internal/proxies/                Sticky endpoint leasing and validation
 internal/session/               HTTP transport, scoped cookies and egress pinning
@@ -219,17 +206,11 @@ go vet -p 1 ./...
 go run ./cmd/eva-login
 go run ./cmd/outlook-check
 go run ./cmd/eva-check -help
-go run ./cmd/ana-login -help
 ```
 
 Diagnostic login commands use the same database. EVA checks lease an account
 exclusively; explicit login checks can consume solver credits. The Outlook check
 uses the first stored EVA account and never sends mail or marks messages read.
-For an ANA check using temporary process variables rather than stored settings,
-set `ANA_MEMBER_NUMBER`, `ANA_PASSWORD` and `HYPER_API_KEY`, optionally set
-`AWARDDESK_PROXY` or `AWARDDESK_PROXY_FILE`, then run
-`go run ./cmd/ana-login -env`. Windows users can use `./login-ana.ps1` to prompt
-for these values. This mode neither imports nor updates workspace credentials.
 
 ## Known limitations and edge cases
 
@@ -248,10 +229,6 @@ for these values. This mode neither imports nor updates workspace credentials.
   valid empty results). The per-adult/party fix subsequently passed 7/7 targeted
   live checks; the full 500-search test has not been repeated after that fix.
   TPE–ICN handoffs and some booking-data responses remain unresolved failures.
-- BA's live coverage is narrower than its advertised cabin/adult mappings:
-  the historical verified case is one adult in economy, JFK–LAX. ANA has no
-  flight-search implementation, and historical login successes do not guarantee
-  current proxy, MFA or account acceptance.
 - Session expiry is an estimate; server revocation or a lost sticky proxy can
   invalidate it earlier. A 30-minute cached fare may no longer be bookable.
 - SQLite contains plaintext account, proxy and API secrets and portable tokens.
