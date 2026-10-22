@@ -51,8 +51,15 @@ type Checkpoint struct {
 
 func New(c Config) *Reader { return &Reader{config: c} }
 func (r *Reader) token(ctx context.Context) (string, error) {
+	return r.refreshAccess(ctx, false)
+}
+func (r *Reader) refreshAccess(ctx context.Context, force bool) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if force {
+		r.access = ""
+		r.expires = time.Time{}
+	}
 	if r.access != "" && time.Until(r.expires) > time.Minute {
 		return r.access, nil
 	}
@@ -112,10 +119,33 @@ func (x xoauth) Next([]byte) ([]byte, error) {
 	return nil, errors.New("Outlook rejected OAuth authentication")
 }
 func (r *Reader) connect(ctx context.Context, folders ...string) (*client.Client, *imap.MailboxStatus, func(), error) {
-	token, err := r.token(ctx)
-	if err != nil {
-		return nil, nil, nil, err
+	return connectWithRefresh(ctx, r.refreshAccess, func(token string) (*client.Client, *imap.MailboxStatus, func(), error) {
+		return r.openMailbox(ctx, token, folders...)
+	})
+}
+
+var errIMAPAuth = errors.New("Outlook IMAP OAuth login rejected")
+
+// IMAP may reject a cached access token before its advertised expiry. Refresh
+// once using the latest durable refresh token; no EVA login/OTP is submitted here.
+func connectWithRefresh(ctx context.Context, token func(context.Context, bool) (string, error), open func(string) (*client.Client, *imap.MailboxStatus, func(), error)) (*client.Client, *imap.MailboxStatus, func(), error) {
+	for attempt := 0; attempt < 2; attempt++ {
+		access, err := token(ctx, attempt > 0)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		c, box, cleanup, err := open(access)
+		if !errors.Is(err, errIMAPAuth) || attempt == 1 || ctx.Err() != nil {
+			return c, box, cleanup, err
+		}
+		if cleanup != nil {
+			cleanup()
+		}
 	}
+	return nil, nil, nil, errIMAPAuth
+}
+
+func (r *Reader) openMailbox(ctx context.Context, token string, folders ...string) (*client.Client, *imap.MailboxStatus, func(), error) {
 	dialer := tls.Dialer{NetDialer: &net.Dialer{Timeout: 20 * time.Second}, Config: &tls.Config{ServerName: "outlook.office365.com", MinVersion: tls.VersionTLS12}}
 	conn, err := dialer.DialContext(ctx, "tcp", "outlook.office365.com:993")
 	if err != nil {
@@ -132,7 +162,7 @@ func (r *Reader) connect(ctx context.Context, folders ...string) (*client.Client
 	c.ErrorLog = log.New(io.Discard, "", 0)
 	if err = c.Authenticate(xoauth{r.config.Email, token}); err != nil {
 		cleanup()
-		return nil, nil, nil, errors.New("Outlook IMAP OAuth login rejected")
+		return nil, nil, nil, errIMAPAuth
 	}
 	folder := "INBOX"
 	if len(folders) > 0 && folders[0] != "" {

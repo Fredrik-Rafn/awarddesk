@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 func (a *Admin) registrations(w http.ResponseWriter, r *http.Request) {
@@ -12,6 +13,26 @@ func (a *Admin) registrations(w http.ResponseWriter, r *http.Request) {
 	}
 	switch r.Method {
 	case "GET":
+		if raw := r.URL.Query().Get("ids"); raw != "" {
+			ids := strings.Split(raw, ",")
+			if len(ids) > 500 {
+				fail(w, 400, "Batch is too large")
+				return
+			}
+			for _, id := range ids {
+				if len(id) != 32 || strings.Trim(id, "0123456789abcdef") != "" {
+					fail(w, 400, "Invalid batch ID")
+					return
+				}
+			}
+			items, e := a.Registrations.Current(ids)
+			if e != nil {
+				fail(w, 500, "Could not read account creation progress")
+				return
+			}
+			writeJSON(w, 200, map[string]any{"items": items})
+			return
+		}
 		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 		if page < 1 {
 			page = 1

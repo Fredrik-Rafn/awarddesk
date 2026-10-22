@@ -58,6 +58,10 @@ send a solver API key to the IP service. Hyper still generates Akamai sensors.
 
 Outlook refresh tokens rotate into per-mailbox SQLite state records, alongside
 the email and OAuth client ID.
+If IMAP rejects a cached access token, the reader forces one token refresh and
+opens a new read-only connection. A second rejection stops; no EVA credential or
+OTP submission is replayed by this recovery. Saved sessions waiting for a busy
+proxy retain their original identity and the operation's bounded deadline.
 Mailbox checks use read-only IMAP and `BODY.PEEK`; they never send mail or mark
 messages read. OTPs must match the sender, subject and configured recipient,
 arrive after the login checkpoint, and remain within EVA's three-minute lifetime.

@@ -133,9 +133,14 @@ function renderHealth(data) {
       (!s.nextAttempt || new Date(s.nextAttempt) <= new Date()),
   ).length;
   const busy = data.sessions.filter((s) => s.busy).length,
-    attention = data.sessions.filter(
-      (s) => s.needsAttention || s.state === "failed",
-    ).length;
+    attention = new Set([
+      ...data.sessions
+        .filter((s) => s.needsAttention || s.state === "failed")
+        .map((s) => s.id),
+      ...(data.accountSetups || [])
+        .filter((s) => ["failed", "attention"].includes(s.status))
+        .map((s) => s.accountId || s.id),
+    ]).size;
   const card = $("fleet-health");
   card.replaceChildren();
   const hero = el("div", undefined, "fleet-number");
@@ -496,7 +501,7 @@ async function refreshDashboard() {
     if (!polling) return false;
     if (
       !$("flight-list").contains(document.activeElement) &&
-      changedSnapshot("overview", data, $("account-list"))
+      changedSnapshot("overview", data)
     )
       render(data);
     if (changedSnapshot("analytics", stats, $("overview")))

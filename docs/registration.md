@@ -32,8 +32,11 @@ Login OTPs retain their separate three-minute expiry and subject validation.
 
 Successful registrations enter the enabled account pool and prepare the standard
 saved EVA member session. The account editor loads the stored password and OAuth
-token, initially masked with eye buttons. Registration progress/history has its
-own paginated list and is kept permanently.
+token, initially masked with eye buttons. The creation panel shows a temporary
+table of queued/running work submitted from the current page. Completed rows
+disappear. Refresh, sign-out or switching admin sections clears this view;
+background work and durable recovery checkpoints continue. Unresolved setups
+appear as Needs attention in the accounts list, including unconfirmed memberships.
 
 Registration checkpoints are saved before mutations. Network failures before
 creation can safely start fresh setup; an uncertain creation response polls email

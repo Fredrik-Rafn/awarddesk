@@ -175,9 +175,10 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 				if report != nil {
 					report(award.Progress{Stage: "proxy queue", Message: "Waiting for the saved session's sticky proxy to become available"})
 				}
-				waitCtx, cancel := context.WithTimeout(ctx, 65*time.Second)
-				lease, err = p.config.Pool.WaitResume(waitCtx, saved.Template, saved.Proxy)
-				cancel()
+				// Another active operation may own this slot longer than its
+				// transport cooldown. Keep the existing bounded operation deadline
+				// rather than falsely failing an otherwise valid saved session.
+				lease, err = p.config.Pool.WaitResume(ctx, saved.Template, saved.Proxy)
 			}
 			if err != nil {
 				if errors.Is(err, proxies.ErrRemoved) {

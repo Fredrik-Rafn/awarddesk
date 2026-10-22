@@ -1,126 +1,120 @@
 "use strict";
 let registrationPage = 1,
-  registrationLoading = false;
+  registrationLoading = false,
+  registrationBatch = [],
+  registrationGeneration = 0;
+function resetRegistrationBatch() {
+  registrationGeneration++;
+  registrationBatch = [];
+  registrationPage = 1;
+  for (const id of [
+    "registration-total",
+    "registration-list",
+    "registration-pages",
+    "registration-message",
+  ])
+    $(id).replaceChildren();
+}
+function trackRegistration(id) {
+  if (!registrationBatch.includes(id)) registrationBatch.push(id);
+  registrationGeneration++;
+  refreshRegistrations();
+}
+async function retryRegistration(item) {
+  await api("/api/admin/registrations/retry", {
+    method: "POST",
+    body: JSON.stringify({ id: item.id }),
+  });
+  trackRegistration(item.id);
+  message("Account setup resumed", "success");
+  await refresh();
+}
 async function refreshRegistrations() {
-  if (!polling || registrationLoading) return;
+  if (
+    !polling ||
+    registrationLoading ||
+    !registrationBatch.length ||
+    currentView() !== "accounts"
+  )
+    return;
   registrationLoading = true;
+  const generation = registrationGeneration;
   try {
-    const data = await api("/api/admin/registrations?page=" + registrationPage);
-    if (!polling) return;
-    $("registration-total").textContent = data.total + " total";
-    const pages = Math.max(1, Math.ceil(data.total / data.limit));
-    renderPagination(
-      $("registration-pages"),
-      data.page,
-      pages,
-      async (page) => {
-        registrationPage = page;
-        await refreshRegistrations();
-      },
+    const batches = [];
+    for (let i = 0; i < registrationBatch.length; i += 500)
+      batches.push(registrationBatch.slice(i, i + 500));
+    const responses = await Promise.all(
+      batches.map((ids) =>
+        api("/api/admin/registrations?ids=" + ids.join(",")),
+      ),
     );
-    const list = $("registration-list");
-    const focusedRow = list.contains(document.activeElement)
-      ? document.activeElement.closest("[data-registration-id]")?.dataset
-          .registrationId
-      : null;
+    const data = { items: responses.flatMap((response) => response.items) };
     if (
-      typeof changedSnapshot === "function" &&
-      !changedSnapshot("registrations", data.items)
+      !polling ||
+      generation !== registrationGeneration ||
+      currentView() !== "accounts"
     )
       return;
+    const active = data.items.filter((item) =>
+      ["queued", "running"].includes(item.status),
+    );
+    const list = $("registration-list");
     list.replaceChildren();
-    if (!data.items.length) {
-      list.append(
-        el(
-          "p",
-          "No account creations yet. Your onboarding history will stay here.",
-          "empty-note",
-        ),
-      );
+    $("registration-total").textContent = active.length
+      ? active.length + " in progress"
+      : "";
+    $("registration-pages").replaceChildren();
+    if (!active.length) {
+      registrationBatch = [];
+      $("registration-message").textContent =
+        "Batch finished. Accounts needing attention are shown in the accounts list.";
+      await refresh();
       return;
     }
-    for (const item of data.items) {
-      const card = el("article", undefined, "registration-row"),
-        copy = el("div"),
-        top = el("div", undefined, "registration-row-title");
-      card.dataset.registrationId = item.id;
-      top.append(
-        el("strong", item.email),
-        el("span", item.status, "status-pill status-" + item.status),
+    const pages = Math.ceil(active.length / 25);
+    registrationPage = Math.min(registrationPage, pages);
+    if (pages > 1)
+      renderPagination(
+        $("registration-pages"),
+        registrationPage,
+        pages,
+        (page) => {
+          registrationPage = page;
+          refreshRegistrations();
+        },
       );
-      copy.append(
-        top,
-        el("p", item.stage + " · " + item.message),
-        el(
-          "small",
-          "Added " +
-            date(item.createdAt) +
-            " · Updated " +
-            date(item.updatedAt),
-        ),
-      );
-      if (item.error && ["attention", "failed"].includes(item.status))
-        copy.append(
+    const heading = el("h4", "Current account creation session");
+    const rows = active
+      .slice((registrationPage - 1) * 25, registrationPage * 25)
+      .map((item) => {
+        const state = el("div");
+        state.append(
           el(
-            "p",
-            typeof item.error === "string"
-              ? item.error
-              : item.error.message || JSON.stringify(item.error),
-            "registration-error",
+            "span",
+            item.status === "queued" ? "Queued" : "Creating",
+            "status-pill status-" + item.status,
           ),
         );
-      if (["running", "queued"].includes(item.status)) {
         const progress = el(
           "div",
           undefined,
           "job-progress registration-progress",
         );
         progress.setAttribute("role", "progressbar");
-        progress.setAttribute(
-          "aria-label",
-          item.status === "queued"
-            ? "Account creation queued"
-            : "Account creation in progress",
-        );
+        progress.setAttribute("aria-label", "Account setup in progress");
         progress.append(el("span", undefined, "indeterminate"));
-        copy.append(progress);
-      }
-      card.append(copy);
-      if (item.status === "failed" || item.status === "attention") {
-        const retry = el(
-          "button",
-          item.status === "attention" ? "Resume verification" : "Retry setup",
-          "secondary",
-        );
-        retry.type = "button";
-        retry.onclick = async () => {
-          retry.disabled = true;
-          try {
-            await api("/api/admin/registrations/retry", {
-              method: "POST",
-              body: JSON.stringify({ id: item.id }),
-            });
-            await refreshRegistrations();
-          } catch (e) {
-            message(e.message);
-          } finally {
-            retry.disabled = false;
-          }
-        };
-        card.append(retry);
-      }
-      list.append(card);
-    }
-    if (focusedRow) {
-      const replacement = [...list.children]
-        .find((row) => row.dataset.registrationId === focusedRow)
-        ?.querySelector("button");
-      if (replacement) replacement.focus();
-      else {
-        $("registration-total").tabIndex = -1;
-        $("registration-total").focus({ preventScroll: true });
-      }
-    }
+        state.append(progress);
+        return [
+          item.email,
+          state,
+          cell(item.stage, item.message),
+          date(item.updatedAt),
+        ];
+      });
+    list.append(
+      heading,
+      table(["Mailbox", "Status", "Current step", "Updated"], rows),
+    );
   } catch (e) {
     $("registration-message").textContent = e.message;
   } finally {
@@ -139,6 +133,7 @@ $("registration-form").onsubmit = async (e) => {
     }))
   )
     return;
+  const generation = registrationGeneration;
   const button = $("start-registration");
   button.disabled = true;
   try {
@@ -151,12 +146,18 @@ $("registration-form").onsubmit = async (e) => {
     });
     $("registration-credentials").value = "";
     $("registration-consent").checked = false;
+    if (generation !== registrationGeneration || currentView() !== "accounts")
+      return;
     $("registration-message").textContent =
       result.added + " queued · " + result.skipped + " already present";
+    registrationBatch = [
+      ...new Set([...registrationBatch, ...(result.ids || [])]),
+    ];
+    registrationGeneration++;
     registrationPage = 1;
     await refreshRegistrations();
   } catch (e) {
-    $("registration-message").textContent = e.message;
+    message(e.message);
   } finally {
     button.disabled = false;
   }
@@ -165,5 +166,5 @@ setInterval(() => {
   if (polling && currentView() === "accounts") refreshRegistrations();
 }, 3000);
 window.addEventListener("hashchange", () => {
-  if (polling && currentView() === "accounts") refreshRegistrations();
+  resetRegistrationBatch();
 });

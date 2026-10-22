@@ -46,7 +46,7 @@ function showLogin() {
   $("registration-form").reset();
   $("registration-message").textContent = "";
   $("registration-list").replaceChildren();
-  registrationPage = 1;
+  resetRegistrationBatch();
   overview = null;
   if (typeof clearDashboard === "function") clearDashboard();
   for (const id of ["account-list", "flight-list", "job-list", "cache-json"])
@@ -111,21 +111,42 @@ function render(data) {
   $("proxy-count").textContent =
     String(data.proxyCount || 0) + " configured endpoints";
   const status = new Map(data.sessions.map((s) => [s.id, s]));
-  if (!$("account-list").contains(document.activeElement))
-    $("account-list").replaceChildren(
-      table(
-        ["Account", "Status", "Session expires", "Last check", "Actions"],
-        data.accounts.map((a) => {
+  const accountSetups = data.accountSetups || [];
+  const setupAttention = accountSetups.filter((s) =>
+    ["failed", "attention"].includes(s.status),
+  );
+  const setupByAccount = new Map(
+    setupAttention.filter((r) => r.accountId).map((r) => [r.accountId, r]),
+  );
+  const accountIds = new Set(data.accounts.map((a) => a.id));
+  $("account-list").replaceChildren(
+    table(
+      ["Account", "Status", "Session expires", "Last check", "Actions"],
+      data.accounts
+        .map((a) => {
           const s = status.get(a.id) || {},
             state = s.state || "idle",
             p = el("div");
-          p.append(el("span", state, "pill " + state));
+          const setup = setupByAccount.get(a.id);
+          p.append(
+            el(
+              "span",
+              state === "failed" || (setup && !s.busy)
+                ? "Needs attention"
+                : state,
+              "pill " + state,
+            ),
+          );
           if (s.message) p.append(el("small", s.message));
           if (s.needsAttention)
             p.append(el("small", "Needs attention · use Prepare to retry"));
           else if (s.nextAttempt && new Date(s.nextAttempt) > new Date())
             p.append(el("small", "Next attempt: " + date(s.nextAttempt)));
           const controls = el("div");
+          if (setup && !s.busy)
+            controls.append(
+              action("Retry setup", () => retryRegistration(setup)),
+            );
           controls.append(
             action("Edit", () => editAccount(a)),
             action("Prepare", async () => {
@@ -174,9 +195,42 @@ function render(data) {
             cell(date(s.checkedAt), s.stage),
             controls,
           ];
-        }),
-      ),
-    );
+        })
+        .concat(
+          accountSetups
+            .filter((r) => !r.accountId || !accountIds.has(r.accountId))
+            .map((item) => {
+              const active = ["queued", "running"].includes(item.status);
+              const state = el("div");
+              state.append(
+                el(
+                  "span",
+                  active ? "Creating" : "Needs attention",
+                  "pill " + (active ? "preparing" : "failed"),
+                ),
+                el("small", active ? item.message : item.error || item.message),
+              );
+              const controls = el("div");
+              if (!active)
+                controls.append(
+                  action(
+                    item.status === "attention"
+                      ? "Resume verification"
+                      : "Retry setup",
+                    () => retryRegistration(item),
+                  ),
+                );
+              return [
+                cell("Account setup", item.email),
+                state,
+                cell("Membership unconfirmed", "No login attempted"),
+                cell(date(item.updatedAt), item.stage),
+                controls,
+              ];
+            }),
+        ),
+    ),
+  );
   if (!$("flight-list").contains(document.activeElement))
     $("flight-list").replaceChildren(
       table(

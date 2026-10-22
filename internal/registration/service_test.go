@@ -139,3 +139,22 @@ func TestRegistrationHistoryPersistsAndPagination(t *testing.T) {
 		t.Fatal(total, len(rows), e)
 	}
 }
+
+func TestBatchProgressOnlyIncludesRequestedImports(t *testing.T) {
+	s := testService(t)
+	first, e := s.Import(mailboxFixture)
+	if e != nil || len(first.IDs) != 1 {
+		t.Fatal("missing batch IDs")
+	}
+	second, e := s.Import(strings.Replace(mailboxFixture, "test@", "another@", 1))
+	if e != nil {
+		t.Fatal(e)
+	}
+	items, e := s.Current(first.IDs)
+	if e != nil || len(items) != 1 || items[0].ID != first.IDs[0] || items[0].ID == second.IDs[0] {
+		t.Fatal("unrelated history entered current batch")
+	}
+	if _, e = s.Current(nil); e == nil {
+		t.Fatal("empty batch scanned history")
+	}
+}

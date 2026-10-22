@@ -596,5 +596,13 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 			proxyCount++
 		}
 	}
-	writeJSON(w, 200, map[string]any{"proxyCount": proxyCount, "accounts": accounts, "sessions": statuses, "flights": flights, "jobs": history, "now": time.Now().UTC(), "ready": a.Fleet.Ready(), "concurrency": a.DB.Setting("SEARCH_CONCURRENCY"), "historyPermanent": true})
+	setups := []registration.Summary{}
+	if a.Registrations != nil {
+		setups, e = a.Registrations.AccountSetups()
+		if e != nil {
+			fail(w, 500, "Could not read account setup status")
+			return
+		}
+	}
+	writeJSON(w, 200, map[string]any{"proxyCount": proxyCount, "accounts": accounts, "sessions": statuses, "accountSetups": setups, "flights": flights, "jobs": history, "now": time.Now().UTC(), "ready": a.Fleet.Ready(), "concurrency": a.DB.Setting("SEARCH_CONCURRENCY"), "historyPermanent": true})
 }

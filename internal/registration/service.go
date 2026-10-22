@@ -150,8 +150,9 @@ func (s *Service) loadAll() ([]request, error) {
 }
 
 type ImportResult struct {
-	Added   int `json:"added"`
-	Skipped int `json:"skipped"`
+	Added   int      `json:"added"`
+	Skipped int      `json:"skipped"`
+	IDs     []string `json:"ids"`
 }
 
 func (s *Service) Import(text string) (ImportResult, error) {
@@ -193,8 +194,45 @@ func (s *Service) Import(text string) (ImportResult, error) {
 			return result, e
 		}
 		result.Added++
+		result.IDs = append(result.IDs, r.ID)
 	}
 	return result, tx.Commit()
+}
+
+// Current reads only this browser page's explicitly submitted batch. Durable
+// recovery records remain private even when the transient progress UI is gone.
+func (s *Service) Current(ids []string) ([]Summary, error) {
+	if len(ids) == 0 || len(ids) > 500 {
+		return nil, errors.New("Invalid account creation batch")
+	}
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	return s.summaries("SELECT data FROM registrations WHERE id IN ("+strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")+") ORDER BY created_at,id", args...)
+}
+func (s *Service) AccountSetups() ([]Summary, error) {
+	return s.summaries("SELECT data FROM registrations WHERE json_extract(data,'$.status') IN ('queued','running','failed','attention') ORDER BY created_at,id")
+}
+func (s *Service) summaries(query string, args ...any) ([]Summary, error) {
+	rows, err := s.db.DB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Summary{}
+	for rows.Next() {
+		var b []byte
+		var r request
+		if err = rows.Scan(&b); err != nil {
+			return nil, err
+		}
+		if err = json.Unmarshal(b, &r); err != nil {
+			return nil, err
+		}
+		out = append(out, r.Summary)
+	}
+	return out, rows.Err()
 }
 func (s *Service) List(page, limit int) ([]Summary, int, error) {
 	if page < 1 {
