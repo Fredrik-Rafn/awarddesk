@@ -1,27 +1,30 @@
 # ANA login
 
-ANA is a login-only module in `internal/providers/ana`. The frontend includes a
-dedicated login-check panel with progress and cancellation. It is not registered
-as an award-search provider. British Airways remains the existing search provider.
+ANA is a login-only module in `internal/providers/ana`. It is retained in the
+backend but hidden from the public page and settings panel. EVA is the active
+public search provider. ANA does not implement availability or award pricing.
 
-For the frontend, run `go run .`, open http://127.0.0.1:8080,
-and use **Prepare ANA session**. The server automatically prepares a saved
+The server and default `go run ./cmd/ana-login` read persisted SQLite settings:
+`ANA_MEMBER_NUMBER`, `ANA_PASSWORD`, `HYPER_API_KEY`, and optional proxy settings.
+For a new workspace, these can be imported once using `.env.example`. Later
+`.env` edits do not override the database. See [storage](storage.md).
+
+When configured and background preparation is enabled, the server prepares a
 session at startup and revalidates it every five minutes while successful.
-The manager wraps the same fresh-login provider as the CLI; the CLI remains a
-fresh-login diagnostic. See [saved sessions](sessions.md).
-Credentials are loaded from the local git-ignored `.env` into the server
-environment, never from browser storage. The CLI also loads `.env` when run
-from the project directory.
+The retained `/api/logins/ana` status/start/cancel API uses the saved-session
+manager. The CLI instead performs a fresh bounded login and closes it afterward.
+See [saved sessions](sessions.md).
 
-Run `./login-ana.ps1` from PowerShell. The helper prompts for the AMC number and
-web password and Hyper Solutions key, keeps them in process environment only, and restores the previous
-environment afterward. Go 1.25.5 or later is required.
+For a temporary diagnostic using process variables, set the same credentials
+and run `go run ./cmd/ana-login -env`. This bypasses SQLite without importing
+or persisting the values. `AWARDDESK_PROXY` is optional;
+`AWARDDESK_PROXY_FILE` selects a sticky proxy pool. Windows users can run
+`./login-ana.ps1` to prompt for temporary credentials; it restores the previous
+environment afterward. Go 1.25.5 or newer is required.
 
-Alternatively, provide `ANA_MEMBER_NUMBER` and `ANA_PASSWORD` through your
-environment, set `HYPER_API_KEY`, and run `go run ./cmd/ana-login`. `AWARDDESK_PROXY` is optional and
-uses the existing shared proxy parser. The command exits nonzero on failure,
-has a 150-second deadline per check, and supports Ctrl+C. It prints no passwords,
-tokens, member profile data, or raw upstream responses.
+The command exits nonzero on failure, has a 150-second deadline per check and
+supports Ctrl+C. It prints no passwords, tokens, member profiles or raw upstream
+responses. Normal offline tests do not contact ANA.
 
 ## Implemented flow
 

@@ -1,7 +1,6 @@
 package eva
 
 import (
-	"awarddesk/internal/antibot"
 	"context"
 	"errors"
 	"io"
@@ -9,6 +8,8 @@ import (
 	"testing"
 
 	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/antibot"
 )
 
 type bookingSolverFunc func(context.Context, string, string) (antibot.CaptchaSolution, error)

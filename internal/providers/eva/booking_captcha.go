@@ -1,9 +1,6 @@
 package eva
 
 import (
-	"awarddesk/internal/antibot"
-	"awarddesk/internal/award"
-	"awarddesk/internal/session"
 	"bytes"
 	"context"
 	"net/url"
@@ -12,6 +9,10 @@ import (
 
 	http "github.com/bogdanfinn/fhttp"
 	"golang.org/x/net/html"
+
+	"awarddesk/internal/antibot"
+	"awarddesk/internal/award"
+	"awarddesk/internal/session"
 )
 
 func verifyBookingCaptcha(ctx context.Context, c pricingClient, solver antibot.Captcha, body []byte, page string, progress func(string, string)) (bool, error) {

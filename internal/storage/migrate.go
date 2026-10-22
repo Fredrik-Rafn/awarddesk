@@ -3,11 +3,12 @@ package storage
 import (
 	"bufio"
 	"encoding/json"
-	"golang.org/x/crypto/bcrypt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // ImportLegacy is idempotent: after the first successful import the database

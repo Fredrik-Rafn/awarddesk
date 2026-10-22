@@ -1,11 +1,12 @@
 package session
 
 import (
-	http "github.com/bogdanfinn/fhttp"
 	"net/url"
 	"strconv"
 	"testing"
 	"time"
+
+	http "github.com/bogdanfinn/fhttp"
 )
 
 func TestCookieStateRestoresScopeExpiryAndDeletion(t *testing.T) {

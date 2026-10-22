@@ -2,8 +2,10 @@
 
 Run `go run .` from the project directory. The server starts one ANA session
 preparation job automatically, then checks every five minutes while its last
-result is successful. The frontend's **Prepare ANA session** button runs the
-same manager manually. No flight-search endpoints are called.
+result is successful, unless `ANA_BACKGROUND_ENABLED=false`. ANA is hidden from
+the public page; `POST /api/logins/ana` runs the manager manually with the current
+request token. The CLI is a separate fresh-login diagnostic. No ANA flight-search
+endpoints are called.
 
 ## Reuse and renewal
 
@@ -50,19 +52,20 @@ Reference: https://docs.evomi.com/proxy-instructions/residential-proxies/proxy-s
 
 ## Storage and capacity
 
-The JSON file contains authentication material and proxy credentials, but not
-the account password (credentials remain in `.env`). There is no encryption or
-separate key file. Files are git-ignored, bounded in size and replaced through a
-flushed temporary file. macOS/Linux files are created with owner-only permissions.
+The server stores a bounded portable JSON record in SQLite, containing
+authentication material and proxy credentials. The account password is stored
+separately in database settings. There is no machine-specific encryption or
+separate key file. The legacy standalone file adapter remains available and
+uses flushed temporary files for atomic replacement.
 
 An OS file lock prevents overlapping use by app processes sharing the same
 account cache path: flock on macOS/Linux and LockFileEx on Windows. The OS releases
 the lock on process exit; leftover `.lock` files are harmless. Different account
-files have independent locks. The in-process manager rejects overlapping use
+records have independent locks. The in-process manager rejects overlapping use
 without building an unbounded queue. This is not a multi-host scheduler or an
-account pool implementation. Files can be copied between machines, but expiry,
+account pool implementation. The stopped workspace database can be copied between machines, but expiry,
 browser identity, credentials and the original sticky proxy still need to match.
-See [portable file storage](storage.md).
+See [SQLite storage and migration](storage.md).
 
 The explicit CLI `go run ./cmd/ana-login` remains a fresh-login diagnostic and
 does not share the server's session cache. Do not use it to benchmark reuse.

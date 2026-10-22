@@ -1,13 +1,14 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/outlook"
-	"awarddesk/internal/proxies"
 	"context"
 	"errors"
 	"testing"
 	"time"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/outlook"
+	"awarddesk/internal/proxies"
 )
 
 func TestSearchWaitsForSessionAndHonorsCancellation(t *testing.T) {

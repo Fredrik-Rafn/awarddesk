@@ -2,10 +2,6 @@
 package ana
 
 import (
-	"awarddesk/internal/antibot"
-	"awarddesk/internal/award"
-	"awarddesk/internal/proxies"
-	"awarddesk/internal/session"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -16,6 +12,11 @@ import (
 	"time"
 
 	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/antibot"
+	"awarddesk/internal/award"
+	"awarddesk/internal/proxies"
+	"awarddesk/internal/session"
 )
 
 const home = "https://www.ana.co.jp/en/eur/"

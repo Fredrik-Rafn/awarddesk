@@ -1,12 +1,13 @@
 package jobs
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"awarddesk/internal/award"
 )
 
 type fakeProvider struct {
@@ -212,7 +213,9 @@ func TestRecoveryHistorySurvivesCompletionAndFailure(t *testing.T) {
 		}
 		finished.Timeline[0].Stage = "modified snapshot"
 		copy, _ := s.Get(j.ID)
-		if copy.Timeline[0].Stage == "modified snapshot" { t.Fatal("timeline snapshot mutates live job") }
+		if copy.Timeline[0].Stage == "modified snapshot" {
+			t.Fatal("timeline snapshot mutates live job")
+		}
 		if len(finished.Recoveries) != 2 || finished.Recoveries[0].Code != "session_denied" || finished.Recoveries[1].Attempt != 2 {
 			t.Fatalf("recovery history lost: %+v", finished.Recoveries)
 		}

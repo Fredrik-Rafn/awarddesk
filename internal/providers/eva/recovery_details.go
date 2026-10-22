@@ -1,11 +1,12 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/session"
 	"context"
 	"errors"
 	"sync"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/session"
 )
 
 func recoveryDetail(stage string, err error, attempt int) *award.Recovery {

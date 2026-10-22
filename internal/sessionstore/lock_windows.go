@@ -4,10 +4,11 @@ package sessionstore
 
 import (
 	"errors"
-	"golang.org/x/sys/windows"
 	"os"
 	"path/filepath"
 	"sync"
+
+	"golang.org/x/sys/windows"
 )
 
 // Lock is released by Windows even when the process crashes. A leftover file

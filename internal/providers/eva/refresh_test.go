@@ -1,17 +1,19 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/session"
 	"context"
 	"encoding/json"
-	http "github.com/bogdanfinn/fhttp"
 	"io"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
+
+	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/session"
 )
 
 func TestRefreshPreservesQueryAndUsesCurrentSession(t *testing.T) {

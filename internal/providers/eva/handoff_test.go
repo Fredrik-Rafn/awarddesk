@@ -1,13 +1,14 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"errors"
 	"fmt"
 	"net/url"
 	"strings"
 	"testing"
+
+	"awarddesk/internal/award"
 )
 
 func TestSearchRenewalNeverReplaysCredentialsOrPricing(t *testing.T) {

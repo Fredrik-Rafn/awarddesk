@@ -1,15 +1,16 @@
 package registration
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/fleet"
-	"awarddesk/internal/providers/eva"
-	"awarddesk/internal/storage"
 	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/fleet"
+	"awarddesk/internal/providers/eva"
+	"awarddesk/internal/storage"
 )
 
 const mailboxFixture = "test@outlook.com:discard-this-password:private-refresh-token-1234:9e5f94bc-e8a4-4e73-b8be-63364c29d753"

@@ -1,6 +1,24 @@
-# Verification scope — October 20, 2026
+# Verification scope
 
-## ANA
+## EVA — October 22, 2026
+
+The 500-search uncached baseline used up to 30 simultaneous searches: 423
+completed (402 with priced flights, 21 valid empty results), and 77 failed.
+Fourteen of the completed searches recovered from an exposed failure. Thirty-two
+failures were false price changes caused by comparing per-adult availability
+amounts with party checkout totals. After correcting that comparison, seven
+targeted live searches completed with all 102 fare entries quoted, including
+two- and three-adult cases. One genuine availability change recovered normally.
+
+The full 500-search baseline has not been repeated after the fix. TPE–ICN
+handoffs and some missing booking-data responses remain unresolved. These
+measurements are historical evidence, not a guarantee of future success.
+
+The subsequent cleanup uses offline regression tests; it does not constitute
+another live airline test. The ANA/BA observations below are historical and
+describe the interface and testing scope at that time.
+
+## ANA — October 20, 2026
 
 Latest reliability checks: five proxied checks failed (the last four confirmed
 HTTP 403 at credentials); a direct control returned MFA required and testing
@@ -33,7 +51,7 @@ repeatability across upstream changes. ANA award search is not implemented.
 ## British Airways
 
 The pre-existing integration remains experimental. Historical evidence records
-one successful JFK–LAX economy diagnostic for one adult on October 29, 2026,
+one successful JFK–LAX economy diagnostic for one adult,
 with 12 itineraries. That diagnostic used a Node helper alongside Go; it does
 not verify repeatable login through the standalone production provider.
 Later diagnostic logins failed. The cause remains unconfirmed.

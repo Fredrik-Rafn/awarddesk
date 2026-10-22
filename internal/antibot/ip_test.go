@@ -1,7 +1,6 @@
 package antibot
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"errors"
 	"io"
@@ -9,6 +8,8 @@ import (
 	"testing"
 
 	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/award"
 )
 
 type ipClient struct {

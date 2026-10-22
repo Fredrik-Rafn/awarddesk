@@ -1,11 +1,12 @@
 package eva
 
 import (
-	"awarddesk/internal/antibot"
 	"context"
 	"errors"
 	"testing"
 	"time"
+
+	"awarddesk/internal/antibot"
 )
 
 func TestBookingVerificationOverlapsAndWaitsForBoth(t *testing.T) {

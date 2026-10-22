@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	http "github.com/bogdanfinn/fhttp"
-	"golang.org/x/net/html"
 	"net/url"
 	"regexp"
 	"strings"
+
+	http "github.com/bogdanfinn/fhttp"
+	"golang.org/x/net/html"
 )
 
 const awardBase = "https://www.britishairways.com/travel/redeem/execclub/_gf/en_dk"

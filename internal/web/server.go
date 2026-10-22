@@ -1,10 +1,6 @@
 package web
 
 import (
-	"awarddesk/internal/airports"
-	"awarddesk/internal/award"
-	"awarddesk/internal/jobs"
-	"awarddesk/internal/login"
 	"crypto/rand"
 	"crypto/subtle"
 	"embed"
@@ -18,6 +14,11 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"awarddesk/internal/airports"
+	"awarddesk/internal/award"
+	"awarddesk/internal/jobs"
+	"awarddesk/internal/login"
 )
 
 //go:embed assets/*
@@ -68,54 +69,7 @@ func (s *Server) Handler() http.Handler {
 		}
 		writeJSON(w, 200, map[string]any{"csrf": s.csrf, "ready": ready, "proxyEnabled": proxy, "providers": s.Jobs.Capabilities(), "anaLoginReady": s.ANALogin != nil && s.ANALogin.Ready(), "evaLoginReady": evaReady})
 	})
-	mux.HandleFunc("GET /api/logins/eva", func(w http.ResponseWriter, r *http.Request) {
-		if s.EVALogin == nil {
-			fail(w, 503, "EVA login is not configured")
-			return
-		}
-		writeJSON(w, 200, s.EVALogin.Status())
-	})
-	mux.HandleFunc("POST /api/logins/eva", func(w http.ResponseWriter, r *http.Request) {
-		if s.EVALogin == nil || !s.EVALogin.Ready() || (s.Admin != nil && !s.Admin.Fleet.Ready()) {
-			fail(w, 503, "Configure EVA accounts, Outlook OAuth, proxies and solver keys in Admin")
-			return
-		}
-		if err := s.EVALogin.Start(); err != nil {
-			fail(w, 429, err.Error())
-			return
-		}
-		writeJSON(w, 202, s.EVALogin.Status())
-	})
-	mux.HandleFunc("DELETE /api/logins/eva", func(w http.ResponseWriter, r *http.Request) {
-		if s.EVALogin != nil {
-			s.EVALogin.Cancel()
-		}
-		w.WriteHeader(204)
-	})
-	mux.HandleFunc("GET /api/logins/ana", func(w http.ResponseWriter, r *http.Request) {
-		if s.ANALogin == nil {
-			fail(w, 503, "ANA login is not configured")
-			return
-		}
-		writeJSON(w, 200, s.ANALogin.Status())
-	})
-	mux.HandleFunc("POST /api/logins/ana", func(w http.ResponseWriter, r *http.Request) {
-		if s.ANALogin == nil || !s.ANALogin.Ready() {
-			fail(w, 503, "Configure ANA_MEMBER_NUMBER, ANA_PASSWORD and HYPER_API_KEY, then restart")
-			return
-		}
-		if err := s.ANALogin.Start(); err != nil {
-			fail(w, 429, err.Error())
-			return
-		}
-		writeJSON(w, 202, s.ANALogin.Status())
-	})
-	mux.HandleFunc("DELETE /api/logins/ana", func(w http.ResponseWriter, r *http.Request) {
-		if s.ANALogin != nil {
-			s.ANALogin.Cancel()
-		}
-		w.WriteHeader(204)
-	})
+	s.loginRoutes(mux)
 	mux.HandleFunc("GET /api/airports", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, airports.Search(s.Airports, r.URL.Query().Get("q")))
 	})

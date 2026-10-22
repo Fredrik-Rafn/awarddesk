@@ -1,8 +1,6 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/sessionstore"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -11,6 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/sessionstore"
 )
 
 const resultCacheVersion = 2

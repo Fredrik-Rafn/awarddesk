@@ -1,9 +1,10 @@
 package eva
 
 import (
-	"awarddesk/internal/antibot"
 	"context"
 	"errors"
+
+	"awarddesk/internal/antibot"
 )
 
 // The solver uses its own HTTP client; only prepare touches the airline cookie

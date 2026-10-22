@@ -1,19 +1,21 @@
 package ba
 
 import (
-	"awarddesk/internal/award"
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	http "github.com/bogdanfinn/fhttp"
-	"golang.org/x/net/html"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	http "github.com/bogdanfinn/fhttp"
+	"golang.org/x/net/html"
+
+	"awarddesk/internal/award"
 )
 
 func cabinCode(c award.Cabin) string {

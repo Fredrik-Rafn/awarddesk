@@ -1,7 +1,6 @@
 package antibot
 
 import (
-	"awarddesk/internal/session"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,6 +9,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"awarddesk/internal/session"
 )
 
 type solverTransportFunc func(*http.Request) (*http.Response, error)

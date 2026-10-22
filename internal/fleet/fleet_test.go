@@ -1,15 +1,16 @@
 package fleet
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/providers/eva"
-	"awarddesk/internal/storage"
 	"context"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/providers/eva"
+	"awarddesk/internal/storage"
 )
 
 type fakeAirline struct {

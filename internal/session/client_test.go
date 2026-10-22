@@ -1,14 +1,9 @@
 package session
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"encoding/base64"
 	"errors"
-	http "github.com/bogdanfinn/fhttp"
-	"github.com/bogdanfinn/fhttp/cookiejar"
-	tlsclient "github.com/bogdanfinn/tls-client"
-	"github.com/bogdanfinn/tls-client/profiles"
 	"io"
 	"net"
 	std "net/http"
@@ -18,6 +13,13 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	http "github.com/bogdanfinn/fhttp"
+	"github.com/bogdanfinn/fhttp/cookiejar"
+	tlsclient "github.com/bogdanfinn/tls-client"
+	"github.com/bogdanfinn/tls-client/profiles"
+
+	"awarddesk/internal/award"
 )
 
 func TestPinnedProxyIPAndSafeTransportErrors(t *testing.T) {

@@ -1,7 +1,6 @@
 package ba
 
 import (
-	"awarddesk/internal/award"
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
@@ -9,10 +8,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	http "github.com/bogdanfinn/fhttp"
-	"golang.org/x/net/html"
 	"net/url"
 	"strings"
+
+	http "github.com/bogdanfinn/fhttp"
+	"golang.org/x/net/html"
+
+	"awarddesk/internal/award"
 )
 
 const clientID = "C8jRt63pKXhBXI9WgSUQ3ti9xANkFtph"

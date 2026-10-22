@@ -2,13 +2,8 @@
 package session
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"errors"
-	http "github.com/bogdanfinn/fhttp"
-	"github.com/bogdanfinn/fhttp/cookiejar"
-	tlsclient "github.com/bogdanfinn/tls-client"
-	"github.com/bogdanfinn/tls-client/profiles"
 	"io"
 	"net"
 	"net/url"
@@ -16,6 +11,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	http "github.com/bogdanfinn/fhttp"
+	"github.com/bogdanfinn/fhttp/cookiejar"
+	tlsclient "github.com/bogdanfinn/tls-client"
+	"github.com/bogdanfinn/tls-client/profiles"
+
+	"awarddesk/internal/award"
 )
 
 // Keep the HTTP identity shared with solver inputs and browser diagnostics.

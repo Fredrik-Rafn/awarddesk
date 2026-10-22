@@ -1,11 +1,12 @@
 package eva
 
 import (
-	"awarddesk/internal/session"
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"time"
+
+	"awarddesk/internal/session"
 )
 
 const memberVerificationTTL = 2 * time.Minute

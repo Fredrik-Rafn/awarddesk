@@ -1,13 +1,14 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"errors"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
+
+	"awarddesk/internal/award"
 )
 
 func TestRegistrationProfilesMeetFormConstraints(t *testing.T) {

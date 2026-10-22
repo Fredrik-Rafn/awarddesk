@@ -1,13 +1,14 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"encoding/json"
 	"errors"
 	"os"
 	"testing"
 	"time"
+
+	"awarddesk/internal/award"
 )
 
 func cacheQuery() award.Query {

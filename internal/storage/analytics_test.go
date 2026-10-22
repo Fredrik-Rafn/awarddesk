@@ -1,13 +1,14 @@
 package storage
 
 import (
-	"awarddesk/internal/award"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"awarddesk/internal/award"
 )
 
 func seedSearch(t *testing.T, s *Store, id, status string, cached bool, recoveries int, created time.Time, duration time.Duration) {

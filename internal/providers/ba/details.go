@@ -1,12 +1,14 @@
 package ba
 
 import (
-	"awarddesk/internal/award"
 	"bytes"
 	"errors"
-	"golang.org/x/net/html"
 	"net/url"
 	"strings"
+
+	"golang.org/x/net/html"
+
+	"awarddesk/internal/award"
 )
 
 type flightDetail struct {

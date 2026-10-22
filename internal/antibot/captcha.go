@@ -1,8 +1,6 @@
 package antibot
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/session"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -11,6 +9,9 @@ import (
 	"net/http"
 	"regexp"
 	"time"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/session"
 )
 
 // AnySolver calls the solver API directly. When Proxy is configured, the

@@ -1,13 +1,14 @@
 package ana
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"encoding/json"
 	"errors"
 	"os"
 	"testing"
 	"time"
+
+	"awarddesk/internal/award"
 )
 
 type memoryStore struct {

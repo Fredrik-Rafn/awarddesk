@@ -1,20 +1,22 @@
 package antibot
 
 import (
-	"awarddesk/internal/award"
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	hyper "github.com/Hyper-Solutions/hyper-sdk-go/v3"
-	"github.com/Hyper-Solutions/hyper-sdk-go/v3/akamai"
-	http "github.com/bogdanfinn/fhttp"
-	"golang.org/x/net/html"
 	"log"
 	"net/url"
 	"path"
 	"strings"
 	"time"
+
+	hyper "github.com/Hyper-Solutions/hyper-sdk-go/v3"
+	"github.com/Hyper-Solutions/hyper-sdk-go/v3/akamai"
+	http "github.com/bogdanfinn/fhttp"
+	"golang.org/x/net/html"
+
+	"awarddesk/internal/award"
 )
 
 // Optional, bounded sensor initialization using fresh scripts and this runner's jar.

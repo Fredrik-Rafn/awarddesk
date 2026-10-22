@@ -1,17 +1,10 @@
 package web
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/fleet"
-	"awarddesk/internal/jobs"
-	"awarddesk/internal/proxies"
-	"awarddesk/internal/registration"
-	"awarddesk/internal/storage"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"golang.org/x/crypto/bcrypt"
 	"io"
 	"net/http"
 	"net/mail"
@@ -20,6 +13,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/fleet"
+	"awarddesk/internal/jobs"
+	"awarddesk/internal/proxies"
+	"awarddesk/internal/registration"
+	"awarddesk/internal/storage"
 )
 
 type Admin struct {

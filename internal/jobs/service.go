@@ -2,7 +2,6 @@
 package jobs
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -12,6 +11,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"awarddesk/internal/award"
 )
 
 type Job struct {

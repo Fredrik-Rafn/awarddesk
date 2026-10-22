@@ -2,7 +2,6 @@
 package proxies
 
 import (
-	"awarddesk/internal/session"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"awarddesk/internal/session"
 )
 
 var ErrRemoved = errors.New("saved proxy slot was removed")

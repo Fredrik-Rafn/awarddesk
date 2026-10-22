@@ -1,12 +1,13 @@
 package main
 
 import (
-	"awarddesk/internal/config"
-	"awarddesk/internal/outlook"
 	"context"
 	"fmt"
 	"os"
 	"time"
+
+	"awarddesk/internal/config"
+	"awarddesk/internal/outlook"
 )
 
 func main() {

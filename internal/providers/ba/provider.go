@@ -2,14 +2,16 @@
 package ba
 
 import (
+	"context"
+	"errors"
+	"io"
+	"time"
+
+	http "github.com/bogdanfinn/fhttp"
+
 	"awarddesk/internal/antibot"
 	"awarddesk/internal/award"
 	"awarddesk/internal/session"
-	"context"
-	"errors"
-	http "github.com/bogdanfinn/fhttp"
-	"io"
-	"time"
 )
 
 // Config is immutable provider configuration. Credentials never enter results.
@@ -18,9 +20,15 @@ type Config struct {
 	Captcha                antibot.Captcha
 	Challenge              antibot.Challenge
 }
-type Provider struct{ config Config }
 
-func New(c Config) *Provider { return &Provider{config: c} }
+// Provider serializes searches for its single configured account. Each search
+// still owns a fresh HTTP session; callers cannot overlap credential submissions.
+type Provider struct {
+	config Config
+	gate   chan struct{}
+}
+
+func New(c Config) *Provider { return &Provider{config: c, gate: make(chan struct{}, 1)} }
 func (p *Provider) Capabilities() award.Capabilities {
 	return award.Capabilities{ID: "ba", Name: "British Airways", Program: "Avios", Cabins: []award.Cabin{award.Economy, award.PremiumEconomy, award.Business, award.First}, VerifiedCabins: []award.Cabin{award.Economy}, MaxAdults: 9, OneWayOnly: true, Currency: "DKK"}
 }
@@ -56,6 +64,15 @@ func (p *Provider) Search(ctx context.Context, q award.Query, report award.Repor
 	}
 	if q.Provider != "ba" {
 		return award.Result{}, errors.New("provider mismatch")
+	}
+	if err := ctx.Err(); err != nil {
+		return award.Result{Query: q}, err
+	}
+	select {
+	case p.gate <- struct{}{}:
+		defer func() { <-p.gate }()
+	case <-ctx.Done():
+		return award.Result{Query: q}, ctx.Err()
 	}
 	c := p.config
 	if c.Email == "" || c.Password == "" || c.Captcha == nil || c.Challenge == nil {

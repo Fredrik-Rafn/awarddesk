@@ -2,24 +2,26 @@
 package eva
 
 import (
-	"awarddesk/internal/antibot"
-	"awarddesk/internal/award"
-	"awarddesk/internal/outlook"
-	"awarddesk/internal/proxies"
-	"awarddesk/internal/session"
-	"awarddesk/internal/sessionstore"
 	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	http "github.com/bogdanfinn/fhttp"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/antibot"
+	"awarddesk/internal/award"
+	"awarddesk/internal/outlook"
+	"awarddesk/internal/proxies"
+	"awarddesk/internal/session"
+	"awarddesk/internal/sessionstore"
 )
 
 const LoginURL = "https://eservice.evaair.com/flyeva/eva/ffp/login.aspx"

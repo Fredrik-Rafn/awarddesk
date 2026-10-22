@@ -1,10 +1,11 @@
 package ba
 
 import (
-	"awarddesk/internal/award"
 	"errors"
 	"strings"
 	"testing"
+
+	"awarddesk/internal/award"
 )
 
 func TestLoginRejectionsAreSpecificAndRedacted(t *testing.T) {

@@ -1,15 +1,17 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"encoding/json"
-	http "github.com/bogdanfinn/fhttp"
 	"io"
 	"net/url"
 	"strconv"
 	"strings"
 	"testing"
+
+	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/award"
 )
 
 func TestFreshMemberProfileForPricing(t *testing.T) {

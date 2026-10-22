@@ -1,12 +1,13 @@
 package fleet
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/proxies"
 	"context"
 	"errors"
 	"sync"
 	"time"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/proxies"
 )
 
 // Registration shares both the worker ceiling and proxy leases with searches

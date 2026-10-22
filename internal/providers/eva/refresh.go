@@ -1,14 +1,15 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/session"
 	"context"
 	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
 	"time"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/session"
 )
 
 // Reopen flight selection in the current authenticated booking session. These

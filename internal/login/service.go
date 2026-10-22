@@ -3,12 +3,13 @@
 package login
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"errors"
 	"log/slog"
 	"sync"
 	"time"
+
+	"awarddesk/internal/award"
 )
 
 type Check func(context.Context, award.Reporter) error
@@ -46,7 +47,9 @@ func (s *Service) Ready() bool { return s.check != nil }
 func (s *Service) Status() Status {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.status
+	status := s.status
+	status.Recoveries = append([]award.Recovery(nil), status.Recoveries...)
+	return status
 }
 func (s *Service) Start() error {
 	s.mu.Lock()

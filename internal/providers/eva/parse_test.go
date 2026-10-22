@@ -1,11 +1,12 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
 	"encoding/json"
 	"os"
 	"strings"
 	"testing"
+
+	"awarddesk/internal/award"
 )
 
 func TestCapturedAvailabilityAllFlights(t *testing.T) {

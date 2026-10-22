@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/emersion/go-imap"
 	"html"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/emersion/go-imap"
 )
 
 const registrationSubject = "EVA Air Infinity MileageLands- Verification Email"

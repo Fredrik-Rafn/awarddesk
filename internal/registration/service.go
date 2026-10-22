@@ -3,12 +3,6 @@
 package registration
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/fleet"
-	"awarddesk/internal/outlook"
-	"awarddesk/internal/providers/eva"
-	"awarddesk/internal/session"
-	"awarddesk/internal/storage"
 	"context"
 	"encoding/json"
 	"errors"
@@ -18,6 +12,13 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/fleet"
+	"awarddesk/internal/outlook"
+	"awarddesk/internal/providers/eva"
+	"awarddesk/internal/session"
+	"awarddesk/internal/storage"
 )
 
 type Summary struct {

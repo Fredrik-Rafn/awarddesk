@@ -1,14 +1,15 @@
 package web
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/jobs"
-	"awarddesk/internal/login"
 	"context"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/jobs"
+	"awarddesk/internal/login"
 )
 
 func TestLocalBoundary(t *testing.T) {

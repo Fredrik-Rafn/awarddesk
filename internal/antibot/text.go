@@ -1,12 +1,13 @@
 package antibot
 
 import (
-	"awarddesk/internal/session"
 	"context"
 	"encoding/base64"
 	"errors"
 	"regexp"
 	"time"
+
+	"awarddesk/internal/session"
 )
 
 // SolveText sends only the CAPTCHA image, never the surrounding login form.

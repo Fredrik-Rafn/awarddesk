@@ -3,11 +3,6 @@
 package fleet
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/outlook"
-	"awarddesk/internal/providers/eva"
-	"awarddesk/internal/proxies"
-	"awarddesk/internal/storage"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -16,6 +11,12 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/outlook"
+	"awarddesk/internal/providers/eva"
+	"awarddesk/internal/proxies"
+	"awarddesk/internal/storage"
 )
 
 type airline interface {
@@ -70,7 +71,19 @@ func New(db *storage.Store) *Fleet {
 			ttl = 0
 		}
 		age, _ := time.ParseDuration(m["EVA_SESSION_MAX_AGE"])
-		return eva.New(eva.Config{Email: a.Email, Password: a.Password, HyperKey: m["HYPER_API_KEY"], AnyKey: m["ANYSOLVER_API_KEY"], ImpervaSolver: m["EVA_IMPERVA_SOLVER"], Pool: f.pool, Mailbox: outlook.New(outlook.Config{Email: a.OutlookEmail, ClientID: a.ClientID, RefreshToken: a.RefreshToken, StateBackend: db}), ResultCacheTTL: ttl, SessionMaxAge: age, StateBackend: db})
+		return eva.New(eva.Config{
+			Email: a.Email, Password: a.Password,
+			HyperKey: m["HYPER_API_KEY"], AnyKey: m["ANYSOLVER_API_KEY"],
+			ImpervaSolver: m["EVA_IMPERVA_SOLVER"],
+			Pool:          f.pool,
+			Mailbox: outlook.New(outlook.Config{
+				Email: a.OutlookEmail, ClientID: a.ClientID,
+				RefreshToken: a.RefreshToken, StateBackend: db,
+			}),
+			ResultCacheTTL: ttl,
+			SessionMaxAge:  age,
+			StateBackend:   db,
+		})
 	}
 	return f
 }

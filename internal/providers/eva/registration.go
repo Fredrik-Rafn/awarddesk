@@ -1,22 +1,24 @@
 package eva
 
 import (
-	"awarddesk/internal/antibot"
-	"awarddesk/internal/award"
-	"awarddesk/internal/outlook"
-	"awarddesk/internal/session"
 	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	http "github.com/bogdanfinn/fhttp"
-	"golang.org/x/net/html"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	http "github.com/bogdanfinn/fhttp"
+	"golang.org/x/net/html"
+
+	"awarddesk/internal/antibot"
+	"awarddesk/internal/award"
+	"awarddesk/internal/outlook"
+	"awarddesk/internal/session"
 )
 
 const RegistrationURL = "https://eservice.evaair.com/flyeva/EVA/FFP/register-now.aspx"

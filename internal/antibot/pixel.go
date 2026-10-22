@@ -1,7 +1,6 @@
 package antibot
 
 import (
-	"awarddesk/internal/award"
 	"bytes"
 	"context"
 	"log"
@@ -12,6 +11,8 @@ import (
 	hyper "github.com/Hyper-Solutions/hyper-sdk-go/v3"
 	"github.com/Hyper-Solutions/hyper-sdk-go/v3/akamai"
 	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/award"
 )
 
 // initializePixel handles the independent Akamai pixel advertised by a fresh

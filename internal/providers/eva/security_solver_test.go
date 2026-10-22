@@ -1,10 +1,11 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"errors"
 	"testing"
+
+	"awarddesk/internal/award"
 )
 
 func TestReeseFallbackOnlyForUpstreamServiceFailure(t *testing.T) {

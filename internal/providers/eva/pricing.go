@@ -1,8 +1,6 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/session"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,6 +13,9 @@ import (
 	"time"
 
 	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/session"
 )
 
 const ajaxURL = "https://book.evaair.com/plnext/EVAOnlineDX/AjaxCall.action"

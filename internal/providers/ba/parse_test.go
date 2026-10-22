@@ -1,12 +1,13 @@
 package ba
 
 import (
-	"awarddesk/internal/award"
 	"fmt"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"awarddesk/internal/award"
 )
 
 func TestCapturedAvailability(t *testing.T) {

@@ -1,11 +1,12 @@
 package ba
 
 import (
-	"awarddesk/internal/award"
 	"bytes"
 	"strings"
 
 	"golang.org/x/net/html"
+
+	"awarddesk/internal/award"
 )
 
 // classifyLoginRejection emits only fixed messages. Auth pages can contain

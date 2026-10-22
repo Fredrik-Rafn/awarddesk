@@ -1,13 +1,14 @@
 package antibot
 
 import (
-	"awarddesk/internal/session"
 	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+
+	"awarddesk/internal/session"
 )
 
 func TestReeseSensorContractAndIdentity(t *testing.T) {

@@ -1,11 +1,12 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"errors"
 	"net/url"
 	"strings"
+
+	"awarddesk/internal/award"
 )
 
 func isMemberLoginPage(body []byte, target string) bool {

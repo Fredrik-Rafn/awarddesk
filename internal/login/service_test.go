@@ -1,13 +1,14 @@
 package login
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"awarddesk/internal/award"
 )
 
 func TestConcurrentStartsCoalesceAndReuseTimestampedResult(t *testing.T) {

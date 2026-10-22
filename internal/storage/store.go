@@ -2,7 +2,6 @@
 package storage
 
 import (
-	"awarddesk/internal/sessionstore"
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
@@ -16,6 +15,8 @@ import (
 	"time"
 
 	_ "modernc.org/sqlite"
+
+	"awarddesk/internal/sessionstore"
 )
 
 type Store struct {

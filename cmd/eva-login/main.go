@@ -1,13 +1,14 @@
 package main
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/config"
-	"awarddesk/internal/fleet"
 	"context"
 	"fmt"
 	"os"
 	"os/signal"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/config"
+	"awarddesk/internal/fleet"
 )
 
 func main() {

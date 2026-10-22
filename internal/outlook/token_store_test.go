@@ -1,11 +1,12 @@
 package outlook
 
 import (
-	"awarddesk/internal/sessionstore"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"awarddesk/internal/sessionstore"
 )
 
 func TestPortableRotatedTokenAndAccountIsolation(t *testing.T) {

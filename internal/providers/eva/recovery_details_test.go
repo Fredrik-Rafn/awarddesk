@@ -1,12 +1,13 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/session"
 	"context"
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/session"
 )
 
 func TestRequestRecoveriesKeepCurrentStageAndSerializeReports(t *testing.T) {

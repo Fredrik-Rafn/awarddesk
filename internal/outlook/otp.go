@@ -3,7 +3,6 @@
 package outlook
 
 import (
-	"awarddesk/internal/sessionstore"
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -28,6 +27,8 @@ import (
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
+
+	"awarddesk/internal/sessionstore"
 )
 
 const sender = "eservice@mh1.evaair.com"

@@ -1,12 +1,13 @@
 package antibot
 
 import (
-	"awarddesk/internal/session"
 	"context"
 	"errors"
 	"log"
 	"regexp"
 	"time"
+
+	"awarddesk/internal/session"
 )
 
 func (a AnySolver) SolveRecaptchaV3(ctx context.Context, page, key, action, title string) (CaptchaSolution, error) {

@@ -1,9 +1,10 @@
 package main
 
 import (
+	"testing"
+
 	"awarddesk/internal/award"
 	"awarddesk/internal/jobs"
-	"testing"
 )
 
 func TestPreviewTimingsKeepFirstArrival(t *testing.T) {

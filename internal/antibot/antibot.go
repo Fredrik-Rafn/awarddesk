@@ -2,16 +2,18 @@
 package antibot
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/session"
 	"context"
 	"encoding/json"
 	"errors"
-	http "github.com/bogdanfinn/fhttp"
 	"io"
 	"net"
 	"net/url"
 	"strconv"
+
+	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/session"
 )
 
 type Captcha interface {

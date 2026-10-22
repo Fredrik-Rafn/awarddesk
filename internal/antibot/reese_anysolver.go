@@ -1,8 +1,6 @@
 package antibot
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/session"
 	"bytes"
 	"context"
 	"log/slog"
@@ -11,6 +9,9 @@ import (
 
 	"github.com/Hyper-Solutions/hyper-sdk-go/v3/incapsula"
 	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/session"
 )
 
 // PrepareReese asks for a raw sensor, then submits it from the airline's

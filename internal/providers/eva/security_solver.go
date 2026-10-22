@@ -1,9 +1,10 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"errors"
+
+	"awarddesk/internal/award"
 )
 
 // Only upstream generation failures permit changing solver. Request failures

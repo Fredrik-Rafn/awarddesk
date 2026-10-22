@@ -1,14 +1,15 @@
 package jobs
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/storage"
 	"context"
 	"encoding/json"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/storage"
 )
 
 func TestWorkersPersistResultsAndCoalesce(t *testing.T) {

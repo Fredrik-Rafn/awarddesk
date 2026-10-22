@@ -2,8 +2,6 @@
 package main
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/jobs"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -17,6 +15,9 @@ import (
 	"os/signal"
 	"path/filepath"
 	"time"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/jobs"
 )
 
 type measurement struct {

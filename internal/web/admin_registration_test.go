@@ -1,11 +1,12 @@
 package web
 
 import (
-	"awarddesk/internal/registration"
 	"encoding/json"
 	"strings"
 	"testing"
 	"time"
+
+	"awarddesk/internal/registration"
 )
 
 func TestBulkSetupRetryQueuesSafeCheckpointsOnly(t *testing.T) {

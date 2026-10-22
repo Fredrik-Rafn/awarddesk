@@ -1,7 +1,6 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,6 +10,8 @@ import (
 	"testing"
 
 	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/award"
 )
 
 func recoveryAvailability(secondPrice int) json.RawMessage {

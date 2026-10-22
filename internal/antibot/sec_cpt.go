@@ -1,8 +1,6 @@
 package antibot
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/session"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -15,6 +13,9 @@ import (
 	"github.com/Hyper-Solutions/hyper-sdk-go/v3/akamai"
 	http "github.com/bogdanfinn/fhttp"
 	"golang.org/x/net/html"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/session"
 )
 
 func (h Hyper) PrepareAdaptive(ctx context.Context, c *session.Client, page string, body []byte) error {

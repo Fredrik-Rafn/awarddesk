@@ -1,18 +1,6 @@
 package main
 
 import (
-	"awarddesk/internal/antibot"
-	"awarddesk/internal/award"
-	"awarddesk/internal/config"
-	"awarddesk/internal/fleet"
-	"awarddesk/internal/jobs"
-	"awarddesk/internal/login"
-	"awarddesk/internal/providers/ana"
-	"awarddesk/internal/providers/ba"
-	"awarddesk/internal/registration"
-	"awarddesk/internal/session"
-	"awarddesk/internal/sessionstore"
-	"awarddesk/internal/web"
 	"context"
 	"errors"
 	"flag"
@@ -24,22 +12,35 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
-	"sync"
 	"syscall"
 	"time"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/config"
+	"awarddesk/internal/fleet"
+	"awarddesk/internal/jobs"
+	"awarddesk/internal/login"
+	"awarddesk/internal/providers/ana"
+	"awarddesk/internal/registration"
+	"awarddesk/internal/session"
+	"awarddesk/internal/sessionstore"
+	"awarddesk/internal/web"
 )
 
 func main() {
-	if e := run(); e != nil {
-		log.Print(e)
+	if err := run(); err != nil {
+		log.Print(err)
 		os.Exit(1)
 	}
 }
+
 func run() error {
-	dbPath := os.Getenv("AWARDDESK_DB")
-	if dbPath == "" {
-		dbPath = filepath.Join("data", "awarddesk.db")
+	port := flag.Int("port", 8080, "localhost HTTP port")
+	flag.Parse()
+	if *port < 1 || *port > 65535 {
+		return errors.New("invalid port")
 	}
+	dbPath := config.DatabasePath()
 	db, err := config.Database()
 	if err != nil {
 		return err
@@ -54,25 +55,20 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	port := flag.Int("port", 8080, "localhost HTTP port")
-	flag.Parse()
-	if *port < 1 || *port > 65535 {
-		return errors.New("invalid port")
+	proxy, err := session.ParseProxy(settings["AWARDDESK_PROXY"])
+	if err != nil {
+		return err
 	}
-	proxy, e := session.ParseProxy(settings["AWARDDESK_PROXY"])
-	if e != nil {
-		return e
+	baProvider, ready, err := config.BAFromSettings(settings)
+	if err != nil {
+		return err
 	}
-	email, password := settings["BA_EMAIL"], settings["BA_PASSWORD"]
-	anyKey, hyperKey := settings["ANYSOLVER_API_KEY"], settings["HYPER_API_KEY"]
-	ready := email != "" && password != "" && anyKey != "" && hyperKey != ""
-	p := ba.New(ba.Config{Email: email, Password: password, Proxy: proxy, Captcha: antibot.AnySolver{Key: anyKey, Proxy: proxy}, Challenge: antibot.Hyper{Key: hyperKey}})
 	evaProvider := fleet.New(db)
 	defer evaProvider.Close()
 	evaReady := evaProvider.Ready()
 	var providers []award.Provider
 	if ready {
-		providers = append(providers, &serializedProvider{Provider: p, gate: make(chan struct{}, 1)})
+		providers = append(providers, baProvider)
 	}
 	providers = append(providers, evaProvider)
 	j := jobs.NewConcurrent(award.ConcurrencyLimit(settings["SEARCH_CONCURRENCY"]), providers...)
@@ -80,9 +76,9 @@ func run() error {
 		return err
 	}
 	defer j.Close()
-	app, e := web.New(j, ready || evaReady, proxy != "" || settings["PROXY_LIST"] != "")
-	if e != nil {
-		return e
+	app, err := web.New(j, ready || evaReady, proxy != "" || settings["PROXY_LIST"] != "")
+	if err != nil {
+		return err
 	}
 	registrations, err := registration.New(db, evaProvider)
 	if err != nil {
@@ -94,9 +90,9 @@ func run() error {
 		return ready || evaProvider.Ready(), db.Setting("PROXY_LIST") != "" || proxy != ""
 	}
 	var check login.Check
-	anaProvider, anaReady, e := config.ANAFromDatabase(db)
-	if e != nil {
-		return e
+	anaProvider, anaReady, err := config.ANAFromDatabase(db)
+	if err != nil {
+		return err
 	}
 	if anaReady {
 		manager := ana.NewManager(anaProvider, sessionstore.Store{Backend: db, Path: filepath.Join(".state", "ana", anaProvider.AccountID()+".json")})
@@ -104,11 +100,17 @@ func run() error {
 	}
 	app.ANALogin = login.New(check)
 	defer app.ANALogin.Close()
-	var evaCheck login.Check
-	evaCheck = evaProvider.Ensure
-	app.EVALogin = login.NewNamed("EVA", 6*time.Minute, evaCheck)
+	app.EVALogin = login.NewNamed("EVA", 6*time.Minute, evaProvider.Ensure)
 	defer app.EVALogin.Close()
-	srv := &http.Server{Addr: net.JoinHostPort("127.0.0.1", strconv.Itoa(*port)), Handler: app.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
+	srv := &http.Server{
+		Addr:              net.JoinHostPort("127.0.0.1", strconv.Itoa(*port)),
+		Handler:           app.Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    16 * 1024,
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	listener, err := net.Listen("tcp", srv.Addr)
@@ -121,13 +123,9 @@ func run() error {
 	maintenanceDone := make(chan struct{})
 	go func() {
 		defer close(maintenanceDone)
-		var maintenance sync.WaitGroup
 		if settings["ANA_BACKGROUND_ENABLED"] != "false" {
-			maintenance.Add(1)
-			go func() { defer maintenance.Done(); app.ANALogin.Maintain(ctx) }()
+			app.ANALogin.Maintain(ctx)
 		}
-
-		maintenance.Wait()
 	}()
 	defer func() { stop(); <-maintenanceDone }()
 	go func() {
@@ -140,25 +138,9 @@ func run() error {
 	if !ready && !evaReady {
 		log.Print("Add accounts, proxies and solver keys at /admin to enable searches")
 	}
-	e = srv.Serve(listener)
-	if errors.Is(e, http.ErrServerClosed) {
+	err = srv.Serve(listener)
+	if errors.Is(err, http.ErrServerClosed) {
 		return nil
 	}
-	return e
-}
-
-// Legacy single-account providers retain exclusive account ownership.
-type serializedProvider struct {
-	award.Provider
-	gate chan struct{}
-}
-
-func (p *serializedProvider) Search(ctx context.Context, q award.Query, r award.Reporter) (award.Result, error) {
-	select {
-	case p.gate <- struct{}{}:
-		defer func() { <-p.gate }()
-		return p.Provider.Search(ctx, q, r)
-	case <-ctx.Done():
-		return award.Result{Query: q}, ctx.Err()
-	}
+	return err
 }

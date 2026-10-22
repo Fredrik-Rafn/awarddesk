@@ -1,9 +1,6 @@
 package web
 
 import (
-	"awarddesk/internal/fleet"
-	"awarddesk/internal/jobs"
-	"awarddesk/internal/storage"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -11,6 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"awarddesk/internal/fleet"
+	"awarddesk/internal/jobs"
+	"awarddesk/internal/storage"
 )
 
 func adminTestServer(t *testing.T) (*Server, http.Handler) {

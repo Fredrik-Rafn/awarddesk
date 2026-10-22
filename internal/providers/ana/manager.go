@@ -1,11 +1,12 @@
 package ana
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"errors"
 	"os"
 	"time"
+
+	"awarddesk/internal/award"
 )
 
 type sessionStore interface {

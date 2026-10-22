@@ -1,7 +1,6 @@
 package outlook
 
 import (
-	"awarddesk/internal/sessionstore"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -10,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"awarddesk/internal/sessionstore"
 )
 
 type savedMailboxToken struct {

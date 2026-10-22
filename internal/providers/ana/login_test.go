@@ -1,7 +1,6 @@
 package ana
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,6 +9,8 @@ import (
 	"testing"
 
 	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/award"
 )
 
 type loginStub struct {

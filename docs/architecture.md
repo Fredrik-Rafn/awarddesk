@@ -1,81 +1,105 @@
 # Architecture
 
-Awarddesk is a single Go application with an embedded static frontend.
-There is no external persistence layer. The server binds to `127.0.0.1`.
+Awarddesk is one Go process serving an embedded HTML/CSS/JavaScript frontend on
+`127.0.0.1`. SQLite is the authoritative local store. No frontend build server,
+external database or OS cron is required.
 
 ```text
-Browser: internal/web/assets
-          |
-Local API: internal/web
-          |---------------------------|
-internal/login                    internal/jobs
-ANA check status                  BA search queue/results
-          |                           |
-providers/ana                     providers/ba
-          |---------------------------|
-internal/session + internal/antibot
-          |
-Airline APIs / Hyper Solutions / AnySolver (BA only)
+main.go                         composition and shutdown
+  |
+internal/web                    local HTTP API, admin authentication, embedded UI
+  |----------------------|-----------------------|
+internal/jobs            internal/fleet          internal/registration
+queue, results, history  EVA accounts + sessions  durable onboarding checkpoints
+  |                      |
+award.Provider           providers/eva
+  |                      |-----------------------|
+providers/ba             internal/outlook         internal/proxies
+legacy account           OAuth + read-only OTP    sticky leases + egress checks
+
+internal/login --> providers/ana.Manager --> providers/ana
+status + upkeep    exclusive saved session       login-only
+
+Shared: internal/award, internal/session, internal/sessionstore,
+        internal/antibot, internal/storage, internal/config
 ```
 
-`main.go` is the composition root: it loads the local `.env` through `internal/config`
-(existing process variables take precedence), reads settings, constructs
-providers and lifecycle services, and starts the server. Provider packages own
-airline-specific URLs, payloads, authentication state, and parsers. HTTP sessions
-are isolated per operation. Shared transport and solver adapters contain no
-member credentials.
+## Boundaries
 
-## Login-only ANA module
+- `award` defines queries, capabilities, normalized results, progress and errors.
+  Provider packages own airline URLs, fresh form state and parsers; they do not
+  depend on web handlers. ANA intentionally does not implement flight search.
+- `session` owns HTTP transport, cookie scoping, allowed hosts, response bounds
+  and safe transport retries. `antibot` owns solver protocols. Credentials and
+  session bodies never become public progress metadata.
+- `fleet` schedules EVA accounts, session preparation and bounded account failover.
+  Each account has one live booking-flow owner. Different accounts run concurrently.
+  BA serializes its own single configured account inside its provider.
+- `registration` persists onboarding checkpoints, so a lost browser tab does not
+  lose an account awaiting verification. Retrying a checkpoint is different from
+  resubmitting registration; uncertain submissions require inspection.
+- `jobs` owns search queueing, deduplication, progress snapshots, cancellation and
+  permanent history. It uses the provider interface, not airline-specific HTTP.
+- `storage` owns SQLite settings, accounts, portable JSON state and history.
+  `sessionstore` supplies storage adapters and OS locks. No SQL transaction spans
+  an airline, mailbox or solver request.
+- `config` handles first-run import, database location and legacy provider wiring.
+  The live EVA fleet builds per-account providers from SQLite and refreshes
+  configuration when accounts become idle. BA/ANA configuration needs a restart.
+- `web` owns local request validation, CSRF, admin cookies and API serialization.
+  Static pages are embedded at compile time, so source edits need a restart.
 
-The frontend uses a dedicated login panel, not the flight-search selector.
-`internal/login` owns the background task, progress, cancellation, deadline,
-and cooldown. The checker calls `ana.Provider.Login`, verifies the member, and
-stores the member-verified session through `ana.Manager` and `sessionstore`.
-The HTTP client closes after use; cookies, token, browser identity and the exact
-proxy session survive in a per-account JSON file. Only public status reaches the UI.
+## Lifecycle and persistence
 
-Configuration is independent: ANA can run without BA credentials and vice versa.
-No credentials are accepted from the browser or returned in API responses.
-Reloading the page resumes polling an active login check.
-Concurrent starts share that check; recent successes retain their original
-timestamp. `internal/proxies` supplies an exclusive locked Evomi lease per
-attempt when the editable pool file is configured. See
-[reliability and capacity limits](reliability.md).
+`main.go` opens/migrates SQLite, acquires the workspace server lock, constructs
+providers and services, restores search history, then binds the localhost listener.
+Only after binding does it start EVA maintenance and registration workers.
+ANA maintenance remains supported when configured and enabled.
 
-## API
+On shutdown, the HTTP server stops, background services cancel and join their
+workers, and storage closes. Interrupted search jobs are recorded rather than
+automatically replayed at startup.
+
+The database stores:
+- Global settings and proxies, individual EVA/Outlook account credentials.
+- Portable member sessions with scoped cookies, browser identity and exact proxy.
+- Rotated OAuth refresh tokens and registration checkpoints.
+- Temporary complete-result caches, permanent search results/timelines and admin
+  cookie hashes.
+
+Flight caches default to 30 minutes; history has no retention deletion. A saved
+member login and a booking context have different lifetimes. Each uncached EVA
+search creates a fresh booking context. See [storage](storage.md),
+[EVA](eva.md) and [ANA session lifecycle](sessions.md).
+
+## HTTP surface
 
 | Method and path | Purpose |
 | --- | --- |
-| `GET /api/config` | Provider capabilities, configuration flags, CSRF token |
-| `GET /api/logins/ana` | Current ANA login-check status |
-| `POST /api/logins/ana` | Start a check; returns 202 immediately |
-| `DELETE /api/logins/ana` | Request cancellation |
+| `GET /api/config` | Capabilities, readiness flags and request token |
 | `GET /api/airports?q=...` | Airport autocomplete |
-| `POST /api/searches` | Submit an existing BA search |
-| `GET /api/searches/{id}` | Search progress/result |
-| `DELETE /api/searches/{id}` | Cancel search |
+| `POST /api/searches` | Queue an EVA or configured legacy BA search |
+| `GET /api/searches/{id}` | Progress and normalized result |
+| `DELETE /api/searches/{id}` | Cancel a search |
+| `GET /api/logins/{eva\|ana}` | Current verification status |
+| `POST /api/logins/{eva\|ana}` | Start/coalesce a login check |
+| `DELETE /api/logins/{eva\|ana}` | Cancel that check |
+| `/api/admin/session` | Admin sign-in, sign-out and session status |
+| `/api/admin/*` | Authenticated accounts, preparation, onboarding, settings, caches and analytics |
 
-POST and DELETE require `X-CSRF-Token` obtained from `/api/config`. Search POSTs
-require JSON. Host and Origin checks restrict access to the local UI.
+Mutation requests require the current `X-CSRF-Token`; the server also validates
+Host and Origin. Admin endpoints additionally require the admin cookie. Public
+configuration/results exclude credentials. The public provider selector shows
+EVA only; hidden BA/ANA functionality remains implemented.
 
-ANA statuses: `idle → running → verified / failed / cancelled`.
-Only one check can run at a time. The latest status lives until server restart
-or another check. “Verified” records the last successful validation/save; the
-session is checked again before use, rather than trusting that UI status.
+## Adding or maintaining a provider
 
-The in-process maintenance loop starts after the localhost listener is bound,
-then checks every five minutes. OTP and failures pause the loop for that process
-until manually retried. Future ANA searches must call `Manager.WithSession`.
-See [session persistence](sessions.md) for locking, expiry and storage behavior.
+Keep airline-specific code under `internal/providers/<airline>`. Implement
+`award.Provider` only when real search and pricing responses are supported.
+Register it with the jobs service in the composition root; use a fleet adapter
+only when multiple account scheduling is needed. Keep login-only integrations
+separate until they support search.
 
-## Extending providers
-
-Keep provider-specific behavior under `internal/providers/<airline>`. ANA login
-does not implement the flight-search interface yet. A future ANA search module
-must implement `award.Provider`, normalize real responses, add parser fixtures,
-and then register with `jobs.New`. Do not expose it as a search provider before
-that exists.
-
-Tests next to the modules cover behavior with synthetic/local fixtures. Normal
-`go test ./...` never contacts airlines or consumes solver credits. The separate
-ANA CLI is the explicit live-check entry point.
+Add parser and lifecycle fixtures beside the implementation. Normal tests are
+offline; explicit commands in `cmd/` perform live diagnostics and can consume
+solver credits. Keep real captures, tokens, keys and generated data out of Git.

@@ -1,7 +1,6 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,6 +12,8 @@ import (
 	"testing"
 
 	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/award"
 )
 
 func TestPartyCashAmountUsesExactDecimalArithmetic(t *testing.T) {

@@ -1,8 +1,9 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
 	"testing"
+
+	"awarddesk/internal/award"
 )
 
 func TestMilesEligibilityRemovesFlightsAndFareOptionsWithoutMutatingSource(t *testing.T) {

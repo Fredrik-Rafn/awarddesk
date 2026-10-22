@@ -27,7 +27,7 @@ try {
     }
     Push-Location $PSScriptRoot
     try {
-        go run ./cmd/ana-login
+        go run ./cmd/ana-login -env
         if ($LASTEXITCODE -ne 0) {
             throw 'ANA login was not verified. See the status above.'
         }

@@ -1,17 +1,19 @@
 package antibot
 
 import (
-	"awarddesk/internal/award"
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	hyper "github.com/Hyper-Solutions/hyper-sdk-go/v3"
-	http "github.com/bogdanfinn/fhttp"
 	"log"
 	"net/url"
 	"regexp"
 	"time"
+
+	hyper "github.com/Hyper-Solutions/hyper-sdk-go/v3"
+	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/award"
 )
 
 var sbsdPattern = regexp.MustCompile(`(?i)([a-z\d/\-_\.]+)\?v=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:&[^"']*?\bt=([^"'&]+))?[^"']*["']`)

@@ -1,10 +1,11 @@
 package jobs
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"testing"
 	"time"
+
+	"awarddesk/internal/award"
 )
 
 func TestSearchDispatchCanGrowToTwoHundredConcurrentFlows(t *testing.T) {

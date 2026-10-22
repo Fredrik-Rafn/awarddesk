@@ -1,9 +1,10 @@
 package eva
 
 import (
-	"awarddesk/internal/sessionstore"
 	"testing"
 	"time"
+
+	"awarddesk/internal/sessionstore"
 )
 
 func TestWarmSessionReusesOnlyUnchangedDiskStateAndProxy(t *testing.T) {

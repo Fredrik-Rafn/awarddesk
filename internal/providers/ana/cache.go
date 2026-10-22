@@ -1,14 +1,15 @@
 package ana
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/session"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"time"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/session"
 )
 
 // maxSessionAge is a conservative local reuse cap, not ANA's advertised expiry.

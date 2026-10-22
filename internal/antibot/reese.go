@@ -1,8 +1,6 @@
 package antibot
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/session"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -14,6 +12,9 @@ import (
 	hyper "github.com/Hyper-Solutions/hyper-sdk-go/v3"
 	"github.com/Hyper-Solutions/hyper-sdk-go/v3/incapsula"
 	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/session"
 )
 
 // PrepareReese handles only the fresh interstitial. The caller decides whether

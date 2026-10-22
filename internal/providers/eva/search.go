@@ -1,9 +1,6 @@
 package eva
 
 import (
-	"awarddesk/internal/antibot"
-	"awarddesk/internal/award"
-	"awarddesk/internal/session"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -16,6 +13,10 @@ import (
 	"time"
 
 	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/antibot"
+	"awarddesk/internal/award"
+	"awarddesk/internal/session"
 )
 
 const BookingURL = "https://booking.evaair.com/flyeva/eva/b2c/booking-online.aspx?lang=en-global"

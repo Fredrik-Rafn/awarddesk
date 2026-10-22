@@ -1,11 +1,12 @@
 package eva
 
 import (
-	"awarddesk/internal/award"
 	"context"
 	"errors"
 	"net/url"
 	"testing"
+
+	"awarddesk/internal/award"
 )
 
 func TestImageRetryRequiresExplicitRejectionAndReturnedLoginForm(t *testing.T) {

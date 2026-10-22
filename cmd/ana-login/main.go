@@ -2,8 +2,6 @@
 package main
 
 import (
-	"awarddesk/internal/award"
-	"awarddesk/internal/config"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,6 +10,10 @@ import (
 	"os"
 	"os/signal"
 	"time"
+
+	"awarddesk/internal/award"
+	"awarddesk/internal/config"
+	"awarddesk/internal/providers/ana"
 )
 
 type result struct {
@@ -29,18 +31,30 @@ func main() { os.Exit(run()) }
 func run() int {
 	runs := flag.Int("runs", 1, "sequential live checks (1-10); each uses a fresh proxy lease and may consume solver credits")
 	reportPath := flag.String("report", "", "optional sanitized JSON report")
+	environment := flag.Bool("env", false, "use process environment instead of the workspace database; does not persist credentials")
 	flag.Parse()
 	if *runs < 1 || *runs > 10 {
 		fmt.Fprintln(os.Stderr, "runs must be 1-10")
 		return 1
 	}
-	db, err := config.Database()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
+	var (
+		p                *ana.Provider
+		ready, proxyPool bool
+		err              error
+	)
+	if *environment {
+		p, ready, err = config.ANA()
+		proxyPool = os.Getenv("AWARDDESK_PROXY_FILE") != ""
+	} else {
+		db, openErr := config.Database()
+		if openErr != nil {
+			fmt.Fprintln(os.Stderr, openErr)
+			return 1
+		}
+		defer db.Close()
+		p, ready, err = config.ANAFromDatabase(db)
+		proxyPool = db.Setting("PROXY_LIST") != ""
 	}
-	defer db.Close()
-	p, ready, err := config.ANAFromDatabase(db)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
@@ -95,7 +109,7 @@ func run() int {
 			At        time.Time `json:"at"`
 			ProxyPool bool      `json:"proxyPool"`
 			Results   []result  `json:"results"`
-		}{time.Now().UTC(), os.Getenv("AWARDDESK_PROXY_FILE") != "", results}, "", "  ")
+		}{time.Now().UTC(), proxyPool, results}, "", "  ")
 		if err != nil || os.WriteFile(*reportPath, data, 0600) != nil {
 			fmt.Fprintln(os.Stderr, "Could not save report")
 			return 1

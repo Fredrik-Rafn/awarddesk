@@ -1,10 +1,12 @@
 package eva
 
 import (
-	"awarddesk/internal/session"
-	http "github.com/bogdanfinn/fhttp"
 	"testing"
 	"time"
+
+	http "github.com/bogdanfinn/fhttp"
+
+	"awarddesk/internal/session"
 )
 
 func TestExpiryUsesMemberCookieWithFiveMinuteMargin(t *testing.T) {
