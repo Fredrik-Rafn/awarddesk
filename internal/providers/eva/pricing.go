@@ -231,7 +231,8 @@ func priceFaresWithReplans(ctx context.Context, c pricingClient, page pageData, 
 			}
 			want, e1 := strconv.ParseFloat(f.CashPrice.Amount, 64)
 			got, e2 := price.TotalAmount.Amount.Float64()
-			if e1 != nil || e2 != nil || want != got {
+			if e1 != nil || e2 != nil || !equalCashAmounts(f.CashPrice.Amount, price.TotalAmount.Amount.String()) {
+				slog.Warn("EVA selected-fare total mismatch", "adults", result.Query.Adults, "availabilityAmount", want, "selectedAmount", got)
 				return award.Failure("price_changed", "EVA changed the selected fare; run a fresh search")
 			}
 			calculated, err := checkoutQuote(ctx, c, page, result.Query)

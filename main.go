@@ -75,7 +75,7 @@ func run() error {
 		providers = append(providers, &serializedProvider{Provider: p, gate: make(chan struct{}, 1)})
 	}
 	providers = append(providers, evaProvider)
-	j := jobs.NewConcurrent(16, providers...)
+	j := jobs.NewConcurrent(award.ConcurrencyLimit(settings["SEARCH_CONCURRENCY"]), providers...)
 	if err = j.SetPersistence(db); err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func run() error {
 		return err
 	}
 	defer registrations.Close()
-	app.Admin = &web.Admin{DB: db, Fleet: evaProvider, Registrations: registrations}
+	app.Admin = &web.Admin{DB: db, Fleet: evaProvider, Registrations: registrations, Searches: j}
 	app.Availability = func() (bool, bool) {
 		return ready || evaProvider.Ready(), db.Setting("PROXY_LIST") != "" || proxy != ""
 	}

@@ -31,8 +31,15 @@ func refreshAvailability(ctx context.Context, c pricingClient, current, initial 
 	v.Set("B_DATE_1", strings.ReplaceAll(q.Date, "-", "")+"0000")
 	v.Set("B_ANY_TIME_1", "TRUE")
 	v.Set("DATE_RANGE_VALUE_1", "0")
-	v.Set("TRAVELLER_TYPE_1", "ADT")
-	v.Set("HAS_INFANT_1", "FALSE")
+	adults := q.Adults
+	if adults < 1 {
+		adults = 1
+	}
+	for i := 1; i <= adults; i++ {
+		n := strconv.Itoa(i)
+		v.Set("TRAVELLER_TYPE_"+n, "ADT")
+		v.Set("HAS_INFANT_"+n, "FALSE")
+	}
 	var cfg struct{ DateRangeQualifier string }
 	if json.Unmarshal(initial.Config["FPOW"], &cfg) == nil && cfg.DateRangeQualifier != "" {
 		v.Set("DATE_RANGE_QUALIFIER_1", cfg.DateRangeQualifier)

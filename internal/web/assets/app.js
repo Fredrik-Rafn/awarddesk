@@ -320,6 +320,13 @@ for (const id of ["origin", "destination"]) {
   input.addEventListener("blur", close);
 }
 function showResults() {
+  if (result.query.provider === "eva")
+    result.itineraries = result.itineraries
+      .map((item) => ({
+        ...item,
+        fares: item.fares.filter((f) => f.milesCashEligible !== false),
+      }))
+      .filter((item) => item.fares.length > 0);
   $("search-skeleton").hidden = true;
   document.body.classList.add("has-results");
   const q = result.query;
@@ -483,7 +490,12 @@ function renderFlights() {
       if (fare.milesCash) {
         price.append(
           el("strong", number(fare.milesCash.miles) + " miles"),
-          el("small", "Maximum-offset estimate"),
+          el(
+            "small",
+            (result.query.adults > 1
+              ? "Total for " + result.query.adults + " adults · "
+              : "") + "Maximum-offset estimate",
+          ),
           el("div", "+ " + money(fare.milesCash.remainingCash), "cash"),
         );
       } else {

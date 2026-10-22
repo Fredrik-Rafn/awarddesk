@@ -139,7 +139,15 @@ quotes only for unchanged segments, fare family, cabin and cash price; changed
 fares receive fresh calculations. A failed later step preserves retrieved
 flights and finished quotes in the API and frontend as partial results, with
 the failure still visible. It never counts as a complete success.
-The configured member profile supports one adult. Pricing requests allow up to
+Group searches support 1–9 adults. The first traveller uses the authenticated
+member profile; additional adults use synthetic profiles only for this
+aggregation quotation flow. Prices and mileage are totals for the requested
+party. Inventory and maximum-offset mileage/cash quotes come from EVA for that
+passenger count. Availability's per-adult cash display is converted to an exact
+party total before comparison with checkout; each availability refresh preserves
+every adult slot. Genuine fare changes still stop pricing. Known
+ineligible fares and flights without eligible fares are omitted from previews,
+live results and reused cached searches. Pricing requests allow up to
 90 seconds, ordinary requests 40 seconds, and the full search ten minutes.
 Login-only checks retain their six-minute limit. These are time limits, not delays.
 

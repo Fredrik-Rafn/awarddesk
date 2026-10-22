@@ -1,7 +1,9 @@
 package web
 
 import (
+	"awarddesk/internal/award"
 	"awarddesk/internal/fleet"
+	"awarddesk/internal/jobs"
 	"awarddesk/internal/proxies"
 	"awarddesk/internal/registration"
 	"awarddesk/internal/storage"
@@ -24,6 +26,7 @@ type Admin struct {
 	DB            *storage.Store
 	Fleet         *fleet.Fleet
 	Registrations *registration.Service
+	Searches      *jobs.Service
 	mu            sync.Mutex
 	failures      int
 	next          time.Time
@@ -77,6 +80,16 @@ func (s *Server) adminRoutes(mux *http.ServeMux) {
 		case "/api/admin/registrations/retry":
 			if r.Method == "POST" {
 				a.retryRegistration(w, r)
+				return
+			}
+		case "/api/admin/registrations/retry-all":
+			if r.Method == "POST" {
+				a.retryAllRegistrations(w, r)
+				return
+			}
+		case "/api/admin/registrations/restart":
+			if r.Method == "POST" {
+				a.restartRegistration(w, r)
 				return
 			}
 		case "/api/admin/history":
@@ -180,6 +193,16 @@ func (s *Server) adminRoutes(mux *http.ServeMux) {
 		case "/api/admin/prepare":
 			if r.Method == "POST" {
 				a.prepare(w, r)
+				return
+			}
+		case "/api/admin/prepare-all":
+			if r.Method == "POST" {
+				result, e := a.Fleet.RequestPrepareAll()
+				if e != nil {
+					fail(w, 409, e.Error())
+					return
+				}
+				writeJSON(w, 202, result)
 				return
 			}
 		case "/api/admin/invalidate":
@@ -338,8 +361,8 @@ func validateSetting(k, v string) error {
 		return errors.New("Search history is permanent; retention is no longer configurable")
 	case "SEARCH_CONCURRENCY":
 		n, e := strconv.Atoi(v)
-		if e != nil || n < 1 || n > 16 {
-			return errors.New("Concurrency must be 1 to 16")
+		if e != nil || n < 1 || n > award.MaxConcurrency {
+			return errors.New("Concurrency must be 1 to 512")
 		}
 	case "EVA_IMPERVA_SOLVER":
 		if v != "auto" && v != "hyper" && v != "anysolver" {
@@ -389,6 +412,16 @@ func (a *Admin) putSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		fail(w, 500, "Could not save settings")
 		return
+	}
+	if value, ok := b.Values["SEARCH_CONCURRENCY"]; ok {
+		limit := award.ConcurrencyLimit(value)
+		if a.Searches != nil {
+			a.Searches.EnsureWorkers(limit)
+		}
+		a.Fleet.RefreshPreparationWorkers()
+		if a.Registrations != nil {
+			a.Registrations.RefreshWorkers()
+		}
 	}
 	writeJSON(w, 200, map[string]bool{"saved": true})
 }
@@ -570,9 +603,16 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 		fail(w, 500, "Could not read accounts")
 		return
 	}
-	for i := range accounts {
-		accounts[i].Password = ""
-		accounts[i].RefreshToken = ""
+	type accountView struct {
+		storage.Account
+		Configured bool `json:"configured"`
+	}
+	accountViews := make([]accountView, 0, len(accounts))
+	for _, account := range accounts {
+		complete := account.Email != "" && account.Password != "" && account.OutlookEmail != "" && account.ClientID != "" && account.RefreshToken != ""
+		account.Password = ""
+		account.RefreshToken = ""
+		accountViews = append(accountViews, accountView{account, complete})
 	}
 	statuses, e := a.Fleet.Statuses()
 	if e != nil {
@@ -604,5 +644,5 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeJSON(w, 200, map[string]any{"proxyCount": proxyCount, "accounts": accounts, "sessions": statuses, "accountSetups": setups, "flights": flights, "jobs": history, "now": time.Now().UTC(), "ready": a.Fleet.Ready(), "concurrency": a.DB.Setting("SEARCH_CONCURRENCY"), "historyPermanent": true})
+	writeJSON(w, 200, map[string]any{"proxyCount": proxyCount, "accounts": accountViews, "sessions": statuses, "accountSetups": setups, "flights": flights, "jobs": history, "now": time.Now().UTC(), "ready": a.Fleet.Ready(), "concurrency": a.DB.Setting("SEARCH_CONCURRENCY"), "historyPermanent": true})
 }

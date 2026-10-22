@@ -39,9 +39,15 @@ background work and durable recovery checkpoints continue. Unresolved setups
 appear as Needs attention in the accounts list, including unconfirmed memberships.
 
 Registration checkpoints are saved before mutations. Network failures before
-creation can safely start fresh setup; an uncertain creation response polls email
-instead of submitting another signup. **Resume verification** continues from that
-checkpoint. Uncertain OTP/email-login submissions require inspection rather than
+creation can safely start fresh setup. The final submission must return EVA's
+registration-complete container before it is acknowledged and waits for email;
+rejections and unknown responses retain their original error and checkpoint.
+**Resume verification** checks the saved submission without submitting it again.
+After the original one-hour verification window expires, an unverified attempt
+offers **Restart signup** following an explicit inspection confirmation. This
+atomically archives the full prior attempt and queues a fresh flow. Known member
+numbers and uncertain verification submissions cannot be reset this way.
+Uncertain OTP/email-login submissions require inspection rather than
 blind replay. If creation succeeded but login preparation failed, **Retry setup**
 prepares the existing account without creating it again.
 

@@ -17,12 +17,20 @@ function renderPagination(container, page, pages, onChange) {
     control.onclick = async () => {
       if (container.getAttribute("aria-busy") === "true") return;
       container.setAttribute("aria-busy", "true");
-      const controls = [...container.querySelectorAll("button")].map((node) => [node, node.disabled]);
-      controls.forEach(([node]) => { node.disabled = true; });
-      try { await onChange(target); }
-      finally {
+      const controls = [...container.querySelectorAll("button")].map((node) => [
+        node,
+        node.disabled,
+      ]);
+      controls.forEach(([node]) => {
+        node.disabled = true;
+      });
+      try {
+        await onChange(target);
+      } finally {
         container.removeAttribute("aria-busy");
-        controls.forEach(([node, disabled]) => { node.disabled = disabled; });
+        controls.forEach(([node, disabled]) => {
+          node.disabled = disabled;
+        });
       }
     };
     container.append(control);
@@ -290,7 +298,7 @@ function renderSettingsFields(definitions) {
           : "text";
       if (key === "SEARCH_CONCURRENCY") {
         input.min = "1";
-        input.max = "16";
+        input.max = "512";
         input.step = "1";
       }
       input.placeholder = s.secret ? "Not configured" : "";

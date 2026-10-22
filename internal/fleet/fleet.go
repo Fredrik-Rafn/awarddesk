@@ -41,24 +41,28 @@ type Status struct {
 	NeedsAttention bool            `json:"needsAttention"`
 	Session        eva.SessionInfo `json:"session"`
 	Busy           bool            `json:"busy"`
+	Queued         bool            `json:"queued"`
 }
 type Fleet struct {
-	db            *storage.Store
-	pool          *proxies.Pool
-	mu            sync.Mutex
-	entries       map[string]*entry
-	ctx           context.Context
-	cancel        context.CancelFunc
-	wg            sync.WaitGroup
-	build         func(storage.Account, map[string]string) airline
-	closed        bool
-	pending       map[string]bool
-	registrations int
+	db             *storage.Store
+	pool           *proxies.Pool
+	mu             sync.Mutex
+	entries        map[string]*entry
+	ctx            context.Context
+	cancel         context.CancelFunc
+	wg             sync.WaitGroup
+	build          func(storage.Account, map[string]string) airline
+	closed         bool
+	pending        map[string]bool
+	registrations  int
+	prepareQueue   []prepareTask
+	prepareWake    chan struct{}
+	prepareWorkers int
 }
 
 func New(db *storage.Store) *Fleet {
 	ctx, cancel := context.WithCancel(context.Background())
-	f := &Fleet{db: db, entries: map[string]*entry{}, pending: map[string]bool{}, ctx: ctx, cancel: cancel}
+	f := &Fleet{db: db, entries: map[string]*entry{}, pending: map[string]bool{}, ctx: ctx, cancel: cancel, prepareWake: make(chan struct{}, 16)}
 	f.pool = proxies.NewSource(func() (string, error) { m, e := db.Settings(); return m["PROXY_LIST"], e })
 	f.build = func(a storage.Account, m map[string]string) airline {
 		ttl, _ := time.ParseDuration(m["EVA_RESULT_CACHE_TTL"])
@@ -159,9 +163,17 @@ func (f *Fleet) Statuses() ([]Status, error) {
 		f.db.RuntimeValue("account:"+a.ID, &st)
 		st.ID = a.ID
 		st.Busy = en.busy
+		st.Queued = f.pending[a.ID] && !st.Busy
 		st.Session = en.provider.SessionInfo()
 		if st.Busy && st.State != "preparing" {
 			st.State = "searching"
+		}
+		if st.Queued {
+			st.State = "queued"
+			st.Stage = "queued preparation"
+			st.Message = "Waiting for an available session worker"
+			st.NeedsAttention = false
+			st.NextAttempt = time.Time{}
 		}
 		if !a.Enabled {
 			st.State = "disabled"
@@ -190,10 +202,7 @@ func (f *Fleet) claim(ctx context.Context, want string, excluded map[string]bool
 			f.mu.Unlock()
 			return storage.Account{}, nil, nil, errors.New("fleet is closed")
 		}
-		limit, _ := strconv.Atoi(m["SEARCH_CONCURRENCY"])
-		if limit < 1 {
-			limit = 4
-		}
+		limit := award.ConcurrencyLimit(m["SEARCH_CONCURRENCY"])
 		active := f.registrations
 		for _, en := range f.entries {
 			if en.busy {
@@ -369,6 +378,8 @@ func (f *Fleet) Prepare(ctx context.Context, id string, report award.Reporter, f
 		return e
 	}
 	defer release()
+	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
+	defer cancel()
 	defer func() {
 		if recover() != nil {
 			err = &award.Error{Code: "internal", Message: "EVA session preparation stopped unexpectedly", OutcomeUnknown: true}
@@ -388,6 +399,16 @@ func (f *Fleet) Prepare(ctx context.Context, id string, report award.Reporter, f
 	return err
 }
 func (f *Fleet) Start() {
+	// Only work that had not started is safe to recover automatically.
+	if rows, e := f.db.Accounts(); e == nil {
+		for _, a := range rows {
+			var st Status
+			f.db.RuntimeValue("account:"+a.ID, &st)
+			if configured(a) && st.State == "queued" && st.Stage == "queued preparation" {
+				_ = f.schedulePrepare(a.ID, true)
+			}
+		}
+	}
 	f.wg.Add(1)
 	go func() {
 		defer f.wg.Done()
@@ -492,25 +513,6 @@ func (f *Fleet) Close() {
 
 func (f *Fleet) RequestPrepare(id string) error { return f.schedulePrepare(id, true) }
 func (f *Fleet) schedulePrepare(id string, force bool) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.closed {
-		return errors.New("service is shutting down")
-	}
-	if f.pending[id] {
-		return nil
-	}
-	if en := f.entries[id]; en != nil && en.busy {
-		return errors.New("account is busy")
-	}
-	f.pending[id] = true
-	f.wg.Add(1)
-	go func() {
-		defer f.wg.Done()
-		defer func() { f.mu.Lock(); delete(f.pending, id); f.mu.Unlock() }()
-		ctx, cancel := context.WithTimeout(f.ctx, 6*time.Minute)
-		defer cancel()
-		_ = f.Prepare(ctx, id, nil, force)
-	}()
-	return nil
+	_, err := f.enqueuePrepare(id, force)
+	return err
 }

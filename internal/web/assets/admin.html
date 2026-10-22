@@ -9,6 +9,7 @@
     <script src="/http.js" defer></script>
     <script src="/admin-controls.js" defer></script>
     <script src="/admin.js" defer></script>
+    <script src="/admin-accounts.js" defer></script>
     <script src="/admin-dashboard.js" defer></script>
     <script src="/admin-registration.js" defer></script>
     <script src="/components.js" defer></script>
@@ -185,13 +186,79 @@
           >
             <div class="panel-top">
               <h2>Accounts &amp; sessions</h2>
+              <div class="row-actions">
+                <button
+                  id="retry-all-setups"
+                  class="secondary"
+                  type="button"
+                  disabled
+                >
+                  Retry / continue setups
+                </button>
+                <button
+                  id="prepare-all-accounts"
+                  class="primary"
+                  type="button"
+                  disabled
+                >
+                  Prepare all accounts
+                </button>
+              </div>
             </div>
             <p class="hint">
               One active search per account. Separate accounts run concurrently.
               Background preparation checks idle accounts every five minutes and
               refreshes expired sessions.
             </p>
-            <div id="account-list"></div>
+            <div
+              id="account-summary"
+              class="account-summary"
+              aria-label="Account status summary"
+            ></div>
+            <div class="account-filters">
+              <label
+                >Find an account<input
+                  id="account-query"
+                  type="search"
+                  placeholder="Search email or label"
+                  autocomplete="off"
+              /></label>
+              <label
+                >Status<select id="account-status">
+                  <option value="all">All statuses</option>
+                  <option value="attention">Needs attention</option>
+                  <option value="ready">Ready</option>
+                  <option value="preparing">Preparing</option>
+                  <option value="queued">Queued</option>
+                  <option value="searching">Searching</option>
+                  <option value="idle">Not ready</option>
+                  <option value="unconfigured">Unconfigured</option>
+                  <option value="disabled">Disabled</option>
+                </select></label
+              >
+              <button
+                id="reset-account-filters"
+                class="secondary"
+                type="button"
+              >
+                Reset
+              </button>
+            </div>
+            <p id="account-count" class="hint" aria-live="polite"></p>
+            <div
+              id="account-scroll"
+              class="account-scroll"
+              role="region"
+              aria-label="Accounts list"
+              tabindex="0"
+            >
+              <div id="account-list"></div>
+              <div id="account-scroll-sentinel" class="account-load-more">
+                <button id="load-more-accounts" class="secondary" type="button">
+                  Show more accounts
+                </button>
+              </div>
+            </div>
             <div class="registration-panel">
               <div class="panel-top">
                 <div>
@@ -223,22 +290,7 @@
                   are generated. Outlook uses OAuth2; mailbox passwords are
                   discarded. Existing imports are skipped.
                 </p>
-                <label class="registration-consent"
-                  ><input
-                    id="registration-consent"
-                    type="checkbox"
-                    required
-                  /><span
-                    >I authorize creation of these EVA memberships and accept
-                    EVA's
-                    <a
-                      href="https://eservice.evaair.com/flyeva/EVA/FFP/register-now.aspx"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      >membership terms and privacy policy</a
-                    >.</span
-                  ></label
-                >
+
                 <div class="form-actions">
                   <button id="start-registration" class="primary" type="submit">
                     Create accounts &amp; prepare sessions</button

@@ -207,6 +207,12 @@ func TestRecoveryHistorySurvivesCompletionAndFailure(t *testing.T) {
 			want = "failed"
 		}
 		finished := await(t, s, j.ID, want)
+		if finished.StartedAt == nil || finished.FinishedAt == nil || finished.StartedAt.Before(finished.CreatedAt) || finished.FinishedAt.Before(*finished.StartedAt) || len(finished.Timeline) != 2 {
+			t.Fatal("search timing diagnostics missing or out of order")
+		}
+		finished.Timeline[0].Stage = "modified snapshot"
+		copy, _ := s.Get(j.ID)
+		if copy.Timeline[0].Stage == "modified snapshot" { t.Fatal("timeline snapshot mutates live job") }
 		if len(finished.Recoveries) != 2 || finished.Recoveries[0].Code != "session_denied" || finished.Recoveries[1].Attempt != 2 {
 			t.Fatalf("recovery history lost: %+v", finished.Recoveries)
 		}

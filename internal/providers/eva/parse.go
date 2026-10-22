@@ -190,6 +190,10 @@ func parseAvailability(raw json.RawMessage, q award.Query) (award.Result, error)
 		if err != nil || amount < 0 {
 			return r, award.Failure("search_protocol", "EVA fare amount missing")
 		}
+		partyAmount, err := partyCashAmount(rec.RecoAmount.TotalAmount.String(), q.Adults)
+		if err != nil {
+			return r, award.Failure("search_protocol", "EVA fare amount missing")
+		}
 		for _, f := range rec.Bounds[0].FlightGroupList {
 			item, ok := flights[f.FlightID]
 			if !ok {
@@ -201,7 +205,7 @@ func parseAvailability(raw json.RawMessage, q award.Query) (award.Result, error)
 				seats = &n
 			}
 			canUseMiles := eligible[f.FlightID] && !strings.EqualFold(strings.TrimSpace(f.RBD), "A")
-			item.Fares = append(item.Fares, award.Fare{Name: name, Cabin: cabin, Program: "EVA Infinity MileageLands", PricingType: "miles_cash", QuoteID: strconv.Itoa(rec.RecoID), CashPrice: &award.Money{Amount: rec.RecoAmount.TotalAmount.String(), Currency: a.CurrencyBean.Code}, Seats: seats, MilesCashEligible: &canUseMiles})
+			item.Fares = append(item.Fares, award.Fare{Name: name, Cabin: cabin, Program: "EVA Infinity MileageLands", PricingType: "miles_cash", QuoteID: strconv.Itoa(rec.RecoID), CashPrice: &award.Money{Amount: partyAmount, Currency: a.CurrencyBean.Code}, Seats: seats, MilesCashEligible: &canUseMiles})
 		}
 	}
 	for _, item := range flights {

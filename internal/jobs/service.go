@@ -24,8 +24,20 @@ type Job struct {
 	Result     *award.Result    `json:"result,omitempty"`
 	Error      *award.Error     `json:"error,omitempty"`
 	Recoveries []award.Recovery `json:"recoveries,omitempty"`
+	StartedAt  *time.Time       `json:"startedAt,omitempty"`
+	FinishedAt *time.Time       `json:"finishedAt,omitempty"`
+	Timeline   []StageEvent     `json:"timeline,omitempty"`
 	cancel     context.CancelFunc
 	ctx        context.Context
+}
+
+// StageEvent records provider progress without credentials, headers or response bodies.
+type StageEvent struct {
+	At        time.Time       `json:"at"`
+	Stage     string          `json:"stage"`
+	Completed int             `json:"completed,omitempty"`
+	Total     int             `json:"total,omitempty"`
+	Recovery  *award.Recovery `json:"recovery,omitempty"`
 }
 type Service struct {
 	mu          sync.Mutex
@@ -37,6 +49,7 @@ type Service struct {
 	wg          sync.WaitGroup
 	cooldown    time.Time
 	persistence Persistence
+	workers     int
 }
 
 type Persistence interface {
@@ -50,11 +63,11 @@ func NewConcurrent(workers int, providers ...award.Provider) *Service {
 	if workers < 1 {
 		workers = 1
 	}
-	if workers > 16 {
-		workers = 16
+	if workers > award.MaxConcurrency {
+		workers = award.MaxConcurrency
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	s := &Service{items: map[string]*Job{}, providers: map[string]award.Provider{}, queue: make(chan string, 64), ctx: ctx, cancel: cancel}
+	s := &Service{items: map[string]*Job{}, providers: map[string]award.Provider{}, queue: make(chan string, 1024), ctx: ctx, cancel: cancel, workers: workers}
 	for _, p := range providers {
 		s.providers[p.Capabilities().ID] = p
 	}
@@ -63,6 +76,27 @@ func NewConcurrent(workers int, providers ...award.Provider) *Service {
 		go s.work()
 	}
 	return s
+}
+
+// Grow dispatch capacity live. Provider fleets enforce the current shared limit
+// when it is lowered, so active operations finish without being interrupted.
+func (s *Service) EnsureWorkers(limit int) {
+	if limit < 1 {
+		limit = 1
+	}
+	if limit > award.MaxConcurrency {
+		limit = award.MaxConcurrency
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.ctx.Err() != nil {
+		return
+	}
+	for s.workers < limit {
+		s.workers++
+		s.wg.Add(1)
+		go s.work()
+	}
 }
 func (s *Service) Capabilities() []award.Capabilities {
 	a := []award.Capabilities{}
@@ -174,7 +208,10 @@ func (s *Service) Get(id string) (Job, bool) {
 		}
 		return Job{}, false
 	}
-	return *j, true
+	out := *j
+	out.Timeline = append([]StageEvent(nil), j.Timeline...)
+	out.Recoveries = append([]award.Recovery(nil), j.Recoveries...)
+	return out, true
 }
 func (s *Service) Cancel(id string) bool {
 	s.mu.Lock()
@@ -229,6 +266,8 @@ func (s *Service) execute(id string) {
 	}
 	j.Status = "running"
 	j.UpdatedAt = time.Now().UTC()
+	started := j.UpdatedAt
+	j.StartedAt = &started
 	s.persist(j)
 	ctx, q := j.ctx, j.Query
 	s.mu.Unlock()
@@ -244,6 +283,14 @@ func (s *Service) execute(id string) {
 			s.mu.Lock()
 			defer s.mu.Unlock()
 			if j.Status == "running" {
+				if p.Stage != j.Progress.Stage || p.Completed != j.Progress.Completed || p.Total != j.Progress.Total || p.Recovery != nil {
+					event := StageEvent{At: time.Now().UTC(), Stage: p.Stage, Completed: p.Completed, Total: p.Total}
+					if p.Recovery != nil {
+						recovery := *p.Recovery
+						event.Recovery = &recovery
+					}
+					j.Timeline = append(j.Timeline, event)
+				}
 				if p.Preview != nil {
 					preview := award.CloneResult(*p.Preview)
 					preview.Complete = false
@@ -264,6 +311,8 @@ func (s *Service) execute(id string) {
 	defer j.cancel()
 	defer s.persist(j)
 	j.UpdatedAt = time.Now().UTC()
+	finished := j.UpdatedAt
+	j.FinishedAt = &finished
 	defer func() {
 		code := ""
 		if j.Error != nil {
@@ -350,6 +399,8 @@ func (s *Service) List() []Job {
 	out := []Job{}
 	for _, j := range s.items {
 		v := *j
+		v.Timeline = append([]StageEvent(nil), j.Timeline...)
+		v.Recoveries = append([]award.Recovery(nil), j.Recoveries...)
 		if j.Result != nil {
 			r := award.CloneResult(*j.Result)
 			v.Result = &r

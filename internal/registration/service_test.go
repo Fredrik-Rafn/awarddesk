@@ -158,3 +158,69 @@ func TestBatchProgressOnlyIncludesRequestedImports(t *testing.T) {
 		t.Fatal("empty batch scanned history")
 	}
 }
+
+func TestExpiredUnverifiedRestartArchivesCheckpointAndNeverResetsMembership(t *testing.T) {
+	s := testService(t)
+	s.Import(mailboxFixture)
+	rows, _ := s.loadAll()
+	r := rows[0]
+	r.Status = "attention"
+	r.State.Phase = "submit_pending"
+	r.State.Checkpoint.Since = time.Now().Add(-2 * time.Hour)
+	r.Error = "original rejected submission"
+	s.save(r)
+	items, _, _ := s.List(1, 25)
+	if !items[0].CanRestart {
+		t.Fatal("expired submission cannot be recovered")
+	}
+	r.State.AcknowledgedAt = time.Now().Add(-30 * time.Minute)
+	if r.restartable(time.Now()) {
+		t.Fatal("restart offered before the acknowledged email window expired")
+	}
+	r.State.AcknowledgedAt = time.Time{}
+	if s.Retry(r.ID) == nil {
+		t.Fatal("expired checkpoint blindly polled again")
+	}
+	if e := s.Restart(r.ID); e != nil {
+		t.Fatal(e)
+	}
+	var count int
+	s.db.DB.QueryRow("SELECT count(*) FROM registration_attempts WHERE registration_id=?", r.ID).Scan(&count)
+	if count != 1 {
+		t.Fatal("old attempt not archived")
+	}
+	rows, _ = s.loadAll()
+	if rows[0].Status != "queued" || rows[0].State.Phase != "" || rows[0].Error != "" || rows[0].State.Profile.Password != r.State.Profile.Password {
+		t.Fatal("restart lost profile or retained stale flow")
+	}
+	if s.Restart(r.ID) == nil {
+		t.Fatal("queued restart replayed")
+	}
+	for _, phase := range []string{"verification_pending", "email_login_pending", "created"} {
+		r.State.Phase = phase
+		s.save(r)
+		if s.Restart(r.ID) == nil {
+			t.Fatal("uncertain verification or known membership reset")
+		}
+	}
+}
+
+func TestRestartDoesNotResumeExpiredEmailPollingOnServerBoot(t *testing.T) {
+	s := testService(t)
+	s.Import(mailboxFixture)
+	rows, _ := s.loadAll()
+	r := rows[0]
+	r.Status = "running"
+	r.State.Phase = "await_email"
+	r.State.Checkpoint.Since = time.Now().Add(-2 * time.Hour)
+	s.save(r)
+	reopened, e := New(s.db, nil)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer reopened.Close()
+	items, _, e := reopened.List(1, 25)
+	if e != nil || items[0].Status != "attention" || !items[0].CanRestart {
+		t.Fatal("expired email polling silently resumed")
+	}
+}

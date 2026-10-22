@@ -74,6 +74,19 @@ func (a *Admin) registrations(w http.ResponseWriter, r *http.Request) {
 		fail(w, 405, "Method not allowed")
 	}
 }
+func (a *Admin) retryAllRegistrations(w http.ResponseWriter, r *http.Request) {
+	if a.Registrations == nil {
+		fail(w, 503, "Registration service is unavailable")
+		return
+	}
+	ids, skipped, err := a.Registrations.RetryAll()
+	if err != nil {
+		fail(w, 500, "Could not queue account setups")
+		return
+	}
+	writeJSON(w, 202, map[string]any{"ids": ids, "queued": len(ids), "skipped": skipped})
+}
+
 func (a *Admin) retryRegistration(w http.ResponseWriter, r *http.Request) {
 	if a.Registrations == nil {
 		fail(w, 503, "Registration service is unavailable")
@@ -88,6 +101,26 @@ func (a *Admin) retryRegistration(w http.ResponseWriter, r *http.Request) {
 	}
 	if e := a.Registrations.Retry(body.ID); e != nil {
 		fail(w, 409, e.Error())
+		return
+	}
+	writeJSON(w, 202, map[string]bool{"queued": true})
+}
+
+func (a *Admin) restartRegistration(w http.ResponseWriter, r *http.Request) {
+	if a.Registrations == nil {
+		fail(w, 503, "Registration service is unavailable")
+		return
+	}
+	var body struct {
+		ID      string `json:"id"`
+		Confirm bool   `json:"confirmRestart"`
+	}
+	if decodeAdmin(w, r, &body) != nil || !body.Confirm {
+		fail(w, 400, "Confirm that the mailbox and previous registration have been inspected before restarting signup")
+		return
+	}
+	if err := a.Registrations.Restart(body.ID); err != nil {
+		fail(w, 409, err.Error())
 		return
 	}
 	writeJSON(w, 202, map[string]bool{"queued": true})

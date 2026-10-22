@@ -11,10 +11,12 @@ import (
 	"encoding/hex"
 	"errors"
 	http "github.com/bogdanfinn/fhttp"
+	"golang.org/x/net/html"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const RegistrationURL = "https://eservice.evaair.com/flyeva/EVA/FFP/register-now.aspx"
@@ -46,15 +48,16 @@ func NewRegistrationProfile() (RegistrationProfile, error) {
 // Registration checkpoints are private database data. Pending mutations are
 // persisted before sending, and never replayed automatically after a restart.
 type RegistrationState struct {
-	ChallengeBody []byte              `json:"challengeBody,omitempty"`
-	ChallengeURL  string              `json:"challengeURL,omitempty"`
-	Proxy         string              `json:"proxy"`
-	Template      string              `json:"template"`
-	Phase         string              `json:"phase"`
-	Profile       RegistrationProfile `json:"profile"`
-	Checkpoint    outlook.Checkpoint  `json:"checkpoint"`
-	HTTP          session.State       `json:"http"`
-	MemberNumber  string              `json:"memberNumber,omitempty"`
+	ChallengeBody  []byte              `json:"challengeBody,omitempty"`
+	ChallengeURL   string              `json:"challengeURL,omitempty"`
+	Proxy          string              `json:"proxy"`
+	Template       string              `json:"template"`
+	Phase          string              `json:"phase"`
+	Profile        RegistrationProfile `json:"profile"`
+	Checkpoint     outlook.Checkpoint  `json:"checkpoint"`
+	HTTP           session.State       `json:"http"`
+	MemberNumber   string              `json:"memberNumber,omitempty"`
+	AcknowledgedAt time.Time           `json:"acknowledgedAt,omitempty"`
 }
 
 func registrationEvent(f *form, event string) error {
@@ -135,6 +138,13 @@ func (p *Provider) Register(ctx context.Context, c *session.Client, proxy string
 		}
 		return p.resumePortalChallenge(ctx, c, body, page, "/flyeva/EVA/FFP/register-now.aspx", progress)
 	}
+	confirmSubmission := func(body []byte, submissionErr error) error {
+		if err := registrationSubmissionFailure(body, p.config.Email, state.Profile.Password, submissionErr); err != nil {
+			return err
+		}
+		state.AcknowledgedAt = time.Now().UTC()
+		return persist("await_email")
+	}
 	if state.Phase == "created" {
 		return nil
 	}
@@ -145,11 +155,8 @@ func (p *Provider) Register(ctx context.Context, c *session.Client, proxy string
 		if len(state.ChallengeBody) == 0 {
 			return award.Failure("registration_protocol", "Saved registration challenge is missing")
 		}
-		_, _, err := continueCreation(state.ChallengeBody, state.ChallengeURL)
-		if err != nil && state.Phase == "challenge_pending" {
-			return err
-		}
-		if err = persist("await_email"); err != nil {
+		body, _, err := continueCreation(state.ChallengeBody, state.ChallengeURL)
+		if err = confirmSubmission(body, err); err != nil {
 			return err
 		}
 	}
@@ -262,13 +269,10 @@ func (p *Provider) Register(ctx context.Context, c *session.Client, proxy string
 			return err
 		}
 		progress("creating account", "Submitting registration once")
-		_, _, err = visit("POST", f.action, f.values, target)
-		if err != nil && state.Phase == "challenge_pending" {
-			return err
-		}
-		// A lost response may still have generated the email. Poll it rather
-		// than submitting a second registration.
-		if err = persist("await_email"); err != nil {
+		body, _, err = visit("POST", f.action, f.values, target)
+		// Keep the actual submission error and its checkpoint. Do not turn an
+		// explicit rejection or unknown response into a misleading email timeout.
+		if err = confirmSubmission(body, err); err != nil {
 			return err
 		}
 	}
@@ -322,4 +326,43 @@ func (p *Provider) Register(ctx context.Context, c *session.Client, proxy string
 		return registrationFailure(body, p.config.Email, state.Profile.Password)
 	}
 	return persist("created")
+}
+
+func registrationSubmissionFailure(body []byte, email, password string, submissionErr error) error {
+	if submissionErr != nil {
+		return submissionErr
+	}
+	if registrationAcknowledged(body) {
+		return nil
+	}
+	if feedback := loginFeedback(body, email, password); feedback != "" {
+		return award.Failure("registration_rejected", "EVA did not confirm registration: "+feedback)
+	}
+	return award.Failure("registration_unconfirmed", "EVA did not return its registration-complete screen; submission outcome is unconfirmed. Inspect the mailbox before retrying.")
+}
+
+// The completion container is the provider's acknowledgement in the captured
+// flow. Text alone (including text inside scripts/hidden fields) is insufficient.
+func registrationAcknowledged(body []byte) bool {
+	root, err := html.Parse(bytes.NewReader(body))
+	if err != nil {
+		return false
+	}
+	var walk func(*html.Node) bool
+	walk = func(n *html.Node) bool {
+		if n.Type == html.ElementNode && n.Data == "main" {
+			for _, a := range n.Attr {
+				if a.Key == "id" && a.Val == "content_pal_Done" {
+					return true
+				}
+			}
+		}
+		for child := n.FirstChild; child != nil; child = child.NextSibling {
+			if walk(child) {
+				return true
+			}
+		}
+		return false
+	}
+	return walk(root)
 }

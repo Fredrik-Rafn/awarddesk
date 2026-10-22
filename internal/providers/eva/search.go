@@ -30,9 +30,19 @@ func isReeseContinuation(body []byte, target string) bool {
 }
 
 func (p *Provider) Capabilities() award.Capabilities {
-	return award.Capabilities{ID: "eva", Name: "EVA Air · Miles & Cash", Program: "Infinity MileageLands", Cabins: []award.Cabin{award.Economy, award.PremiumEconomy, award.Business}, VerifiedCabins: []award.Cabin{award.Economy, award.PremiumEconomy, award.Business}, MaxAdults: 1, OneWayOnly: true}
+	return award.Capabilities{ID: "eva", Name: "EVA Air · Miles & Cash", Program: "Infinity MileageLands", Cabins: []award.Cabin{award.Economy, award.PremiumEconomy, award.Business}, VerifiedCabins: []award.Cabin{award.Economy, award.PremiumEconomy, award.Business}, MaxAdults: 9, OneWayOnly: true}
 }
 func (p *Provider) Search(ctx context.Context, q award.Query, report award.Reporter) (award.Result, error) {
+	if report != nil {
+		observer := report
+		report = func(pr award.Progress) {
+			if pr.Preview != nil {
+				filtered := milesEligibleResult(*pr.Preview)
+				pr.Preview = &filtered
+			}
+			observer(pr)
+		}
+	}
 	return p.searchCached(ctx, q, report, p.searchLive)
 }
 
@@ -43,9 +53,6 @@ func (p *Provider) searchLive(ctx context.Context, q award.Query, report award.R
 	}
 	if q.Provider != "eva" || q.Cabin == award.First {
 		return result, award.Failure("unsupported", "EVA search supports economy, premium economy and business")
-	}
-	if q.Adults != 1 {
-		return result, award.Failure("unsupported", "EVA pricing uses the authenticated member profile for one adult")
 	}
 	stage := "session preparation"
 	stageStarted := time.Now()

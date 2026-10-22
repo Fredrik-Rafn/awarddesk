@@ -36,6 +36,20 @@ func TestFreshMemberProfileForPricing(t *testing.T) {
 	}
 }
 
+func TestGroupQuotationUsesMemberAndDistinctAdultCompanionSlots(t *testing.T) {
+	p := pageData{Business: map[string]json.RawMessage{
+		"TravellerList":      json.RawMessage(`{"Travellers":[{"Type":{"code":"ADT"},"IdentityInformation":{"IDEN_TitleCode":"MR","IDEN_FirstName":"TEST","IDEN_LastName":"MEMBER","IDEN_DateOfBirth":"1990/05/09","IDEN_Nationality":"TW"}},{"Type":{"code":"ADT"},"IdentityInformation":{}}]}`),
+		"ContactInformation": json.RawMessage(`{"Email":"member@example.test","PhoneMobile":"123456789","PhoneMobileCode":"886"}`),
+	}}
+	v, e := travellerValues(p, award.Query{Adults: 2})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if v.Get("FIRST_NAME_1") != "TEST" || v.Get("FIRST_NAME_2") == "" || v.Get("FIRST_NAME_1") == v.Get("FIRST_NAME_2") || v.Get("TRAVELLER_TYPE_2") != "ADT" || v.Get("DATE_OF_BIRTH_2") == "" {
+		t.Fatal("group traveller mapping incorrect")
+	}
+}
+
 type pricingTransport func(context.Context, string, string, io.Reader, http.Header) (*http.Response, []byte, error)
 
 func (f pricingTransport) Do(ctx context.Context, m, u string, b io.Reader, h http.Header) (*http.Response, []byte, error) {

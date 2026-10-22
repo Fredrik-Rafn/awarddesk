@@ -522,6 +522,9 @@ header {
   color: #8c97aa;
 }
 .fleet-meter {
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   gap: 5px;
   margin: 14px 0 18px;
@@ -1265,6 +1268,162 @@ input:focus-visible {
   gap: 18px;
   font-size: 12px;
   margin: 16px 0;
+}
+
+/* Account operations: real fleet totals, focused filters and incremental rows. */
+.account-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 24px 0;
+}
+.account-summary-item {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 14px 16px;
+  background: #fafbfe;
+  border: 1px solid #e9ecf3;
+  border-radius: 12px;
+}
+.account-summary-item strong {
+  font-size: 24px;
+  letter-spacing: -0.8px;
+}
+.account-summary-item span {
+  font-size: 11px;
+  color: #66738a;
+}
+.account-filters {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 240px) auto;
+  align-items: end;
+  gap: 12px;
+}
+.account-filters label {
+  font-size: 11px;
+  color: #66738a;
+}
+.account-filters input,
+.account-filters .custom-select {
+  margin-top: 7px;
+}
+.account-filters input {
+  width: 100%;
+  min-height: 42px;
+  margin-bottom: 0;
+}
+.account-filters .secondary {
+  margin: 0;
+  min-height: 42px;
+}
+#account-count {
+  margin: 18px 0 12px;
+}
+.account-state {
+  display: inline-flex;
+  border-radius: 20px;
+  padding: 5px 9px;
+  background: #eef1f6;
+  color: #60708b;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.account-state-ready {
+  color: #277054;
+}
+.account-state.account-state-ready {
+  background: #e8f6ef;
+}
+.account-state-attention {
+  color: #a77431;
+}
+.account-state.account-state-attention {
+  background: #fff2e1;
+}
+.account-state-preparing,
+.account-state-searching {
+  color: #c71e5d;
+}
+.account-state.account-state-preparing,
+.account-state.account-state-searching {
+  background: #fff0f6;
+}
+.account-state-unconfigured {
+  color: #8c5c3b;
+}
+.account-state.account-state-unconfigured {
+  background: #f8eee6;
+}
+.account-state-disabled {
+  color: #8a94a8;
+}
+.account-progress {
+  max-width: 160px;
+  margin: 9px 0 0;
+}
+.account-scroll {
+  max-height: min(480px, 55dvh);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #b8c1d2 #f5f6fa;
+  border: 1px solid #edf0f6;
+  border-radius: 12px;
+  scroll-padding-top: 48px;
+}
+.account-scroll:focus-visible {
+  outline: 2px solid #df2067;
+  outline-offset: 3px;
+}
+#account-list .table-wrap {
+  overflow: visible;
+  padding-bottom: 0;
+}
+#account-list th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #fff;
+  box-shadow: 0 1px 0 #edf0f6;
+}
+.account-load-more {
+  padding: 18px 0 4px;
+  text-align: center;
+}
+.account-load-more .secondary {
+  margin: 0;
+}
+#prepare-all-accounts {
+  margin: 0;
+  font-size: 12px;
+}
+#account-list td:first-child {
+  min-width: 175px;
+}
+#account-list td:nth-child(2) {
+  min-width: 160px;
+  max-width: 260px;
+}
+@media (max-width: 800px) {
+  .account-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .account-summary-item {
+    padding: 12px;
+  }
+  .account-filters {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .account-filters > label:first-child {
+    grid-column: 1 / -1;
+  }
+  .account-filters input,
+  .account-filters .secondary {
+    min-height: 44px;
+  }
 }
 .account-switch input {
   position: absolute;

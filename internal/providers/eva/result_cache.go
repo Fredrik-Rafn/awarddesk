@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const resultCacheVersion = 1
+const resultCacheVersion = 2
 
 type cachedResult struct {
 	Version int          `json:"version"`
@@ -33,11 +33,11 @@ func (p *Provider) CachedSearch(q award.Query) (award.Result, bool) {
 	}
 	if data, err := p.resultStore(q).Load(); err == nil {
 		var saved cachedResult
-		if json.Unmarshal(data, &saved) == nil && saved.Version == resultCacheVersion && validCachedResult(saved.Result, q, time.Now(), p.config.ResultCacheTTL) {
+		if json.Unmarshal(data, &saved) == nil && (saved.Version == resultCacheVersion || (saved.Version == 1 && q.Adults == 1)) && validCachedResult(saved.Result, q, time.Now(), p.config.ResultCacheTTL) {
 			saved.Result.Cached = true
 			expires := saved.Result.FetchedAt.Add(p.config.ResultCacheTTL)
 			saved.Result.CacheExpiresAt = &expires
-			return saved.Result, true
+			return milesEligibleResult(saved.Result), true
 		}
 	}
 	return award.Result{}, false
@@ -62,6 +62,7 @@ func (p *Provider) searchCached(ctx context.Context, q award.Query, report award
 		}
 	}
 	result, err := run(ctx, q, report)
+	result = milesEligibleResult(result)
 	if err == nil && p.config.ResultCacheTTL > 0 && validCachedResult(result, q, time.Now(), p.config.ResultCacheTTL) && ctx.Err() == nil {
 		expires := result.FetchedAt.Add(p.config.ResultCacheTTL)
 		result.CacheExpiresAt = &expires
@@ -77,6 +78,25 @@ func (p *Provider) searchCached(ctx context.Context, q award.Query, report award
 		}
 	}
 	return result, err
+}
+
+func milesEligibleResult(result award.Result) award.Result {
+	result = award.CloneResult(result)
+	flights := make([]award.Itinerary, 0, len(result.Itineraries))
+	for _, item := range result.Itineraries {
+		fares := make([]award.Fare, 0, len(item.Fares))
+		for _, fare := range item.Fares {
+			if fare.MilesCashEligible == nil || *fare.MilesCashEligible {
+				fares = append(fares, fare)
+			}
+		}
+		if len(fares) > 0 {
+			item.Fares = fares
+			flights = append(flights, item)
+		}
+	}
+	result.Itineraries = flights
+	return result
 }
 
 func validCachedResult(r award.Result, q award.Query, now time.Time, ttl time.Duration) bool {

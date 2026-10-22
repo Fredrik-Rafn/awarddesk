@@ -48,6 +48,7 @@ function showLogin() {
   $("registration-list").replaceChildren();
   resetRegistrationBatch();
   overview = null;
+  resetAccountBrowser();
   if (typeof clearDashboard === "function") clearDashboard();
   for (const id of ["account-list", "flight-list", "job-list", "cache-json"])
     $(id).replaceChildren();
@@ -110,127 +111,7 @@ function render(data) {
   overview = data;
   $("proxy-count").textContent =
     String(data.proxyCount || 0) + " configured endpoints";
-  const status = new Map(data.sessions.map((s) => [s.id, s]));
-  const accountSetups = data.accountSetups || [];
-  const setupAttention = accountSetups.filter((s) =>
-    ["failed", "attention"].includes(s.status),
-  );
-  const setupByAccount = new Map(
-    setupAttention.filter((r) => r.accountId).map((r) => [r.accountId, r]),
-  );
-  const accountIds = new Set(data.accounts.map((a) => a.id));
-  $("account-list").replaceChildren(
-    table(
-      ["Account", "Status", "Session expires", "Last check", "Actions"],
-      data.accounts
-        .map((a) => {
-          const s = status.get(a.id) || {},
-            state = s.state || "idle",
-            p = el("div");
-          const setup = setupByAccount.get(a.id);
-          p.append(
-            el(
-              "span",
-              state === "failed" || (setup && !s.busy)
-                ? "Needs attention"
-                : state,
-              "pill " + state,
-            ),
-          );
-          if (s.message) p.append(el("small", s.message));
-          if (s.needsAttention)
-            p.append(el("small", "Needs attention · use Prepare to retry"));
-          else if (s.nextAttempt && new Date(s.nextAttempt) > new Date())
-            p.append(el("small", "Next attempt: " + date(s.nextAttempt)));
-          const controls = el("div");
-          if (setup && !s.busy)
-            controls.append(
-              action("Retry setup", () => retryRegistration(setup)),
-            );
-          controls.append(
-            action("Edit", () => editAccount(a)),
-            action("Prepare", async () => {
-              await api("/api/admin/prepare", {
-                method: "POST",
-                body: JSON.stringify({ id: a.id }),
-              });
-              message("Session preparation queued", "success");
-              await refresh();
-            }),
-            action("Invalidate", async () => {
-              await api("/api/admin/invalidate", {
-                method: "POST",
-                body: JSON.stringify({ id: a.id }),
-              });
-              message("Saved session removed", "success");
-              await refresh();
-            }),
-            action("Delete", async () => {
-              if (
-                !(await confirmAction({
-                  title: "Delete this account?",
-                  message:
-                    "This removes the account and its saved login session. Historical searches and statistics will be kept.",
-                  confirmLabel: "Delete account",
-                }))
-              )
-                return;
-              await api("/api/admin/accounts?id=" + encodeURIComponent(a.id), {
-                method: "DELETE",
-              });
-              await refresh();
-            }),
-          );
-          for (const b of controls.querySelectorAll("button"))
-            b.disabled = !!s.busy;
-          return [
-            cell(a.label, a.email),
-            p,
-            cell(
-              s.session?.present
-                ? date(s.session.expiresAt)
-                : "No saved session",
-              s.session?.expirySource,
-            ),
-            cell(date(s.checkedAt), s.stage),
-            controls,
-          ];
-        })
-        .concat(
-          accountSetups
-            .filter((r) => !r.accountId || !accountIds.has(r.accountId))
-            .map((item) => {
-              const active = ["queued", "running"].includes(item.status);
-              const state = el("div");
-              state.append(
-                el(
-                  "span",
-                  active ? "Creating" : "Needs attention",
-                  "pill " + (active ? "preparing" : "failed"),
-                ),
-                el("small", active ? item.message : item.error || item.message),
-              );
-              const controls = el("div");
-              if (!active)
-                controls.append(
-                  action(
-                    item.status === "attention"
-                      ? "Resume verification"
-                      : "Retry setup",
-                    () => retryRegistration(item),
-                  ),
-                );
-              return [
-                cell("Account setup", item.email),
-                state,
-                cell("Membership unconfirmed", "No login attempted"),
-                cell(date(item.updatedAt), item.stage),
-                controls,
-              ];
-            }),
-        ),
-    ),
-  );
+  renderAccounts(data);
   if (!$("flight-list").contains(document.activeElement))
     $("flight-list").replaceChildren(
       table(

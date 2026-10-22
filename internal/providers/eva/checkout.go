@@ -4,13 +4,15 @@ import (
 	"awarddesk/internal/award"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strconv"
 	"time"
 )
 
-// Use only the member profile returned in the current authenticated flow.
-// Captured names, contact details, page tickets and session IDs are never reused.
+// The primary traveller must be the authenticated member. Other adult slots use
+// synthetic profiles for this aggregation-only quotation flow. These are never
+// ticketed; no payment details or ticketing endpoints are used.
 func travellerValues(page pageData, q award.Query) (url.Values, error) {
 	var list struct {
 		Travellers []struct {
@@ -33,6 +35,23 @@ func travellerValues(page pageData, q award.Query) (url.Values, error) {
 	v.Set("FROM_PAX", "TRUE")
 	for i, t := range list.Travellers {
 		p := t.IdentityInformation
+		if i > 0 && t.Type.Code == "ADT" {
+			if p.Title == "" {
+				p.Title = "MR"
+			}
+			if p.First == "" {
+				p.First = "Guest" + string(rune('A'+i))
+			}
+			if p.Last == "" {
+				p.Last = "Traveller"
+			}
+			if p.Nationality == "" {
+				p.Nationality = list.Travellers[0].IdentityInformation.Nationality
+			}
+			if p.DOB == "" {
+				p.DOB = "1990/01/" + fmt.Sprintf("%02d", i+1)
+			}
+		}
 		if t.Type.Code != "ADT" || p.Title == "" || p.First == "" || p.Last == "" || p.Nationality == "" {
 			return nil, award.Failure("profile_required", "EVA traveller profile requires name, title and nationality")
 		}

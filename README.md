@@ -66,7 +66,7 @@ See [bulk account creation](docs/registration.md) for import format and recovery
 
 ## Search and session behavior
 
-**EVA Air Miles & Cash** supports economy, premium economy and business, one adult,
+**EVA Air Miles & Cash** supports economy, premium economy and business, 1–9 adults,
 one way. It follows the supplied `IS_MILES_MODE=false` flow, including pricing
 preparation, and shows maximum-offset estimates regardless of account balance.
 It does not submit payment or ticketing. The public page offers EVA only. Legacy
@@ -79,7 +79,7 @@ clear this cache. The API also accepts `refresh: true` for a live request.
 Cache entries are account-specific; identical ongoing queries share one
 job. Cancelling a shared job cancels it for every caller using that job ID.
 
-Up to **four accounts** work concurrently by default, configurable from 1 to 16.
+Up to **four accounts** work concurrently by default, configurable from 1 to 512.
 Each account/session remains exclusive throughout a booking flow. Additional
 searches queue; one account cannot provide multiple independent live flows at once.
 Ready sessions are preferred, then rotated by last use. Safe preparation failures
@@ -107,7 +107,7 @@ A fresh booking context is created for each uncached search. See
 | --- | --- |
 | `EVA_RESULT_CACHE_TTL` | `30m`; `0s` disables caching; maximum `24h` |
 | `FLIGHT_CACHE_ENABLED` | `true`; disabling in Admin confirms and immediately clears cached flights |
-| `SEARCH_CONCURRENCY` | `4`; 1–16 independent accounts |
+| `SEARCH_CONCURRENCY` | `4`; 1–512 independent accounts |
 | `EVA_SESSION_MAX_AGE` | `3h`; a conservative maximum, not a guaranteed server lifetime |
 | `EVA_BACKGROUND_ENABLED` | `true`; prepare and periodically verify sessions |
 | `EVA_IMPERVA_SOLVER` | `auto`: Hyper first, AnySolver fallback for generation errors |

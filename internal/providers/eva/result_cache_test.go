@@ -14,6 +14,23 @@ func cacheQuery() award.Query {
 	return award.Query{Provider: "eva", Origin: "HND", Destination: "SIN", Date: time.Now().AddDate(0, 0, 1).Format("2006-01-02"), Cabin: award.Economy, Adults: 1}
 }
 
+func TestLegacySingleAdultCacheSurvivesPartyTotalMigration(t *testing.T) {
+	t.Chdir(t.TempDir())
+	p := New(Config{Email: "member@example.test", ResultCacheTTL: time.Minute})
+	for _, adults := range []int{1, 2} {
+		q := cacheQuery()
+		q.Adults = adults
+		data, _ := json.Marshal(cachedResult{Version: 1, Result: award.Result{Query: q, FetchedAt: time.Now(), Complete: true}})
+		if err := p.resultStore(q).Save(data); err != nil {
+			t.Fatal(err)
+		}
+		_, hit := p.CachedSearch(q)
+		if hit != (adults == 1) {
+			t.Fatalf("legacy cache adults=%d accepted=%v", adults, hit)
+		}
+	}
+}
+
 func TestResultCachePersistenceRefreshAndIsolation(t *testing.T) {
 	t.Chdir(t.TempDir())
 	p := New(Config{Email: "one@example.test", ResultCacheTTL: 2 * time.Minute})
@@ -24,7 +41,7 @@ func TestResultCachePersistenceRefreshAndIsolation(t *testing.T) {
 		if q.Refresh {
 			t.Fatal("refresh control leaked into canonical query")
 		}
-		return award.Result{Query: q, FetchedAt: time.Now(), Complete: true, Itineraries: []award.Itinerary{{ID: "test"}}}, nil
+		return award.Result{Query: q, FetchedAt: time.Now(), Complete: true, Itineraries: []award.Itinerary{{ID: "test", Fares: []award.Fare{{Name: "Eligible fare"}}}}}, nil
 	}
 	first, err := p.searchCached(context.Background(), q, nil, run)
 	if err != nil || first.Cached || calls != 1 {

@@ -21,15 +21,16 @@ import (
 )
 
 type Summary struct {
-	ID        string    `json:"id"`
-	Email     string    `json:"email"`
-	Status    string    `json:"status"`
-	Stage     string    `json:"stage"`
-	Message   string    `json:"message"`
-	Error     string    `json:"error,omitempty"`
-	AccountID string    `json:"accountId,omitempty"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID         string    `json:"id"`
+	Email      string    `json:"email"`
+	Status     string    `json:"status"`
+	Stage      string    `json:"stage"`
+	Message    string    `json:"message"`
+	Error      string    `json:"error,omitempty"`
+	AccountID  string    `json:"accountId,omitempty"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+	CanRestart bool      `json:"canRestart,omitempty"`
 }
 type request struct {
 	Summary
@@ -37,6 +38,23 @@ type request struct {
 	RefreshToken string                `json:"refreshToken"`
 	State        eva.RegistrationState `json:"state"`
 }
+
+func (r request) restartable(now time.Time) bool {
+	return (r.Status == "attention" || r.Status == "failed") && r.verificationExpired(now)
+}
+func (r request) verificationExpired(now time.Time) bool {
+	start := r.State.Checkpoint.Since
+	if r.State.AcknowledgedAt.After(start) {
+		start = r.State.AcknowledgedAt
+	}
+	return r.AccountID == "" && r.State.MemberNumber == "" && (r.State.Phase == "submit_pending" || r.State.Phase == "await_email") && !start.IsZero() && now.Sub(start) >= time.Hour
+}
+func (r request) summary() Summary {
+	out := r.Summary
+	out.CanRestart = r.restartable(time.Now())
+	return out
+}
+
 type Mailbox struct{ Email, ClientID, RefreshToken string }
 
 var uuid = regexp.MustCompile(`^[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}$`)
@@ -85,6 +103,7 @@ type Service struct {
 	mu              sync.Mutex
 	wg              sync.WaitGroup
 	started, closed bool
+	workers         int
 }
 
 func New(db *storage.Store, f *fleet.Fleet) (*Service, error) {
@@ -97,12 +116,27 @@ func New(db *storage.Store, f *fleet.Fleet) (*Service, error) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Service{db: db, fleet: f, ctx: ctx, cancel: cancel}
+	if _, err = db.DB.Exec("CREATE TABLE IF NOT EXISTS registration_attempts(id INTEGER PRIMARY KEY,registration_id TEXT NOT NULL,data BLOB NOT NULL,created_at INTEGER NOT NULL)"); err != nil {
+		cancel()
+		return nil, err
+	}
 	rows, err := s.loadAll()
 	if err != nil {
 		cancel()
 		return nil, err
 	}
 	for _, r := range rows {
+		if (r.Status == "running" || r.Status == "queued") && r.verificationExpired(time.Now()) {
+			r.Status = "attention"
+			r.Stage = "verification expired"
+			r.Message = "The original verification window expired. Inspect the mailbox, then restart signup instead of polling the old submission."
+			r.Error = r.Message
+			if err = s.save(r); err != nil {
+				cancel()
+				return nil, err
+			}
+			continue
+		}
 		if r.Status == "running" {
 			r.Status = "queued"
 			r.Stage = "resuming"
@@ -230,7 +264,7 @@ func (s *Service) summaries(query string, args ...any) ([]Summary, error) {
 		if err = json.Unmarshal(b, &r); err != nil {
 			return nil, err
 		}
-		out = append(out, r.Summary)
+		out = append(out, r.summary())
 	}
 	return out, rows.Err()
 }
@@ -260,7 +294,7 @@ func (s *Service) List(page, limit int) ([]Summary, int, error) {
 		if e = json.Unmarshal(b, &r); e != nil {
 			return nil, 0, e
 		}
-		out = append(out, r.Summary)
+		out = append(out, r.summary())
 	}
 	return out, total, rows.Err()
 }
@@ -271,10 +305,7 @@ func (s *Service) Start() {
 		return
 	}
 	s.started = true
-	for i := 0; i < 16; i++ {
-		s.wg.Add(1)
-		go s.worker()
-	}
+	s.growWorkersLocked()
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
@@ -285,12 +316,30 @@ func (s *Service) Start() {
 			case <-s.ctx.Done():
 				return
 			case <-ticker.C:
+				s.RefreshWorkers()
 				if states, e := s.fleet.Statuses(); e == nil {
 					s.syncReady(states)
 				}
 			}
 		}
 	}()
+}
+
+func (s *Service) growWorkersLocked() {
+	limit := award.ConcurrencyLimit(s.db.Setting("SEARCH_CONCURRENCY"))
+	for s.workers < limit {
+		index := s.workers
+		s.workers++
+		s.wg.Add(1)
+		go s.worker(index)
+	}
+}
+func (s *Service) RefreshWorkers() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.started && !s.closed {
+		s.growWorkersLocked()
+	}
 }
 
 // Background login preparation can recover after the onboarding worker has
@@ -354,11 +403,19 @@ func (s *Service) next() (request, bool) {
 	}
 	return r, true
 }
-func (s *Service) worker() {
+func (s *Service) worker(index int) {
 	defer s.wg.Done()
 	for {
 		if s.ctx.Err() != nil {
 			return
+		}
+		if index >= award.ConcurrencyLimit(s.db.Setting("SEARCH_CONCURRENCY")) {
+			select {
+			case <-s.ctx.Done():
+				return
+			case <-time.After(time.Second):
+			}
+			continue
 		}
 		r, ok := s.next()
 		if ok {
@@ -433,6 +490,9 @@ func retrySessionPreparation(err error) bool {
 	return false
 }
 func (s *Service) create(ctx context.Context, r *request, report award.Reporter) error {
+	if r.verificationExpired(time.Now()) {
+		return award.Failure("registration_expired", "The original one-hour verification window expired; inspect the mailbox and restart signup instead of polling the old submission.")
+	}
 	if r.State.Phase != "created" {
 		settings, e := s.db.Settings()
 		if e != nil {
@@ -484,9 +544,45 @@ func (s *Service) create(ctx context.Context, r *request, report award.Reporter)
 	report(award.Progress{Stage: "preparing session", Message: "Account verified; preparing a reusable EVA login session"})
 	return s.fleet.Prepare(ctx, r.AccountID, report, true)
 }
+
+// RetryAll queues resumable setups without resetting memberships or uncertain submissions.
+func (s *Service) RetryAll() ([]string, int, error) {
+	rows, err := s.db.DB.Query("SELECT id FROM registrations WHERE json_extract(data,'$.status') IN ('attention','failed')")
+	if err != nil {
+		return nil, 0, err
+	}
+	var candidates []string
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			rows.Close()
+			return nil, 0, err
+		}
+		candidates = append(candidates, id)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, 0, err
+	}
+	queued := make([]string, 0, len(candidates))
+	skipped := 0
+	for _, id := range candidates {
+		if err := s.Retry(id); err != nil {
+			skipped++
+		} else {
+			queued = append(queued, id)
+		}
+	}
+	return queued, skipped, nil
+}
+
 func (s *Service) Retry(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed {
+		return errors.New("Registration service is closed")
+	}
 	var b []byte
 	if e := s.db.DB.QueryRow("SELECT data FROM registrations WHERE id=?", id).Scan(&b); e != nil {
 		return errors.New("Registration not found")
@@ -498,6 +594,9 @@ func (s *Service) Retry(id string) error {
 	if r.Status == "running" || r.Status == "queued" || r.Status == "ready" {
 		return errors.New("Registration is already active or ready")
 	}
+	if r.restartable(time.Now()) {
+		return errors.New("The original one-hour verification window has expired. Inspect the mailbox, then use Restart signup; polling the old submission again will not complete it.")
+	}
 	if r.State.Phase == "verification_pending" || r.State.Phase == "email_login_pending" {
 		return errors.New("Verification outcome is uncertain; inspect this account before continuing")
 	}
@@ -506,4 +605,50 @@ func (s *Service) Retry(id string) error {
 	r.Error = ""
 	r.Message = "Resuming safe steps from the saved checkpoint"
 	return s.save(r)
+}
+
+// Restart requires explicit confirmation and an expired, unverified checkpoint.
+// Archive the complete prior attempt atomically; never reset a known membership
+// or a verification submission whose outcome is uncertain.
+func (s *Service) Restart(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return errors.New("Registration service is closed")
+	}
+	tx, err := s.db.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var old []byte
+	if err = tx.QueryRow("SELECT data FROM registrations WHERE id=?", id).Scan(&old); err != nil {
+		return errors.New("Registration not found")
+	}
+	var r request
+	if json.Unmarshal(old, &r) != nil {
+		return errors.New("Could not read registration")
+	}
+	if !r.restartable(time.Now()) {
+		return errors.New("Only expired, unverified account submissions can be restarted after inspection")
+	}
+	now := time.Now().UTC()
+	if _, err = tx.Exec("INSERT INTO registration_attempts(registration_id,data,created_at) VALUES(?,?,?)", id, old, now.UnixMilli()); err != nil {
+		return err
+	}
+	r.State = eva.RegistrationState{Profile: r.State.Profile}
+	r.Status = "queued"
+	r.Stage = "registration restart"
+	r.Message = "Starting a fresh signup after the previous verification window expired"
+	r.Error = ""
+	r.UpdatedAt = now
+	r.CanRestart = false
+	data, err := json.Marshal(r)
+	if err != nil {
+		return err
+	}
+	if _, err = tx.Exec("UPDATE registrations SET data=? WHERE id=?", data, id); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

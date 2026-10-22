@@ -1,10 +1,10 @@
 package fleet
 
 import (
+	"awarddesk/internal/award"
 	"awarddesk/internal/proxies"
 	"context"
 	"errors"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -16,10 +16,7 @@ func (f *Fleet) RegistrationLease(ctx context.Context, saved ...string) (*proxie
 		if err := ctx.Err(); err != nil {
 			return nil, nil, err
 		}
-		limit, _ := strconv.Atoi(f.db.Setting("SEARCH_CONCURRENCY"))
-		if limit < 1 {
-			limit = 4
-		}
+		limit := award.ConcurrencyLimit(f.db.Setting("SEARCH_CONCURRENCY"))
 		f.mu.Lock()
 		if f.closed {
 			f.mu.Unlock()

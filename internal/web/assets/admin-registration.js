@@ -21,14 +21,62 @@ function trackRegistration(id) {
   refreshRegistrations();
 }
 async function retryRegistration(item) {
-  await api("/api/admin/registrations/retry", {
-    method: "POST",
-    body: JSON.stringify({ id: item.id }),
-  });
+  if (
+    item.canRestart &&
+    !(await confirmAction({
+      title: "Restart expired signup?",
+      message:
+        "The previous verification window has expired. Only continue after checking that the mailbox has no usable EVA verification email and this membership was not completed elsewhere. This archives the old checkpoint and submits a fresh signup.",
+      confirmLabel: "Restart signup",
+    }))
+  )
+    return;
+  await api(
+    "/api/admin/registrations/" + (item.canRestart ? "restart" : "retry"),
+    {
+      method: "POST",
+      body: JSON.stringify(
+        item.canRestart
+          ? { id: item.id, confirmRestart: true }
+          : { id: item.id },
+      ),
+    },
+  );
   trackRegistration(item.id);
   message("Account setup resumed", "success");
   await refresh();
 }
+$("retry-all-setups").onclick = async () => {
+  const button = $("retry-all-setups");
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  button.classList.add("is-loading");
+  try {
+    const result = await api("/api/admin/registrations/retry-all", {
+      method: "POST",
+    });
+    registrationBatch = [...new Set([...registrationBatch, ...result.ids])];
+    registrationGeneration++;
+    message(
+      result.queued +
+        " account setups queued" +
+        (result.skipped
+          ? " · " +
+            result.skipped +
+            " require individual inspection before continuing"
+          : ""),
+      "success",
+    );
+    await refreshRegistrations();
+    await refresh();
+  } catch (error) {
+    message(error.message);
+  } finally {
+    button.removeAttribute("aria-busy");
+    button.classList.remove("is-loading");
+    button.disabled = false;
+  }
+};
 async function refreshRegistrations() {
   if (
     !polling ||
@@ -141,11 +189,10 @@ $("registration-form").onsubmit = async (e) => {
       method: "POST",
       body: JSON.stringify({
         credentials,
-        acceptTerms: $("registration-consent").checked,
+        acceptTerms: true,
       }),
     });
     $("registration-credentials").value = "";
-    $("registration-consent").checked = false;
     if (generation !== registrationGeneration || currentView() !== "accounts")
       return;
     $("registration-message").textContent =

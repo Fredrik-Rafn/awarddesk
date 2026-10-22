@@ -16,7 +16,7 @@ Identical queued/running requests share one job, preventing duplicate solver and
 airline requests. The live-refresh flag must also match. This is single-process
 coalescing; cancelling a shared job cancels it for all callers using that ID.
 Different accounts can search concurrently; each individual account remains exclusive.
-The default concurrency limit is four, with up to 16 configurable in Admin.
+The default concurrency limit is four, with up to 512 configurable in Admin.
 
 For uncached searches, the external CAPTCHA task runs alongside the full Akamai
 sensor sequence. Only the sensor task uses the airline HTTP client; CAPTCHA

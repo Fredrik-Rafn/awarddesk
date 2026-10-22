@@ -32,6 +32,36 @@ func TestRegistrationProfilesMeetFormConstraints(t *testing.T) {
 		}
 	}
 }
+
+func TestRegistrationAcknowledgementRequiresProviderCompletionContainer(t *testing.T) {
+	for _, tc := range []struct {
+		body string
+		want bool
+	}{
+		{`<main id="content_pal_Done"><h1>Complete</h1></main>`, true},
+		{`<main id='content_pal_Done'>Membership email has been sent</main>`, true},
+		{`<main id="content_pal_Terms">Complete your registration</main>`, false},
+		{`<script>const markup='<main id="content_pal_Done">'</script>`, false},
+		{`<h1>Access denied</h1>`, false},
+	} {
+		if registrationAcknowledged([]byte(tc.body)) != tc.want {
+			t.Fatal("incorrect confirmation classification")
+		}
+	}
+}
+
+func TestRejectedRegistrationDoesNotBecomeEmailTimeout(t *testing.T) {
+	rejected := &award.Error{Code: "session_denied", HTTPStatus: 403, Message: "EVA rejected registration"}
+	if registrationSubmissionFailure(nil, "fixture@example.test", "private", rejected) != rejected {
+		t.Fatal("original rejection was discarded")
+	}
+	if registrationSubmissionFailure([]byte(`<form>Unrecognised response</form>`), "fixture@example.test", "private", nil) == nil {
+		t.Fatal("unconfirmed response accepted")
+	}
+	if registrationSubmissionFailure([]byte(`<main id="content_pal_Done"></main>`), "fixture@example.test", "private", nil) != nil {
+		t.Fatal("confirmed submission rejected")
+	}
+}
 func TestLoginStageMarksOnlyUncertainSubmittedMutations(t *testing.T) {
 	for _, stage := range []string{"credentials", "otp submission", "verification continuation", "proxy verification", "adaptive security"} {
 		original := &award.Error{Code: "connection", Message: "interrupted"}
