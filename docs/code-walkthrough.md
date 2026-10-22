@@ -200,7 +200,8 @@ aggregation does not hide a maximum estimate because the test account lacks mile
 
 The job records final Result/Error, timestamps, stage timeline and recoveries.
 [storage/analytics.go](../internal/storage/analytics.go) computes retained history
-statistics. The browser polls job status every five seconds, replaces previews
+statistics. The browser polls active job status every 1.8 seconds (five seconds
+after a connection error), replaces previews
 with the final result and offers filters/export. Cancellation applies to the
 shared job ID, so all callers coalesced to it see that cancellation.
 

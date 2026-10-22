@@ -75,11 +75,24 @@ saturation leaves no room for variance or account recovery. Queue latency grows
 quickly when arrivals exceed completions. A 15-minute job deadline also limits
 how large a burst can wait: the channel size is not a promise those jobs finish.
 
-At 30 active browsers polling every five seconds, job polling alone is roughly
-6 requests/second. That is modest HTTP volume, but responses can carry full flight
+At 30 active browsers polling every 1.8 seconds, job polling alone is roughly
+17 requests/second (about 56 at 100 browsers). Responses can carry full flight
 previews, and admin analytics/cache lookups have additional cost. Cached-request
 RPS, hundreds of browser viewers and long-term large-history performance have not
 been benchmarked.
+
+## Internal queue and configured ceiling
+
+The existing jobs service queues searches beyond available worker capacity. The
+current configured shared concurrency is 100; a fresh workspace still defaults
+to four until changed in Admin. Account ownership and maintenance/onboarding also
+consume or constrain shared capacity, so 100 is a ceiling rather than a guaranteed
+number of simultaneous airline searches.
+
+Queued searches retain the ordinary searching/loading view without exposing a
+queue position. The queue is bounded: its channel holds 1,024 entries, an in-memory
+item limit also applies, and the 15-minute overall job deadline includes waiting.
+Overload can therefore still reject or expire work; this is not unlimited buffering.
 
 ## Constraints even with enough accounts
 
