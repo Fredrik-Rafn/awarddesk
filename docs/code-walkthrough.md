@@ -416,5 +416,5 @@ deployment work in [capacity/scaling](capacity.md).
 
 When debugging a slow/failed search, inspect its terminal code, stage, timeline
 and recoveries before changing retry limits. Separate dispatch wait, account wait,
-proxy-template wait, security, availability and per-fare pricing. Never print raw
+sticky-identity wait, security, availability and per-fare pricing. Never print raw
 cookies, mailbox tokens, proxy passwords, forms or credential payloads.

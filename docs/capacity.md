@@ -107,8 +107,9 @@ Overload can therefore still reject or expire work; this is not unlimited buffer
 - Exact sticky identities remain exclusive; distinct saved IDs can overlap on
   one template. Fresh logins still prefer unused templates.
 - External solver quotas, funding and provider outages remain hard dependencies.
-- SQL/JSON analytics, cache scans and repeated progress persistence can become
-  local contention points; the SQLite pool currently has four connections.
+- SQL/JSON analytics and per-account cache scans can still become local contention
+  points. Progress persistence now coalesces outside the scheduler lock; the
+  SQLite pool currently has four connections.
 - A large fleet needs ongoing renewal. If a login takes 100 s and effective
   lifetime is 175 minutes, 1,000 accounts require about 9.5 continuously occupied
   renewal slots just to keep up, before periodic verification. That illustrative
@@ -164,3 +165,7 @@ A deterministic test uses real SQLite with 300 jobs and 100 fake-provider worker
 270 completions, 30 queued cancellations, all terminal records retained, and
 identical in-flight requests coalesced. This validates local scheduling and
 persistence, not live EVA throughput, latency or success rate at 100 flows.
+
+The subsequent two-search live smoke check also passed, followed by a cached
+repeat. See [verification scope](verification-status.md) for routes and timings;
+these checks do not replace a representative high-concurrency live benchmark.
