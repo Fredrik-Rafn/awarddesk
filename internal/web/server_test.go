@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"awarddesk/internal/award"
 	"awarddesk/internal/jobs"
@@ -51,44 +50,14 @@ func TestLocalBoundary(t *testing.T) {
 	}
 }
 
-func TestANALoginIndependentOfBASearch(t *testing.T) {
-	j := jobs.New()
-	defer j.Close()
-	s, err := New(j, false, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.ANALogin = login.New(func(ctx context.Context, _ award.Reporter) error {
-		<-ctx.Done()
-		return ctx.Err()
-	})
-	defer s.ANALogin.Close()
-	h := s.Handler()
-	for _, tc := range []struct {
-		method, token string
-		code          int
-	}{
-		{"POST", "", 403}, {"POST", s.csrf, 202}, {"POST", s.csrf, 202},
-		{"GET", "", 200}, {"DELETE", "", 403}, {"DELETE", s.csrf, 204},
-	} {
-		r := httptest.NewRequest(tc.method, "http://localhost:8080/api/logins/ana", nil)
-		r.Header.Set("X-CSRF-Token", tc.token)
-		w := httptest.NewRecorder()
-		h.ServeHTTP(w, r)
-		if w.Code != tc.code {
-			t.Fatalf("%s got %d: %s", tc.method, w.Code, w.Body.String())
-		}
-	}
-}
-
-func TestEVALoginIndependentOfBASearch(t *testing.T) {
+func TestEVALoginLifecycle(t *testing.T) {
 	j := jobs.New()
 	defer j.Close()
 	s, err := New(j, false, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.EVALogin = login.NewNamed("EVA", time.Minute, func(ctx context.Context, _ award.Reporter) error { <-ctx.Done(); return ctx.Err() })
+	s.EVALogin = login.New(func(ctx context.Context, _ award.Reporter) error { <-ctx.Done(); return ctx.Err() })
 	defer s.EVALogin.Close()
 	h := s.Handler()
 	for _, tc := range []struct {

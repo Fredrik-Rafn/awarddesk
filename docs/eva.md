@@ -19,9 +19,11 @@ global solver keys and the proxy list. No Outlook password is needed. Existing
 `.env` and state files are imported once. See [storage](storage.md).
 
 The in-process scheduler checks every 30 seconds, prepares up to two accounts at
-a time within the global limit, and reverifies ready idle sessions every five
-minutes. Transient failures back off; credential/OTP failures and uncertain login
-outcomes require an explicit Prepare action. Flight searches remain on demand.
+a time by default (half the shared limit, capped at eight), and reverifies ready idle
+sessions every five minutes. Missing/expired sessions have priority. Failed account
+operations retry in 15–30 minutes, honoring longer provider pauses; only 15 consecutive
+failures pause automatic recovery. Flight searches remain on demand. See
+[recovery rules](reliability.md) and the [code walkthrough](code-walkthrough.md).
 
 ## Modules
 

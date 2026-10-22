@@ -206,7 +206,13 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 		saved = cached{Version: 1, Identity: p.identity(), Created: time.Now(), Proxy: lease.URL, Template: lease.Template}
 	}
 	failedProxy := false
-	defer func() { lease.Release(failedProxy) }()
+	defer func() {
+		var denied *award.Error
+		if errors.As(resultErr, &denied) && denied.Code == "session_denied" && denied.HTTPStatus == 403 {
+			failedProxy = true
+		}
+		lease.Release(failedProxy)
+	}()
 	c, reused, err := p.sessionClient(lease.URL, data, saved.HTTP.UserAgent != "")
 	if err != nil {
 		return err
@@ -320,7 +326,7 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 	}
 	if p.config.HyperKey != "" {
 		progress("security", "Initializing EVA browser security before credential submission")
-		if err = (antibot.Hyper{Key: p.config.HyperKey, SkipPixel: true}).Prepare(ctx, c, target, body); err != nil {
+		if err = (antibot.Hyper{Key: p.config.HyperKey}).Prepare(ctx, c, target, body); err != nil {
 			return err
 		}
 	}

@@ -119,7 +119,7 @@ func (a AnySolver) Solve(ctx context.Context, page, key string) (CaptchaSolution
 	settings := map[string]any{"routing": map[string]any{"mode": "autoCheapest"}, "retry": map[string]any{"enabled": true, "maxRetries": 1}, "fallback": map[string]any{"enabled": true, "maxFallbacks": 1}}
 	if proxy != "" {
 		// A single sticky endpoint intentionally remains the same on a solver
-		// retry; rotating it would break its association with the BA session.
+		// retry; rotating it would break its association with the EVA session.
 		settings["allowProxyReuse"] = true
 	}
 	v, e := a.call(ctx, "createTask", map[string]any{"task": task, "settings": settings})

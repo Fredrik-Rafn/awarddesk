@@ -153,10 +153,6 @@ const settingInfo = {
     "Prepare EVA sessions automatically",
     "Keep enabled EVA accounts signed in and periodically verify idle sessions.",
   ],
-  ANA_BACKGROUND_ENABLED: [
-    "Prepare ANA sessions automatically",
-    "Run periodic ANA member-session checks. Requires a server restart.",
-  ],
   EVA_IMPERVA_SOLVER: [
     "Booking security provider",
     "Auto prefers Hyper, with AnySolver fallback for generation-service errors.",
@@ -169,26 +165,6 @@ const settingInfo = {
     "AnySolver API key",
     "Used for CAPTCHA verification and supported solver fallback.",
   ],
-  ANA_MEMBER_NUMBER: [
-    "ANA member number",
-    "Optional ANA integration. Requires a restart.",
-  ],
-  ANA_PASSWORD: [
-    "ANA password",
-    "Optional ANA integration. Leave empty to keep the saved password.",
-  ],
-  BA_EMAIL: [
-    "British Airways email",
-    "Experimental integration. Requires a restart.",
-  ],
-  BA_PASSWORD: [
-    "British Airways password",
-    "Leave empty to keep the saved password.",
-  ],
-  AWARDDESK_PROXY: [
-    "Legacy direct proxy",
-    "Optional proxy for legacy integrations. EVA uses the proxy pool.",
-  ],
 };
 function renderSettingsFields(definitions) {
   const fields = $("setting-fields");
@@ -196,7 +172,7 @@ function renderSettingsFields(definitions) {
   const groups = new Map();
   function group(key) {
     if (groups.has(key)) return groups.get(key);
-    const collapsed = key === "Legacy integrations" || key === "Other settings";
+    const collapsed = key === "Other settings";
     const box = el(
         collapsed ? "details" : "section",
         undefined,
@@ -228,12 +204,7 @@ function renderSettingsFields(definitions) {
   cacheRow.append(copy, cacheToggle);
   group("Search behavior").append(cacheRow);
   const entries = Object.entries(definitions)
-    .filter(
-      ([k]) =>
-        k !== "FLIGHT_CACHE_ENABLED" &&
-        !k.startsWith("BA_") &&
-        !k.startsWith("ANA_"),
-    )
+    .filter(([k]) => k !== "FLIGHT_CACHE_ENABLED")
     .sort(([a], [b]) => a.localeCompare(b));
   for (const [key, s] of entries) {
     const section =
@@ -247,11 +218,7 @@ function renderSettingsFields(definitions) {
               key === "ANYSOLVER_API_KEY" ||
               key === "EVA_IMPERVA_SOLVER"
             ? "Provider services"
-            : key.startsWith("ANA_") ||
-                key.startsWith("BA_") ||
-                key === "AWARDDESK_PROXY"
-              ? "Legacy integrations"
-              : "Other settings";
+            : "Other settings";
     const row = el("div", undefined, "setting-row"),
       copy = el("div", undefined, "setting-copy"),
       [name, hint] = settingInfo[key] || [key, "Custom workspace setting."];

@@ -119,7 +119,7 @@ func (p *Provider) searchLive(ctx context.Context, q award.Query, report award.R
 				solution, err := bookingVerification(ctx, func(ctx context.Context) (antibot.CaptchaSolution, error) {
 					return (antibot.AnySolver{Key: p.config.AnyKey, Proxy: proxy, UserAgent: userAgent}).SolveRecaptchaV3(ctx, target, f.key, f.captchaAction, f.title)
 				}, func(ctx context.Context) error {
-					return (antibot.Hyper{Key: p.config.HyperKey, SkipPixel: true, VerifyAtLogin: true, MinimumSensorRounds: 3}).Prepare(ctx, c, target, bookingBody)
+					return (antibot.Hyper{Key: p.config.HyperKey, VerifyApplication: true, MinimumSensorRounds: 3}).Prepare(ctx, c, target, bookingBody)
 				})
 				if err != nil {
 					return err

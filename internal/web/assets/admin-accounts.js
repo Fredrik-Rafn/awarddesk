@@ -2,6 +2,7 @@
 const accountStates = {
   ready: "Ready",
   attention: "Needs attention",
+  retrying: "Retry scheduled",
   preparing: "Preparing",
   queued: "Queued",
   searching: "Searching",
@@ -43,8 +44,9 @@ function accountModels(data) {
     else if (session.queued || session.state === "queued") state = "queued";
     else if (session.busy)
       state = session.state === "searching" ? "searching" : "preparing";
-    else if (session.needsAttention || session.state === "failed")
-      state = "attention";
+    else if (session.needsAttention) state = "attention";
+    else if (session.nextAttempt && new Date(session.nextAttempt) > new Date())
+      state = "retrying";
     else if (
       session.session?.ready &&
       (!session.nextAttempt || new Date(session.nextAttempt) <= new Date())
@@ -52,8 +54,6 @@ function accountModels(data) {
       state = "ready";
     else if (setup?.status === "queued") state = "queued";
     else if (setup?.status === "running") state = "preparing";
-    else if (setup && ["failed", "attention"].includes(setup.status))
-      state = "attention";
     return { key: "account:" + account.id, account, session, setup, state };
   });
   const seen = new Set();
@@ -91,6 +91,10 @@ function accountCells(model) {
         : session.message ||
           (state === "attention" ? setup?.error || setup?.message : "");
   if (note) status.append(el("small", note));
+  if (account && session.consecutiveFailures)
+    status.append(el("small", session.consecutiveFailures + " / " + (session.retryLimit || 15) + " consecutive failures"));
+  if (state === "retrying")
+    status.append(el("small", "Automatic retry: " + date(session.nextAttempt)));
   if (["queued", "preparing"].includes(state)) {
     const track = el("div", undefined, "job-progress account-progress");
     track.setAttribute("aria-hidden", "true");

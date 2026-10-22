@@ -26,7 +26,7 @@ revoked by signing out or changing the admin password.
 
 ## State and permanent history
 
-The `states` table stores portable JSON blobs, keyed separately for each EVA/ANA
+The `states` table stores portable JSON blobs, keyed separately for each EVA
 account, Outlook mailbox/client ID, and account/query cache combination. Browser
 identity, scoped cookies and the exact sticky proxy travel together. Flight
 results contain parsed display data, without traveller profiles or booking tokens.
@@ -50,7 +50,8 @@ snapshot and excludes account/session secrets and full result payloads.
 
 The `settings` table holds global runtime configuration and the proxy list;
 `accounts` holds individual EVA and Outlook credentials; `runtime` records
-per-account status, backoff and manual-attention flags. Configuration edits apply
+per-account status, consecutive-failure counters, retry deadlines and attention flags.
+Configuration edits apply
 when an EVA account becomes idle. Rotated mailbox tokens take precedence over the
 original refresh token; explicitly replacing an account's OAuth configuration
 invalidates its old saved mailbox token.

@@ -621,7 +621,7 @@ summary:focus-visible {
     font-size: 14px;
   }
 }
-/* ANA login is independent of the BA search form. */
+/* Session status presentation. */
 .ana-panel {
   margin-bottom: 24px;
 }

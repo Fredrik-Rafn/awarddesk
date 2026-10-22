@@ -68,6 +68,10 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	if err = s.removeRetiredConfiguration(); err != nil {
+		db.Close()
+		return nil, err
+	}
 	_ = os.Chmod(path, 0600)
 	return s, nil
 }

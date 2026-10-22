@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"bufio"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -18,25 +17,10 @@ func (s *Store) ImportLegacy(root string) error {
 		return nil
 	}
 	values := map[string]string{}
-	for _, key := range []string{"HYPER_API_KEY", "ANYSOLVER_API_KEY", "AWARDDESK_PROXY", "BA_EMAIL", "BA_PASSWORD", "ANA_MEMBER_NUMBER", "ANA_PASSWORD"} {
+	for _, key := range []string{"HYPER_API_KEY", "ANYSOLVER_API_KEY"} {
 		values[key] = ""
 	}
-	if f, e := os.Open(filepath.Join(root, ".env")); e == nil {
-		sc := bufio.NewScanner(f)
-		for sc.Scan() {
-			k, _, ok := strings.Cut(strings.TrimSpace(sc.Text()), "=")
-			if ok {
-				k = strings.TrimSpace(k)
-				values[k] = os.Getenv(k)
-			}
-		}
-		e = sc.Err()
-		f.Close()
-		if e != nil {
-			return e
-		}
-	}
-	for _, k := range []string{"EVA_EMAIL", "EVA_PASSWORD", "OUTLOOK_EMAIL", "OUTLOOK_CLIENT_ID", "OUTLOOK_REFRESH_TOKEN", "HYPER_API_KEY", "ANYSOLVER_API_KEY", "EVA_IMPERVA_SOLVER", "AWARDDESK_PROXY_FILE", "AWARDDESK_PROXY", "BA_EMAIL", "BA_PASSWORD", "ANA_MEMBER_NUMBER", "ANA_PASSWORD", "ANA_BACKGROUND_ENABLED", "EVA_BACKGROUND_ENABLED"} {
+	for _, k := range []string{"EVA_EMAIL", "EVA_PASSWORD", "OUTLOOK_EMAIL", "OUTLOOK_CLIENT_ID", "OUTLOOK_REFRESH_TOKEN", "HYPER_API_KEY", "ANYSOLVER_API_KEY", "EVA_IMPERVA_SOLVER", "AWARDDESK_PROXY_FILE", "EVA_BACKGROUND_ENABLED"} {
 		if v, ok := os.LookupEnv(k); ok {
 			values[k] = v
 		}
@@ -93,7 +77,11 @@ func (s *Store) ImportLegacy(root string) error {
 		if e != nil {
 			return e
 		}
-		states = append(states, importedState{Key(key), b})
+		key = Key(key)
+		if !strings.HasPrefix(key, ".state/eva/") && !strings.HasPrefix(key, ".state/eva-results/") && !strings.HasPrefix(key, ".state/outlook/") {
+			return nil
+		}
+		states = append(states, importedState{key, b})
 		return nil
 	})
 	if e != nil {

@@ -96,7 +96,7 @@ func (h Hyper) PrepareAdaptive(ctx context.Context, c *session.Client, page stri
 		brandingURL, brandingBody = page, body
 	}
 	// Adaptive requires fresh sensor context after its proof-of-work step.
-	if err = (Hyper{Key: h.Key, SkipPixel: true, VerifyAtLogin: true}).Prepare(ctx, c, brandingURL, brandingBody); err != nil {
+	if err = (Hyper{Key: h.Key, VerifyApplication: true}).Prepare(ctx, c, brandingURL, brandingBody); err != nil {
 		return err
 	}
 	_, verified, err := c.Do(ctx, "GET", origin+"/_sec/cp_challenge/verify", nil, http.Header{"sec-fetch-site": {"same-origin"}, "referer": {page}, "sec-fetch-mode": {"cors"}, "sec-fetch-dest": {"empty"}})

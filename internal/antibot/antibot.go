@@ -26,18 +26,11 @@ type CaptchaSolution struct {
 	Token     string
 	UserAgent string
 }
-type Challenge interface {
-	Prepare(context.Context, *session.Client, string, []byte) error
-}
 type Hyper struct {
 	Key string
-	// VerifyAtLogin permits completed sensor rounds without a ~0~ cookie.
-	// ANA's captured flow first receives that marker from authorization, not
-	// the homepage sensor. The provider must verify authenticated membership.
-	VerifyAtLogin bool
-	// SkipPixel is provider-specific; a script's presence does not establish
-	// that the site enforces pixel verification.
-	SkipPixel bool
+	// VerifyApplication permits completed sensor rounds without a stop marker.
+	// The caller must then verify access through EVA's application response.
+	VerifyApplication bool
 	// MinimumSensorRounds prevents an inherited stop marker from ending a new
 	// protected-action sequence before its interaction sensors are submitted.
 	MinimumSensorRounds int
@@ -51,8 +44,7 @@ type hyperSession struct {
 	ctx                 context.Context
 	client              challengeClient
 	key                 string
-	verifyAtLogin       bool
-	skipPixel           bool
+	verifyApplication   bool
 	minimumSensorRounds int
 	ip                  string
 }
@@ -66,7 +58,7 @@ func (h Hyper) Prepare(ctx context.Context, c *session.Client, page string, body
 	if h.MinimumSensorRounds < 0 || h.MinimumSensorRounds > 3 {
 		return errors.New("invalid sensor round limit")
 	}
-	r := hyperSession{ctx: ctx, client: c, key: h.Key, verifyAtLogin: h.VerifyAtLogin, skipPixel: h.SkipPixel, minimumSensorRounds: h.MinimumSensorRounds}
+	r := hyperSession{ctx: ctx, client: c, key: h.Key, verifyApplication: h.VerifyApplication, minimumSensorRounds: h.MinimumSensorRounds}
 	return r.initializeSensor(page, body)
 }
 

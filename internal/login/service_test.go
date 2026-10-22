@@ -88,9 +88,9 @@ func TestLoginResultAndErrorSanitization(t *testing.T) {
 		err            error
 		state, message string
 	}{
-		{nil, "verified", "ANA session ready and saved for reuse. No flight search performed."},
-		{errors.New("private upstream contents"), "failed", "ANA login failed"},
-		{award.Failure("mfa_required", "Two-step verification required"), "otp_required", "ANA requires a one-time password. Automatic OTP handling is not configured."},
+		{nil, "verified", "EVA session ready and saved for reuse. No flight search performed."},
+		{errors.New("private upstream contents"), "failed", "EVA login failed"},
+		{award.Failure("mfa_required", "Two-step verification required"), "otp_required", "EVA verification requires attention; check the account's Outlook configuration."},
 	} {
 		s := New(func(context.Context, award.Reporter) error { return tc.err })
 		if err := s.Start(); err != nil {

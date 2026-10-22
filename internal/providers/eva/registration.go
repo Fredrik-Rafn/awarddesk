@@ -183,7 +183,7 @@ func (p *Provider) Register(ctx context.Context, c *session.Client, proxy string
 		if err = f.set("__MasterEVENTARGUMENT", "18^"); err != nil {
 			return err
 		}
-		if err = (antibot.Hyper{Key: p.config.HyperKey, SkipPixel: true}).Prepare(ctx, c, target, body); err != nil {
+		if err = (antibot.Hyper{Key: p.config.HyperKey}).Prepare(ctx, c, target, body); err != nil {
 			return err
 		}
 		response, _, err := c.Do(ctx, "POST", f.action, strings.NewReader(f.values.Encode()), http.Header{"content-type": {"application/x-www-form-urlencoded"}, "origin": {"https://eservice.evaair.com"}, "referer": {target}})

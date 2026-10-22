@@ -1881,3 +1881,6 @@ dialog::backdrop {
     flex-direction: column;
   }
 }
+
+.account-state-retrying { color: #5272a4; }
+.account-state.account-state-retrying { background: #edf3ff; }

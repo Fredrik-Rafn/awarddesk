@@ -25,11 +25,6 @@ func (r *hyperSession) initializeSensor(page string, body []byte) error {
 	if key == "" {
 		return nil
 	}
-	if !r.skipPixel {
-		if err := r.initializePixel(page, body); err != nil {
-			return err
-		}
-	}
 	resolve := func(body []byte) (string, error) {
 		return resolveSensorScript(body, func(body []byte) ([]byte, error) {
 			log.Print("SBSD challenge detected; applying bounded challenge flow")
@@ -37,19 +32,7 @@ func (r *hyperSession) initializeSensor(page string, body []byte) error {
 		})
 	}
 	path, e := resolve(body)
-	if e != nil && bytes.Contains(body, []byte("British Airways - Information Page")) {
-		log.Print("Checking homepage for the standard sensor script in the same session")
-		page = "https://www.britishairways.com/travel/home/public/en_dk/"
-		_, body, e = r.request("GET", page, nil, nil)
-		if e != nil {
-			return e
-		}
-		path, e = resolve(body)
-	}
 	if e != nil {
-		if bytes.Contains(body, []byte("British Airways - Information Page")) {
-			return &award.Error{Code: "site_unavailable", Message: "BA returned its high-demand information page instead of the search application. Please try later.", RetryAfterSeconds: 300}
-		}
 		var upstream *award.Error
 		if errors.As(e, &upstream) || errors.Is(e, context.Canceled) || errors.Is(e, context.DeadlineExceeded) {
 			return e
@@ -111,7 +94,7 @@ func (r *hyperSession) initializeSensor(page string, body []byte) error {
 			}
 		}
 	}
-	if r.verifyAtLogin {
+	if r.verifyApplication {
 		log.Print("Sensor rounds completed; authenticated application verification is required")
 		return nil
 	}
@@ -123,7 +106,7 @@ func sensorMayStop(cookie string, submitted, minimum int) bool {
 }
 
 // Security scripts and submissions must stay on the page's own HTTPS origin.
-// Resolving relative URLs here lets both BA and ANA use the same Hyper adapter.
+// Relative scripts resolve against the current EVA page.
 func challengeEndpoint(page, path string) (endpoint, origin string, err error) {
 	base, err := url.Parse(page)
 	if err != nil || base.Scheme != "https" || base.Host == "" || base.User != nil {

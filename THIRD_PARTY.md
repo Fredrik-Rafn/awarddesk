@@ -12,4 +12,4 @@ Pinned versions and transitive dependencies are recorded in `go.mod` and `go.sum
 
 ## Test fixtures
 
-The BA availability fixture contains public flight-availability fragments from the user's capture. Scripts, URLs, hidden tokens, account details and unrelated page content were removed. Additional tests use synthetic data. No credentials, solver keys or browser sessions are included.
+Tests use local and synthetic fixtures. No account credentials, solver keys or browser sessions are included.

@@ -60,7 +60,7 @@ func historyWhere(f HistoryFilter) (string, []any, error) {
 		args = append(args, f.Status)
 	}
 	if f.Provider != "" {
-		if f.Provider != "eva" && f.Provider != "ana" && f.Provider != "ba" {
+		if f.Provider != "eva" {
 			return "", nil, errors.New("Unknown provider")
 		}
 		where += ` AND json_extract(data,'$.query.provider')=?`

@@ -175,8 +175,8 @@ func TestMaintenancePreparesAccountsAndCoalescesManualRequests(t *testing.T) {
 			}
 		}
 	}
-	// Attention flags survive restarts and exclude only the affected account.
-	_ = f.db.Runtime("account:a", Status{ID: "a", NeedsAttention: true})
+	// Exhausted retry budgets exclude only the affected account.
+	_ = f.db.Runtime("account:a", Status{ID: "a", NeedsAttention: true, ConsecutiveFailures: MaxPreparationFailures})
 	f.maintain()
 	deadline := time.Now().Add(time.Second)
 	for p["b"].calls.Load()+p["c"].calls.Load() < 2 && time.Now().Before(deadline) {
@@ -223,7 +223,7 @@ func TestClaimSkipsAccountLeasedByAnotherProcess(t *testing.T) {
 	}
 }
 
-func TestProviderPanicReleasesAccountAndNeedsAttention(t *testing.T) {
+func TestProviderPanicReleasesAccountAndSchedulesDelayedCheck(t *testing.T) {
 	f, p := setup(t, 1)
 	p["a"].run = func(context.Context) (award.Result, error) { panic("simulated provider panic") }
 	_, e := f.Search(context.Background(), award.Query{Refresh: true}, nil)
@@ -235,8 +235,8 @@ func TestProviderPanicReleasesAccountAndNeedsAttention(t *testing.T) {
 	}
 	var status Status
 	f.db.RuntimeValue("account:a", &status)
-	if !status.NeedsAttention {
-		t.Fatal("uncertain account automatically retried")
+	if status.NeedsAttention || status.ConsecutiveFailures != 1 || time.Until(status.NextAttempt) < 14*time.Minute {
+		t.Fatal("interrupted account did not receive a delayed retry")
 	}
 	if e = f.Edit("a", func() error { return nil }); e != nil {
 		t.Fatal("panic leaked account lease")

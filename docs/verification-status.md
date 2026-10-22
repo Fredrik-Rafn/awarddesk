@@ -1,66 +1,27 @@
 # Verification scope
 
-## EVA — October 22, 2026
+## Recorded live EVA checks — 22 October 2026
 
-The 500-search uncached baseline used up to 30 simultaneous searches: 423
-completed (402 with priced flights, 21 valid empty results), and 77 failed.
-Fourteen of the completed searches recovered from an exposed failure. Thirty-two
-failures were false price changes caused by comparing per-adult availability
-amounts with party checkout totals. After correcting that comparison, seven
-targeted live searches completed with all 102 fare entries quoted, including
+The 500-search uncached baseline used up to 30 simultaneous searches: 423 completed
+(402 with priced flights, 21 valid empty results), and 77 failed. Fourteen completed
+jobs recovered from a recorded failure.
+
+Thirty-two failures were false price changes caused by comparing per-adult
+availability amounts with party checkout totals. After fixing that comparison,
+seven targeted live searches completed with all 102 fare entries quoted, including
 two- and three-adult cases. One genuine availability change recovered normally.
 
-The full 500-search baseline has not been repeated after the fix. TPE–ICN
-handoffs and some missing booking-data responses remain unresolved. These
-measurements are historical evidence, not a guarantee of future success.
+The full 500-search baseline has not been repeated after the fix. TPE–ICN handoffs
+and some missing booking-data responses remain unresolved. Measurements describe
+those runs and are not a guarantee of future success.
 
-The subsequent cleanup uses offline regression tests; it does not constitute
-another live airline test. The ANA/BA observations below are historical and
-describe the interface and testing scope at that time.
+## EVA-only cleanup and maintenance changes
 
-## ANA — October 20, 2026
+Regression checks cover the EVA-only API/configuration, retained security adapters,
+account ownership, retry delays, persisted retry budget, old-status upgrade,
+provider cooldowns and preservation of EVA state/history during cleanup.
+Offline tests do not contact EVA or consume solver credits.
 
-Latest reliability checks: five proxied checks failed (the last four confirmed
-HTTP 403 at credentials); a direct control returned MFA required and testing
-stopped. No proxy success or production-scale throughput is established.
-The editable 100-entry pool, locked leases, IP verification and bounded retry
-behavior are implemented. A synthetic 1,000-concurrent-start test verifies
-that the service starts only one checker. See [details](reliability.md).
-
-Earlier performance check: after removing fixed request spacing and skipping
-ANA's optional pixel step, a fresh login verified the matching member in
-3.95 seconds (excluding compilation). It used two SBSD and three sensor
-generations, with one IP lookup per session. Offline tests, `go vet`, and
-the application build passed after these changes. BA was not live-tested.
-
-One fresh direct login was verified using Hyper Solutions for Akamai. The run
-completed pixel/SBSD initialization, three sensor rounds, authorization, SSO,
-and an authenticated member check matching the requested temporary account.
-No captured cookies/tokens were replayed and no flight search was performed.
-The session was closed after verification.
-
-The frontend uses that same login module through a background-check service.
-Offline tests cover start, status, cancellation, duplicate submission, cooldown,
-error sanitization, and CSRF protection with BA search disabled. The real local
-page was visually checked in its unconfigured state. The frontend addition did
-not trigger another paid live login or award search.
-
-Not verified: other accounts, proxy login, MFA, long-lived session reuse, or
-repeatability across upstream changes. ANA award search is not implemented.
-
-## British Airways
-
-The pre-existing integration remains experimental. Historical evidence records
-one successful JFK–LAX economy diagnostic for one adult,
-with 12 itineraries. That diagnostic used a Node helper alongside Go; it does
-not verify repeatable login through the standalone production provider.
-Later diagnostic logins failed. The cause remains unconfirmed.
-
-This cleanup did not run a new BA login or search. Historical captures and
-research scripts remain in the original project location, outside this repo.
-
-## Local validation
-
-The full offline Go test suite, `go vet`, JavaScript syntax checks, backend build,
-and PowerShell launcher parsing passed. Tests do not contact airlines or incur
-solver charges. No credentials or solver keys are included in the repository.
+A fresh-workspace HTTP smoke check verifies startup, embedded pages, configuration,
+admin authentication and unconfigured-login behavior. This is not a new live airline
+benchmark. See [capacity](capacity.md) for measured facts versus estimates.

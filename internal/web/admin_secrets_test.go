@@ -6,17 +6,17 @@ import (
 	"testing"
 )
 
-func TestEditableSecretsRequireAdminAndLegacySettingsStayStored(t *testing.T) {
+func TestEditableSecretsRequireAdminAndClearingIsScoped(t *testing.T) {
 	s, h := adminTestServer(t)
 	cookie := adminLogin(t, s, h)
-	s.Admin.DB.SetSettings(map[string]string{"ANA_PASSWORD": "old-ana-password", "BA_PASSWORD": "old-ba-password"})
+	s.Admin.DB.SetSettings(map[string]string{"ANYSOLVER_API_KEY": "other-secret-key"})
 	w := adminRequest(h, s, "GET", "/api/admin/settings", "", cookie, true)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "test-secret-key") || strings.Contains(w.Body.String(), "ANA_PASSWORD") || strings.Contains(w.Body.String(), "BA_PASSWORD") {
-		t.Fatal("settings edit/hiding contract")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "test-secret-key") {
+		t.Fatal("settings editor contract")
 	}
 	w = adminRequest(h, s, "PUT", "/api/admin/settings", `{"values":{"HYPER_API_KEY":""}}`, cookie, true)
-	if w.Code != 200 || s.Admin.DB.Setting("HYPER_API_KEY") != "" || s.Admin.DB.Setting("ANA_PASSWORD") != "old-ana-password" || s.Admin.DB.Setting("BA_PASSWORD") != "old-ba-password" {
-		t.Fatal("clearing one key changed hidden values")
+	if w.Code != 200 || s.Admin.DB.Setting("HYPER_API_KEY") != "" || s.Admin.DB.Setting("ANYSOLVER_API_KEY") != "other-secret-key" {
+		t.Fatal("clearing one key changed another setting")
 	}
 	account := `{"label":"Test","email":"test@example.com","password":"private-password","outlookEmail":"test@outlook.com","clientId":"client","refreshToken":"private-refresh","enabled":false}`
 	if w = adminRequest(h, s, "PUT", "/api/admin/accounts", account, cookie, true); w.Code != 200 {

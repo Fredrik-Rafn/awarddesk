@@ -31,7 +31,6 @@ type Server struct {
 	Airports     []airports.Airport
 	Ready        bool
 	ProxyEnabled bool
-	ANALogin     *login.Service
 	EVALogin     *login.Service
 	csrf         string
 }
@@ -67,7 +66,7 @@ func (s *Server) Handler() http.Handler {
 		if s.Admin != nil {
 			evaReady = s.Admin.Fleet.Ready()
 		}
-		writeJSON(w, 200, map[string]any{"csrf": s.csrf, "ready": ready, "proxyEnabled": proxy, "providers": s.Jobs.Capabilities(), "anaLoginReady": s.ANALogin != nil && s.ANALogin.Ready(), "evaLoginReady": evaReady})
+		writeJSON(w, 200, map[string]any{"csrf": s.csrf, "ready": ready, "proxyEnabled": proxy, "providers": s.Jobs.Capabilities(), "evaLoginReady": evaReady})
 	})
 	s.loginRoutes(mux)
 	mux.HandleFunc("GET /api/airports", func(w http.ResponseWriter, r *http.Request) {

@@ -124,6 +124,7 @@ function switchView() {
 }
 
 function renderHealth(data) {
+	const accountIds = new Set(data.sessions.map((s) => s.id));
   const ready = data.sessions.filter(
     (s) =>
       s.session.ready &&
@@ -135,12 +136,17 @@ function renderHealth(data) {
   const busy = data.sessions.filter((s) => s.busy).length,
     attention = new Set([
       ...data.sessions
-        .filter((s) => s.needsAttention || s.state === "failed")
+        .filter((s) => s.needsAttention)
         .map((s) => s.id),
       ...(data.accountSetups || [])
-        .filter((s) => ["failed", "attention"].includes(s.status))
+        .filter((s) => ["failed", "attention"].includes(s.status) &&
+          (!s.accountId || !accountIds.has(s.accountId)))
         .map((s) => s.accountId || s.id),
     ]).size;
+  const retrying = data.sessions.filter(
+    (s) => !s.needsAttention && !s.busy && s.nextAttempt &&
+      new Date(s.nextAttempt) > new Date(),
+  ).length;
   const card = $("fleet-health");
   card.replaceChildren();
   const hero = el("div", undefined, "fleet-number");
@@ -159,7 +165,7 @@ function renderHealth(data) {
       undefined,
       s.busy
         ? "busy"
-        : s.needsAttention || s.state === "failed"
+        : s.needsAttention
           ? "issue"
           : s.session.ready
             ? "available"
@@ -175,6 +181,7 @@ function renderHealth(data) {
   for (const [n, label] of [
     [busy, "accounts working"],
     [attention, "need attention"],
+    [retrying, "automatic retry scheduled"],
     [data.proxyCount, "proxy endpoints"],
   ]) {
     const row = el("div", undefined, "health-row");

@@ -54,16 +54,16 @@ func TestResolveSensorScriptWithoutSBSD(t *testing.T) {
 }
 
 func TestChallengeEndpointUsesAirlineOrigin(t *testing.T) {
-	for _, host := range []string{"www.ana.co.jp", "www.britishairways.com"} {
+	for _, host := range []string{"eservice.evaair.com", "booking.evaair.com"} {
 		for _, path := range []string{"/sensor", "https://" + host + "/sensor"} {
-			endpoint, origin, err := challengeEndpoint("https://"+host+"/en/eur/", path)
+			endpoint, origin, err := challengeEndpoint("https://"+host+"/flyeva/", path)
 			if err != nil || origin != "https://"+host || endpoint != origin+"/sensor" {
 				t.Fatalf("incorrect challenge origin: %q %q %v", endpoint, origin, err)
 			}
 		}
 	}
-	for _, path := range []string{"https://other.test/sensor", "//other.test/sensor", "http://www.ana.co.jp/sensor", "https://user@www.ana.co.jp/sensor", "/sensor#fragment"} {
-		if _, _, err := challengeEndpoint("https://www.ana.co.jp/en/eur/", path); err == nil {
+	for _, path := range []string{"https://other.test/sensor", "//other.test/sensor", "http://eservice.evaair.com/sensor", "https://user@eservice.evaair.com/sensor", "/sensor#fragment"} {
+		if _, _, err := challengeEndpoint("https://eservice.evaair.com/flyeva/", path); err == nil {
 			t.Fatal("unsafe challenge endpoint accepted")
 		}
 	}

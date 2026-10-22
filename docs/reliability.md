@@ -1,112 +1,78 @@
-# Login reliability and proxy operation
+# Recovery and account readiness
 
-Current configuration and proxy lists are managed in Admin and stored in SQLite.
-Existing `.env`, `proxies.txt` and JSON session files are imported once. See
-[storage and migration](storage.md). The historical measurements below describe
-their recorded test runs; they are not a guarantee of zero provider failures.
+Source: [fleet.go](../internal/fleet/fleet.go), [recovery.go](../internal/fleet/recovery.go),
+[prepare.go](../internal/fleet/prepare.go), [login.go](../internal/providers/eva/login.go),
+[session_verification.go](../internal/providers/eva/session_verification.go).
 
-The pool currently supports authenticated Evomi endpoints. A new lease replaces
-the exported session ID with a fresh random ten-character `lockedsession` ID
-and removes `lifetime`, leaving the configured template unchanged. All airline requests
-in an attempt use that URL and one isolated cookie jar. An exit-IP lookup during
-initialization is compared with another immediately before credentials.
+## Account retry rules
 
-Evomi documents that ordinary `session` can replace its IP for stability,
-whereas `lockedsession` fails when its bound peer goes offline and does not
-support `lifetime`. The 150-second application deadline bounds the full login,
-including its one possible fresh-session retry.
-Source: https://docs.evomi.com/proxy-instructions/residential-proxies/proxy-sessions/
-
-## Retries and concurrent traffic
-
-Explicit ANA OTP/MFA responses now show `otp_required`, without permanently
-blocking the account. Old `.state/ana/*.blocked` markers are no longer read or
-written. A one-minute cooldown still applies before a manually requested new
-login. The CLI stops its batch at OTP. Automatic Outlook OTP handling is not
-implemented; the current attempt closes its session when OTP is requested.
-Timeouts alone are not classified as OTP.
-
-- No fixed spacing between requests. Dependent steps remain sequential.
-- At most one fresh-session retry for transport/read/HTTP 5xx failures before
-  credentials. A failed transport lease cools down for 60 seconds.
-- Credential POSTs are never replayed automatically. A connection failure
-  after submission is reported as an uncertain outcome.
-- HTTP 403 is reported as access denied, distinct from a broken connection.
-- Pool leases are exclusive and acquisition does not create a waiting queue.
-- The UI service coalesces concurrent starts into one check. The provider also
-  prevents concurrent logins for its configured account.
-- Successful UI check results are reused for 15 seconds with the original finish
-  timestamp. Authenticated state is retained separately in a JSON file;
-  the manager validates it before use.
-- Failed checks cool down for five seconds, account failures for one minute;
-  longer upstream retry intervals are respected.
-
-This is a bounded single-process app with one configured ANA account, not a
-distributed high-throughput account service. A 1,000-concurrent-start synthetic
-test verifies one checker invocation; it does not measure ANA throughput.
-Multiple server replicas would need shared account locks, admission control
-and shared session ownership. The existing UI/API remains localhost-only.
-The proxy pool currently applies to ANA; BA retains `AWARDDESK_PROXY`.
-
-The server now runs an automatic saved-session job. See [sessions](sessions.md).
-The standalone diagnostic CLI continues to perform fresh login checks.
-
-## Live findings on October 20, 2026
-
-Five proxied login checks failed: the first returned an authentication-category
-error before HTTP status diagnostics were added; the next three returned
-HTTP 403 at credentials in 16.42, 53.85 and 34.18 seconds. The 53.85-second run
-recovered from one pre-credential connection failure with a fresh session.
-All three pre-credential IP comparisons passed.
-
-A fourth status-instrumented proxy check restored pixel initialization and
-still returned HTTP 403 at credentials, in 6.61 seconds, with a matching IP.
-Pixel was therefore returned to its previous disabled setting for ANA.
-Successful security submissions alone do not establish accepted authentication.
-
-A final direct control check reached an explicit MFA requirement in 3.84
-seconds. Live testing stopped. The direct control temporarily bypassed pool
-construction; its CLI metadata still reports the configured pool environment.
-This test does not establish that the proxy rejection is exclusively IP-related.
-No proxy login succeeded in these checks. Earlier direct success at 3.95 seconds
-remains historical evidence, not a current reliability guarantee.
-
-After the account holder completes ANA's browser verification, an explicitly
-requested live check can be run with:
-
-```powershell
-go run ./cmd/ana-login -runs 3 -report results.json
-```
-
-The CLI performs fresh sequential checks, stops on MFA/account/rate-limit
-responses, and saves sanitized timing/error metadata. `-runs` is bounded to ten.
-No award searches were implemented or performed.
-
-## SQLite and multi-account verification (21 October 2026)
-
-The local workspace now uses SQLite and bounded account workers. Automated tests
-cover 18 searches across three simulated accounts with no per-account overlap,
-ready-session preference, safe account failover, uncertain-outcome exclusions,
-manual/background preparation coalescing, account edits while busy, cancellation,
-external account leases, concurrent SQLite writes, one-time migration, admin
-CSRF/authentication/secret masking, and persisted search results after restart.
-
-Live checks during this change:
-
-| Check | Result |
+| Event | Rule |
 | --- | --- |
-| First automatic login preparation | EVA HTTP 403; status recorded and backed off |
-| Next automatic preparation | Successful, session saved in SQLite |
-| TPE–HKG first search | Six flights found; selected-fare pricing context missing after a 41-second response; job failed with partial availability |
-| HND–SIN business, 30 November 2026 | Complete, four flights, 39.1 seconds |
-| TPE–HKG retest, same date/cabin | Complete, six flights, 75.2 seconds |
-| Cached HND–SIN | Complete in 4 ms; 1,800-second cache TTL; repeated requests shared a cached job |
-| Cached TPE–HKG after restart | Complete in 8 ms; six flights; 1,800-second cache TTL |
-| Concurrent authenticated admin overview requests | 24/24 successful; maximum 90 ms |
+| Successful search/preparation | Clear consecutive failures and next retry |
+| Failed account operation | Increment durable consecutive-failure count |
+| Failures 1–14 | Schedule a fresh check 15–30 minutes later |
+| Longer provider Retry-After | Honor the longer pause |
+| Fifteenth consecutive failure | Needs attention; no automatic attempt 16 |
+| Explicit Prepare after exhaustion | Re-arm the account's attempt budget |
+| Cancellation | Preserve prior retry budget; do not quarantine a healthy account |
+| Mileage-pricing error | Keep the account available; do not treat that quote failure as broken login |
+| Disabled/incomplete account | Do not invent credentials or automatically enable it |
+| Restart with old permanent pause | Convert to first scheduled retry |
+| Restart during an operation | Record interruption and delay a fresh check; no request replay |
 
-The missing selected-fare-state case now has a bounded availability refresh before
-checkout, with regression coverage. It never infers a price or repeats a completed
-checkout. The live retest succeeded without needing that recovery, so its success
-must not be presented as live proof that the new recovery executed. These checks
-are functional evidence, not a meaningful new provider failure-rate estimate.
-Multiple real accounts are still needed for a live multi-account load test.
+The delay uses a SHA-256-derived stable spread based on account ID and failure
+number. It is not a fixed sleep holding a worker: NextAttempt lives in SQLite
+and maintenance selects due accounts on subsequent ticks.
+
+The counter is an account-operation failure count, not an exact count of HTTP
+credential submissions. A failure can happen earlier at a proxy, CAPTCHA or
+mailbox step. Manual retry/continue of an unfinished registration follows its
+separate durable checkpoint rules; see [registration](registration.md).
+
+## Proxy and IP rules
+
+- A fresh login acquires the next available, non-quarantined pool template in
+  round-robin order and generates a new random lockedsession ID.
+- That exact proxy is retained for the whole flow and saved with successful login.
+- A resumed session uses the original proxy identity. IP pinning detects a changed
+  exit; old cookies are never silently moved to another IP.
+- Failed transport/preflight or explicit HTTP 403 session rejection can quarantine
+  the proxy lease. The pool's failed-lease cooldown is one minute.
+- Before credentials, recoverable setup failures allow one bounded renewal on a
+  fresh proxy. Explicit wrong image CAPTCHA allows one fresh verification attempt.
+- After credential/OTP transport uncertainty, the current attempt ends. A later
+  scheduled account check is a new bounded operation. Failed fresh login has no
+  successful snapshot, so it acquires a fresh sticky identity on that later check.
+- More proxy strings do not guarantee different exit IPs or healthy peers.
+
+A known capacity limitation remains: leases are exclusive by template, so different
+saved sticky URLs derived from the same template can contend. More accounts do
+not automatically remove that bottleneck.
+
+## Search retry boundaries
+
+The transport retries GET once on transient connection/read/server failure, with
+a two-second pause. It does not generically retry POST. Explicit provider-level
+exceptions operate only on recognized safe state transitions.
+
+A search can fail over across at most three accounts before meaningful pricing.
+OutcomeUnknown, credential/OTP stages and partial itineraries prevent blind
+whole-search failover. Pricing may refresh availability and replan at most twice,
+preserving quotes whose identity/price still match. A real total-price mismatch
+still stops; the corrected per-adult normalization does not disable that check.
+
+The frontend refreshes its request token and retries once only on an explicit
+pre-handler request-token rejection. A lost mutation response is not replayed.
+
+## Meaning of the UI states
+
+Ready requires a locally valid snapshot and no blocking cooldown/attention flag.
+Busy/queued reflects ownership and scheduled preparation. Retry scheduled means
+automatic recovery is pending and shows its time plus consecutive-failure count.
+Needs attention means the preparation retry budget is exhausted, or a separate
+onboarding checkpoint requires inspection. Not ready means no usable session and
+no active scheduled cooldown; it should be picked up by enabled maintenance when
+capacity/configuration allow.
+
+Failures are not erased when a later search succeeds. Job history distinguishes
+completed jobs with recoveries, terminal failures, cancellation and interruption.

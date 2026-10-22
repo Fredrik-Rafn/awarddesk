@@ -312,7 +312,7 @@ func (a *Admin) session(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func secretSetting(k string) bool {
-	return strings.Contains(k, "KEY") || strings.Contains(k, "PASSWORD") || strings.Contains(k, "TOKEN") || k == "AWARDDESK_PROXY"
+	return strings.Contains(k, "KEY") || strings.Contains(k, "PASSWORD") || strings.Contains(k, "TOKEN")
 }
 func (a *Admin) settings(w http.ResponseWriter) {
 	m, e := a.DB.Settings()
@@ -333,7 +333,7 @@ func (a *Admin) settings(w http.ResponseWriter) {
 	}
 	out := map[string]setting{}
 	for k, v := range m {
-		if strings.HasPrefix(k, "_") || strings.HasPrefix(k, "ANA_") || strings.HasPrefix(k, "BA_") || k == "AWARDDESK_PROXY" || k == "PROXY_LIST" || k == "HISTORY_RETENTION_DAYS" {
+		if !storage.EditableSetting(k) {
 			continue
 		}
 		row := setting{Value: v, Secret: secretSetting(k), Configured: v != ""}
@@ -370,7 +370,7 @@ func validateSetting(k, v string) error {
 		if v != "auto" && v != "hyper" && v != "anysolver" {
 			return errors.New("Solver must be auto, hyper or anysolver")
 		}
-	case "EVA_BACKGROUND_ENABLED", "ANA_BACKGROUND_ENABLED", "FLIGHT_CACHE_ENABLED":
+	case "EVA_BACKGROUND_ENABLED", "FLIGHT_CACHE_ENABLED":
 		if v != "true" && v != "false" {
 			return errors.New("Background settings must be true or false")
 		}
@@ -378,6 +378,9 @@ func validateSetting(k, v string) error {
 		return errors.New("Database path is a bootstrap environment option, not a runtime setting")
 	case "EVA_EMAIL", "EVA_PASSWORD", "OUTLOOK_EMAIL", "OUTLOOK_CLIENT_ID", "OUTLOOK_REFRESH_TOKEN", "AWARDDESK_PROXY_FILE":
 		return errors.New("Manage EVA credentials in Accounts and the proxy list in Proxies")
+	}
+	if !storage.EditableSetting(k) {
+		return errors.New("Unknown setting")
 	}
 	return nil
 }

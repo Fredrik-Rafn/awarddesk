@@ -38,10 +38,7 @@ type Service struct {
 }
 
 func New(check Check) *Service {
-	return NewNamed("ANA", 150*time.Second, check)
-}
-func NewNamed(name string, timeout time.Duration, check Check) *Service {
-	return &Service{name: name, timeout: timeout, check: check, status: Status{State: "idle", Message: "Not tested in this server session"}}
+	return &Service{name: "EVA", timeout: 6 * time.Minute, check: check, status: Status{State: "idle", Message: "Not tested in this server session"}}
 }
 func (s *Service) Ready() bool { return s.check != nil }
 func (s *Service) Status() Status {
@@ -111,7 +108,7 @@ func (s *Service) startLocked() error {
 				s.status.Code, s.status.Stage, s.status.OutcomeUnknown = ae.Code, ae.Stage, ae.OutcomeUnknown
 				if ae.Code == "mfa_required" {
 					s.status.State = "otp_required"
-					s.status.Message = s.name + " requires a one-time password. Automatic OTP handling is not configured."
+					s.status.Message = "EVA verification requires attention; check the account's Outlook configuration."
 				}
 				if ae.Code == "authentication" || ae.Code == "mfa_required" || ae.Code == "login_response" {
 					s.next = time.Now().Add(time.Minute)

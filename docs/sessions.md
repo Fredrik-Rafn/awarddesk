@@ -1,84 +1,59 @@
-# ANA saved sessions
+# EVA member sessions
 
-Run `go run .` from the project directory. The server starts one ANA session
-preparation job automatically, then checks every five minutes while its last
-result is successful, unless `ANA_BACKGROUND_ENABLED=false`. ANA is hidden from
-the public page; `POST /api/logins/ana` runs the manager manually with the current
-request token. The CLI is a separate fresh-login diagnostic. No ANA flight-search
-endpoints are called.
+Read [login and OTP](code-walkthrough.md#login-and-otp) for the function-by-function
+path. A member login and a flight booking context are separate objects.
 
-## Reuse and renewal
+## Snapshot and ownership
 
-1. Acquire an exclusive account/session lock.
-2. Load the ANA account’s portable JSON record from SQLite.
-3. Restore cookies with original domain/path/expiry and deletion semantics,
-   the authorization token, frontend API headers and browser identity.
-4. Reserve the original proxy pool slot and use its exact locked session ID.
-   Check the exit IP and verify the authenticated member with ANA.
-5. If the record is absent, exceeds the one-day local reuse limit, or ANA confirms
-   unauthenticated membership (HTTP 401 or no matching member), log in afresh
-   and save the newly verified session. Credential/configuration identity
-   changes also invalidate the old cache.
-6. Save updated cookies after successful validation or use. Future searches
-   call `Manager.WithSession`, receiving an exclusive session for their callback.
-   Callbacks are not automatically replayed, even if a search fails.
+A portable member snapshot lives under .state/eva/<account hash>.json in SQLite's
+states table. The path is a logical key, not a browser profile directory.
+It contains scoped cookies, browser identity, creation/expiry information, the
+configuration fingerprint and the exact sticky proxy URL/template.
 
-The one-day cap is an application limit, not a claim about ANA's token lifetime.
-Cookie expiry and server-side revocation can invalidate a session earlier.
-Every use requires validation. HTTP 403, OTP, timeouts, changed/unavailable proxy
-identity, and unreadable/corrupt records stop the job instead of triggering
-repeated credential submissions. These errors pause background checks for that
-server run; manual retry or restarting the server resumes preparation.
+The fleet permits one operation per account. The provider also acquires its gate
+and OS-backed state lock. A saved session cannot safely drive concurrent booking
+flows; different accounts provide concurrency.
 
-Existing good records are not overwritten on failed validation or OTP. An
-expired record is removed before a fresh login; unsuccessful login is never saved.
-All phases share a 150-second operation deadline. A saved record is not created
-until the authenticated member number is verified.
+## Reuse rules
 
-## Proxies
+1. Load the snapshot and verify format, configuration identity and timestamps.
+2. Resume its original sticky proxy. If its template is busy, wait within the
+   operation deadline; do not change IP underneath existing cookies.
+3. Restore scoped cookies and verify the exit IP.
+4. Verify the authenticated member page. An exclusively retained warm client may
+   reuse a verification performed at most two minutes ago for a search; explicit
+   preparation always verifies.
+5. Save refreshed cookies only after successful verification/use.
+6. A recognized expired login, removed proxy or recoverable proxy/verification
+   rejection may invalidate the snapshot and perform bounded renewal.
+   An uncertain credential submission is not immediately repeated.
 
-Fresh login selects the next unused (not leased or quarantined) pool slot in
-round-robin order, with a new random locked-session ID. It does not rotate
-between requests. Restoring a session reserves its original slot and does not
-generate a new ID. Removing/changing that slot causes restore to stop.
+The expiry is the earlier of the EVAID cookie deadline and the configured maximum
+age (default three hours), minus five minutes. An already earlier saved expiry
+is preserved. Server revocation and residential-peer loss may invalidate it sooner.
 
-The proxy list is managed in Admin and stored in SQLite. The app
-continues to use Evomi's stricter `lockedsession` mode, for which `lifetime`
-does not apply. It fails if the peer goes offline instead of switching IPs.
-Neither a one-day setting nor an unused pool slot guarantees a particular
-residential peer stays online or that two different slots have distinct exits.
+Warm transports are memory-only. They are discarded after a failed operation,
+changed snapshot/proxy, more than five minutes idle, or shutdown. Persistent
+snapshots survive restarts; open network connections do not.
 
-Reference: https://docs.evomi.com/proxy-instructions/residential-proxies/proxy-sessions/
+## Background preparation
 
-## Storage and capacity
+Every 30 seconds, when enabled and globally configured, the fleet checks accounts.
+Missing/expired sessions go first, then the least recently checked accounts.
+Healthy idle sessions become due after five minutes.
 
-The server stores a bounded portable JSON record in SQLite, containing
-authentication material and proxy credentials. The account password is stored
-separately in database settings. There is no machine-specific encryption or
-separate key file. The legacy standalone file adapter remains available and
-uses flushed temporary files for atomic replacement.
+Background work uses at most max(1, min(8, floor(shared concurrency / 2))) slots.
+The shared account/registration ceiling still applies. Bulk manual preparation
+can use the shared ceiling and deduplicates queued/busy accounts.
 
-An OS file lock prevents overlapping use by app processes sharing the same
-account cache path: flock on macOS/Linux and LockFileEx on Windows. The OS releases
-the lock on process exit; leftover `.lock` files are harmless. Different account
-records have independent locks. The in-process manager rejects overlapping use
-without building an unbounded queue. This is not a multi-host scheduler or an
-account pool implementation. The stopped workspace database can be copied between machines, but expiry,
-browser identity, credentials and the original sticky proxy still need to match.
-See [SQLite storage and migration](storage.md).
+Failed accounts retry after a stable per-account/attempt delay of 15–30 minutes.
+A longer EVA Retry-After is honored. After 15 consecutive failed operations the
+account pauses for attention. Success resets the count. The retry time/count are
+persisted; restart does not shorten them. Older permanent pauses are upgraded to
+a scheduled first retry. See [exact recovery rules](reliability.md).
 
-The explicit CLI `go run ./cmd/ana-login` remains a fresh-login diagnostic and
-does not share the server's session cache. Do not use it to benchmark reuse.
-The future search integration should use the server's manager, not the CLI.
+## Portability
 
-Offline tests cover JSON file round trips and replacement, process locks,
-cookie scope/expiry/deletion, stored identity isolation, cache expiry, renewal,
-no credential fallback on 403/transport failure, OTP failure without a cache,
-exclusive proxy restoration and rotation, and maintenance stopping on errors.
-Live persistence/reuse still requires a successful ANA login; earlier HTTP 403
-and OTP results do not prove this feature works against ANA.
-
-The automatic startup job was live-tested through the configured proxy pool on
-October 20, 2026: ANA returned HTTP 403 at credentials after 19.54 seconds.
-No session file was saved and the job entered failed state. No flight search
-was attempted. Offline tests, vet, build and frontend syntax checks passed.
+There is no machine-specific encryption. Stop the process before copying the
+workspace database. The account configuration, original sticky proxy/IP and
+upstream session must remain valid. See [storage](storage.md).

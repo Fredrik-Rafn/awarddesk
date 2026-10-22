@@ -5,6 +5,14 @@ background session preparation and SQLite database. Works on Windows, macOS and
 Linux. Requires Go 1.25.5 or newer; no Node, separate frontend server, C compiler
 or external database is needed.
 
+## Learn the code
+
+Read the [step-by-step code walkthrough](docs/code-walkthrough.md) first. It maps
+search, login/OTP, proxy/session ownership, pricing, registration, caching and
+automatic recovery to their implementing functions. Then read
+[design decisions and alternatives](docs/design-decisions.md),
+[capacity and scaling](docs/capacity.md) and the [architecture map](docs/architecture.md).
+
 ## Airline and scope
 
 EVA Air is the focus because its Miles & Cash flow combines flight availability,
@@ -148,10 +156,13 @@ may use another account, at most three accounts per job. Pricing, credential and
 OTP requests with uncertain outcomes are not blindly replayed.
 
 While Awarddesk is running, an in-process scheduler checks every 30 seconds and
-prepares up to two accounts at a time, within the configured concurrency limit.
+prepares up to half the shared worker limit, capped at eight accounts at a time.
 Idle ready accounts are reverified every five minutes. Transient preparation
-failures back off; credential/OTP or uncertain login outcomes need attention.
-The manual Prepare action resumes an account after inspection. No OS cron or
+failures, including credential/OTP failures, schedule a fresh check in 15–30 minutes;
+longer provider pauses take precedence. After 15 consecutive failures an account
+needs attention. Success resets the counter. Missing/expired sessions are prioritized;
+retry counters and deadlines survive restarts. Manual Prepare can re-arm an account.
+No OS cron or
 Codex automation is required, and no flight searches run automatically.
 
 Member sessions retire five minutes before the earlier of their EVAID cookie
@@ -186,6 +197,7 @@ simultaneous session use and release immediately when a process exits.
 main.go                         Startup, lifecycle and provider wiring
 internal/storage/               SQLite schema, migration, state and job persistence
 internal/fleet/                 EVA account scheduling, failover and maintenance
+internal/registration/          Durable bulk onboarding and verification checkpoints
 internal/providers/eva/          Login, booking security, availability, pricing
 internal/outlook/                OAuth rotation and read-only IMAP OTP lookup
 internal/proxies/                Sticky endpoint leasing and validation

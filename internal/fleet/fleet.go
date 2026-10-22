@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 
@@ -33,16 +32,19 @@ type entry struct {
 	last        time.Time
 }
 type Status struct {
-	ID             string          `json:"id"`
-	State          string          `json:"state"`
-	Stage          string          `json:"stage,omitempty"`
-	Message        string          `json:"message,omitempty"`
-	CheckedAt      time.Time       `json:"checkedAt,omitempty"`
-	NextAttempt    time.Time       `json:"nextAttempt,omitempty"`
-	NeedsAttention bool            `json:"needsAttention"`
-	Session        eva.SessionInfo `json:"session"`
-	Busy           bool            `json:"busy"`
-	Queued         bool            `json:"queued"`
+	ID                  string          `json:"id"`
+	State               string          `json:"state"`
+	Stage               string          `json:"stage,omitempty"`
+	Message             string          `json:"message,omitempty"`
+	CheckedAt           time.Time       `json:"checkedAt,omitempty"`
+	NextAttempt         time.Time       `json:"nextAttempt,omitempty"`
+	NeedsAttention      bool            `json:"needsAttention"`
+	Session             eva.SessionInfo `json:"session"`
+	Busy                bool            `json:"busy"`
+	Queued              bool            `json:"queued"`
+	ConsecutiveFailures int             `json:"consecutiveFailures"`
+	RetryLimit          int             `json:"retryLimit"`
+	Configured          bool            `json:"configured"`
 }
 type Fleet struct {
 	db             *storage.Store
@@ -175,6 +177,8 @@ func (f *Fleet) Statuses() ([]Status, error) {
 		st := Status{ID: a.ID, State: "idle"}
 		f.db.RuntimeValue("account:"+a.ID, &st)
 		st.ID = a.ID
+		st.RetryLimit = MaxPreparationFailures
+		st.Configured = configured(a)
 		st.Busy = en.busy
 		st.Queued = f.pending[a.ID] && !st.Busy
 		st.Session = en.provider.SessionInfo()
@@ -277,23 +281,36 @@ func (f *Fleet) claim(ctx context.Context, want string, excluded map[string]bool
 	}
 }
 func (f *Fleet) outcome(id string, p airline, err error) {
+	var previous Status
+	f.db.RuntimeValue("account:"+id, &previous)
 	st := Status{ID: id, State: "ready", CheckedAt: time.Now().UTC(), Session: p.SessionInfo()}
+	if errors.Is(err, context.Canceled) {
+		previous.State = "idle"
+		_ = f.db.Runtime("account:"+id, previous)
+		return
+	}
 	if err != nil && !errors.Is(err, context.Canceled) {
 		st.State = "failed"
 		st.Message = "Session preparation or search failed"
-		st.NextAttempt = time.Now().Add(5 * time.Minute)
+		st.ConsecutiveFailures = previous.ConsecutiveFailures + 1
+		st.NeedsAttention = st.ConsecutiveFailures >= MaxPreparationFailures
+		st.NextAttempt = st.CheckedAt.Add(preparationRetryDelay(id, st.ConsecutiveFailures))
 		var ae *award.Error
 		if errors.As(err, &ae) {
 			st.Stage = ae.Stage
 			st.Message = ae.Message
-			st.NeedsAttention = (ae.OutcomeUnknown && ae.Stage != "miles pricing") || ae.Code == "credentials" || ae.Code == "otp" || ae.Code == "login_response" || ae.Code == "login_unverified" || ae.Stage == "credentials"
 			if ae.Stage == "miles pricing" {
 				st.NextAttempt = time.Time{}
 				st.State = "ready"
+				st.ConsecutiveFailures = 0
+				st.NeedsAttention = false
 			}
-			if ae.RetryAfterSeconds > 300 {
+			if retry := st.CheckedAt.Add(time.Duration(ae.RetryAfterSeconds) * time.Second); retry.After(st.NextAttempt) && st.State != "ready" {
 				st.NextAttempt = time.Now().Add(time.Duration(ae.RetryAfterSeconds) * time.Second)
 			}
+		}
+		if st.NeedsAttention {
+			st.NextAttempt = time.Time{}
 		}
 	}
 	_ = f.db.Runtime("account:"+id, st)
@@ -399,7 +416,10 @@ func (f *Fleet) Prepare(ctx context.Context, id string, report award.Reporter, f
 		}
 		f.outcome(a.ID, p, err)
 	}()
-	st := Status{ID: a.ID, State: "preparing", CheckedAt: time.Now().UTC()}
+	st := Status{ID: a.ID}
+	f.db.RuntimeValue("account:"+a.ID, &st)
+	st.State, st.CheckedAt = "preparing", time.Now().UTC()
+	st.NextAttempt, st.NeedsAttention = time.Time{}, false
 	_ = f.db.Runtime("account:"+a.ID, st)
 	err = p.Ensure(ctx, func(pr award.Progress) {
 		st.Stage = pr.Stage
@@ -412,11 +432,15 @@ func (f *Fleet) Prepare(ctx context.Context, id string, report award.Reporter, f
 	return err
 }
 func (f *Fleet) Start() {
-	// Only work that had not started is safe to recover automatically.
+	// Recover queued work and durable cooldowns. Interrupted operations receive
+	// a delayed fresh check, never a replay of their previous request.
 	if rows, e := f.db.Accounts(); e == nil {
 		for _, a := range rows {
 			var st Status
 			f.db.RuntimeValue("account:"+a.ID, &st)
+			st.ID = a.ID
+			st = recoverPreparationStatus(st, time.Now().UTC())
+			_ = f.db.Runtime("account:"+a.ID, st)
 			if configured(a) && st.State == "queued" && st.Stage == "queued preparation" {
 				_ = f.schedulePrepare(a.ID, true)
 			}
@@ -446,20 +470,26 @@ func (f *Fleet) maintain() {
 	if e != nil {
 		return
 	}
-	// Prepare at most two accounts in parallel, leaving capacity for searches.
-	limit, _ := strconv.Atoi(f.db.Setting("SEARCH_CONCURRENCY"))
-	if limit < 1 {
-		limit = 4
-	}
+	// Missing/expired sessions take priority over periodic healthy checks. Within
+	// each class, the least recently checked account goes first to avoid starvation.
+	sort.SliceStable(statuses, func(i, j int) bool {
+		if statuses[i].Session.Ready != statuses[j].Session.Ready {
+			return !statuses[i].Session.Ready
+		}
+		return statuses[i].CheckedAt.Before(statuses[j].CheckedAt)
+	})
+	// Use at most half the shared slots (capped at eight) so a large expired
+	// fleet can recover without maintenance taking over search capacity.
+	limit := award.ConcurrencyLimit(f.db.Setting("SEARCH_CONCURRENCY"))
 	backgroundLimit := limit / 2
 	if backgroundLimit < 1 {
 		backgroundLimit = 1
 	}
-	if backgroundLimit > 2 {
-		backgroundLimit = 2
+	if backgroundLimit > 8 {
+		backgroundLimit = 8
 	}
 	for _, st := range statuses {
-		if st.Busy || st.State == "disabled" || st.NeedsAttention || time.Now().Before(st.NextAttempt) {
+		if !st.Configured || st.Busy || st.Queued || st.State == "disabled" || st.NeedsAttention || time.Now().Before(st.NextAttempt) {
 			continue
 		}
 		if st.Session.Ready && time.Since(st.CheckedAt) < 5*time.Minute {
