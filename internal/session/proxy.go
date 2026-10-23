@@ -11,10 +11,6 @@ import (
 
 var proxyScheme = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*://`)
 
-// ParseProxy accepts an HTTP proxy URL or host:port:user:password.
-// A scheme-prefixed export (http://host:port:user:password) is also accepted
-// when it contains no @; ambiguous credentials should use standard URL syntax.
-// Passwords may contain colons. IPv6 should use URL syntax with brackets.
 func ParseProxy(raw string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -52,7 +48,7 @@ func ParseProxy(raw string) (string, error) {
 		if u.User.Username() == "" || !ok || pass == "" {
 			return "", errors.New("proxy username and password are required")
 		}
-		// Reject control characters after URL decoding, without exposing secrets.
+
 		for _, r := range u.User.Username() + pass {
 			if r < 32 || r == 127 {
 				return "", errors.New("proxy credentials contain control characters")

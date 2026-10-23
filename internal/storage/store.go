@@ -1,4 +1,3 @@
-// Package storage owns local configuration, portable sessions and search history.
 package storage
 
 import (
@@ -201,8 +200,6 @@ func (s *Store) DeleteState(k string) error {
 	return e
 }
 
-// An OS lock releases immediately on process exit, including crashes. SQLite
-// records ownership for diagnostics; no SQL transaction spans network work.
 func (s *Store) LockState(k string) (func(), error) {
 	h := sha256.Sum256([]byte(Key(k)))
 	lock := sessionstore.Store{Path: filepath.Join(s.path+".locks", hex.EncodeToString(h[:]))}
@@ -249,7 +246,8 @@ func (s *Store) LoadJob(id string) ([]byte, error) {
 	return b, e
 }
 func (s *Store) Jobs() ([]json.RawMessage, error) {
-	rows, e := s.DB.Query("SELECT data FROM jobs ORDER BY CASE WHEN json_extract(data,'$.status') IN ('running','queued') THEN 0 ELSE 1 END,updated_at DESC LIMIT 1000")
+	rows, e := s.DB.Query(`SELECT data FROM jobs WHERE json_extract(data,'$.status') IN ('running','queued')
+ UNION ALL SELECT data FROM (SELECT data FROM jobs WHERE COALESCE(json_extract(data,'$.status'),'') NOT IN ('running','queued') ORDER BY updated_at DESC LIMIT 1000)`)
 	if e != nil {
 		return nil, e
 	}

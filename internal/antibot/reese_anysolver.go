@@ -14,8 +14,6 @@ import (
 	"awarddesk/internal/session"
 )
 
-// PrepareReese asks for a raw sensor, then submits it from the airline's
-// existing connection. A proxyless finished cookie would use the solver's IP.
 func (a AnySolver) PrepareReese(ctx context.Context, c *session.Client, page string, body []byte) (resultErr error) {
 	started := time.Now()
 	defer func() {
@@ -33,8 +31,7 @@ func (a AnySolver) PrepareReese(ctx context.Context, c *session.Client, page str
 	if err != nil {
 		return err
 	}
-	// Fetch the fresh script through the same proxy and cookie jar as the
-	// intercepted request, as a browser does before generating its sensor.
+
 	if _, _, err = c.Do(ctx, "GET", scriptURL, nil, http.Header{"sec-fetch-site": {"same-origin"}, "referer": {page}, "sec-fetch-mode": {"no-cors"}, "sec-fetch-dest": {"script"}}); err != nil {
 		return err
 	}

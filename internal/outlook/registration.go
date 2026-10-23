@@ -58,7 +58,7 @@ func ExtractRegistration(raw []byte, recipient string, since, now time.Time) (Re
 func (r *Reader) WaitRegistration(ctx context.Context, point Checkpoint) (RegistrationMessage, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
-	points, err := r.registrationFolders(ctx, point)
+	points, err := retryMailboxRead(ctx, func() ([]Checkpoint, error) { return r.registrationFolders(ctx, point) })
 	if err != nil {
 		return RegistrationMessage{}, err
 	}
@@ -72,7 +72,9 @@ func (r *Reader) WaitRegistration(ctx context.Context, point Checkpoint) (Regist
 	}
 	for {
 		for _, mailboxPoint := range points {
-			value, err := r.pollMessage(ctx, mailboxPoint, registrationSubject, time.Hour, extract)
+			value, err := retryMailboxRead(ctx, func() (string, error) {
+				return r.pollMessage(ctx, mailboxPoint, registrationSubject, time.Hour, extract)
+			})
 			if err != nil {
 				return RegistrationMessage{}, err
 			}
@@ -94,9 +96,6 @@ func (r *Reader) WaitRegistration(ctx context.Context, point Checkpoint) (Regist
 	}
 }
 
-// Registration emails can be delivered to Outlook's junk folder. Inbox UIDs
-// retain their pre-submit checkpoint; junk additionally requires the exact
-// recipient, sender, subject and post-request timestamp before using a link.
 func (r *Reader) registrationFolders(ctx context.Context, point Checkpoint) ([]Checkpoint, error) {
 	c, _, cleanup, err := r.connect(ctx)
 	if err != nil {
@@ -119,13 +118,13 @@ func (r *Reader) registrationFolders(ctx context.Context, point Checkpoint) ([]C
 		}
 	}
 	if err = <-done; err != nil {
-		return nil, errors.New("Outlook folders could not be listed")
+		return nil, mailboxReadError("Outlook folders could not be listed", err)
 	}
 	points := []Checkpoint{point}
 	if folder != "" {
 		box, e := c.Select(folder, true)
 		if e != nil {
-			return nil, errors.New("Outlook junk folder could not be opened read-only")
+			return nil, mailboxReadError("Outlook junk folder could not be opened read-only", e)
 		}
 		points = append(points, Checkpoint{Folder: folder, UIDValidity: box.UidValidity, NextUID: 1, Since: point.Since})
 	}

@@ -20,7 +20,6 @@ type Airport struct {
 	codeLower  string
 }
 
-// Load builds the immutable, case-folded search index once at startup.
 func Load() ([]Airport, error) {
 	b, e := files.ReadFile("airports.json")
 	if e != nil {
@@ -36,8 +35,6 @@ func Load() ([]Airport, error) {
 	return a, e
 }
 
-// Search returns at most twelve matches from a Load-created index. Exact IATA
-// matches rank before prefixes, city prefixes, and general substring matches.
 func Search(all []Airport, q string) []Airport {
 	q = strings.ToLower(strings.TrimSpace(q))
 	out := []Airport{}

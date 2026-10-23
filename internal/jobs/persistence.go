@@ -7,9 +7,6 @@ import (
 	"time"
 )
 
-// Keep only the newest pending update for each search. One writer saves them in
-// order without making status checks wait for SQLite. Flush before dispatch,
-// before reading old history, and when shutting down.
 type historyWriter struct {
 	mu      sync.Mutex
 	store   Persistence

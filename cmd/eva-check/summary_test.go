@@ -20,6 +20,15 @@ func TestPreviewTimingsKeepFirstArrival(t *testing.T) {
 	}
 }
 
+func TestAwardPreviewRecognizesAnActualMileageQuote(t *testing.T) {
+	var m measurement
+	r := award.Result{Itineraries: []award.Itinerary{{Fares: []award.Fare{{PricingType: "award", Points: 17500}}}}}
+	observePreview(&m, jobs.Job{Result: &r}, 2500)
+	if m.FirstQuoteMS != 2500 {
+		t.Fatal("award mileage was not measured")
+	}
+}
+
 func TestSummaryDistinguishesRecoveredSuccessFromUserFailure(t *testing.T) {
 	results := []measurement{
 		{Status: "completed", Complete: true, Itineraries: 2},

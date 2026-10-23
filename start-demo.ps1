@@ -1,7 +1,7 @@
 param([ValidateRange(1,65535)][int]$Port = 8080)
 $ErrorActionPreference = 'Stop'
 
-# Keep ownership of the tunnel we start. Never stop another ngrok session.
+
 $ngrokProcess = $null
 $previousURL = $env:AWARDDESK_PUBLIC_URL
 $previousPassword = $env:AWARDDESK_DEMO_PASSWORD

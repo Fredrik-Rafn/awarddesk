@@ -10,7 +10,6 @@ import (
 	"awarddesk/internal/jobs"
 )
 
-// The scheduler tests use a fake airline. They cannot spend solver credits.
 type jobProvider struct {
 	run func(context.Context) (award.Result, error)
 }

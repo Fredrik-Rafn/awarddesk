@@ -9,8 +9,6 @@ import (
 	"awarddesk/internal/storage"
 )
 
-// Account edits run through the fleet so an active login or search cannot
-// have its credentials changed underneath it.
 func (a *Admin) putAccount(w http.ResponseWriter, r *http.Request) {
 	var v storage.Account
 	if decodeAdmin(w, r, &v) != nil {

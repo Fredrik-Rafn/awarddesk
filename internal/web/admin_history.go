@@ -72,7 +72,6 @@ func (s *Server) adminSearchDetail(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, json.RawMessage(b))
 }
 
-// Prefix spreadsheet control characters so exported diagnostics stay inert.
 func csvCell(v string) string {
 	if strings.ContainsAny(strings.TrimLeft(v, " "), "\t\r\n") {
 		v = strings.ReplaceAll(strings.ReplaceAll(v, "\r", " "), "\n", " ")

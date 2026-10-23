@@ -70,7 +70,7 @@ func TestMilesCashEligibility(t *testing.T) {
 	if err = json.Unmarshal(raw, &captured); err != nil {
 		t.Fatal(err)
 	}
-	// Booking class A is excluded even on an EVA-operated flight.
+
 	captured.RecommendationList[0].Bounds[0].FlightGroupList[0].RBD = "A"
 	raw, _ = json.Marshal(captured)
 	r, err := parseAvailability(raw, award.Query{Provider: "eva", Origin: "TPE", Destination: "HKG", Date: "2026-11-24", Cabin: award.Economy, Adults: 1})
@@ -85,7 +85,7 @@ func TestMilesCashEligibility(t *testing.T) {
 			}
 		}
 	}
-	// Three codeshare flights with three fare families, plus class A above.
+
 	if excluded != 10 {
 		t.Fatalf("expected ten ineligible fare/flight combinations, got %d", excluded)
 	}

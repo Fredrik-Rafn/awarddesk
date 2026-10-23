@@ -12,7 +12,6 @@ import (
 	"awarddesk/internal/award"
 )
 
-// History rows deliberately exclude result payloads and account/session secrets.
 type SearchRow struct {
 	ID         string         `json:"id"`
 	Query      award.Query    `json:"query"`
@@ -132,7 +131,7 @@ func (s *Store) SearchHistory(f HistoryFilter) (HistoryPage, error) {
 	default:
 		return HistoryPage{}, errors.New("Unknown sort order")
 	}
-	// One short read transaction keeps page totals consistent with rows.
+
 	tx, e := s.DB.Begin()
 	if e != nil {
 		return HistoryPage{}, e
@@ -163,8 +162,6 @@ func (s *Store) SearchHistory(f HistoryFilter) (HistoryPage, error) {
 	return out, tx.Commit()
 }
 
-// ExportSearchHistory reads one SQLite snapshot so arrivals/status changes do
-// not duplicate or skip rows between export pages. Result blobs stay in SQLite.
 func (s *Store) ExportSearchHistory(f HistoryFilter, visit func(SearchRow) error) error {
 	where, args, e := historyWhere(f)
 	if e != nil {

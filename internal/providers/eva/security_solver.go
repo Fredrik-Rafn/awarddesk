@@ -7,9 +7,6 @@ import (
 	"awarddesk/internal/award"
 )
 
-// Only upstream generation failures permit changing solver. Request failures
-// through the airline proxy and unknown provider responses retain their normal
-// recovery paths. No login, OTP, booking handoff or pricing request is replayed.
 func reeseWithFallback(ctx context.Context, primary, backup func(context.Context) error, progress func(string, string)) error {
 	if err := ctx.Err(); err != nil {
 		return err

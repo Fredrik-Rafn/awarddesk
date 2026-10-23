@@ -32,6 +32,9 @@ the [official installation guide](https://ngrok.com/download/windows), then run:
 ngrok config add-authtoken YOUR_NGROK_AUTHTOKEN
 ```
 
+On this PC, if `ngrok` is not on PATH, use
+`& 'C:\ngrok\ngrok.exe' config add-authtoken YOUR_NGROK_AUTHTOKEN` instead.
+
 Use your own ngrok token; do not put it into Git or share it with demo visitors.
 
 ## Manual setup: Windows, macOS or Linux

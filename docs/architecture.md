@@ -29,6 +29,7 @@ sessionstore (snapshots + OS locks)      outlook (OAuth/OTP)
 | internal/providers/eva | EVA forms, authentication, booking, availability and mileage quotes |
 | internal/registration | Durable bulk onboarding and checkpoint recovery |
 | internal/outlook | OAuth refresh-token rotation, read-only IMAP and email validation |
+| internal/exchange | Shared daily rate cache, exact decimal USD conversion and failure backoff |
 | internal/proxies | Sticky proxy creation, exclusive leases, resume and cooldown |
 | internal/session | TLS transport, cookie scopes, host restrictions, bounded HTTP |
 | internal/sessionstore | Portable state adapter and cross-process account locks |
@@ -46,6 +47,13 @@ The EVA package separates account configuration (`provider.go`), login
 (`login.go`), HTTP navigation (`navigation.go`), saved member state
 (`member_state.go`), registration and flight pricing. Production flows use HTTP
 and OAuth/IMAP; they do not launch browser automation.
+
+Two search modes share authentication, account ownership, queueing and storage.
+An empty query `mode` uses the original Miles & Cash implementation; `award`
+routes to `award_search.go`. That flow separates availability, itinerary metadata,
+selection, quotation and portal security into `award_*.go` files. Mode is part of
+the query/cache identity, so the two products cannot reuse each other's results.
+See [award flow](eva-awards.md) for the exact sequence and recovery boundaries.
 
 Cross-package HTTP/SQLite/scheduling tests live in `tests/integration/`. Frontend
 JavaScript tests live in `tests/browser/` and run with Node, without a browser.
@@ -103,3 +111,11 @@ release notifications wake waiters. A coalescing history writer keeps SQL outsid
 the scheduler lock and flushes admission before dispatch. Revision-aware polling
 avoids resending unchanged results. See the walkthrough for exact limits and the
 reliability guide for failure/backpressure rules.
+
+Busy award searches can borrow up to two idle ready accounts for disjoint quote
+assignments. Those helpers count toward the same global account-operation limit,
+never wait for nested capacity, and have bounded deadlines that reserve time for
+parent fallback. Each account keeps its own HTTP client, cookie jar, sticky proxy
+and server session. Helpers return validated parsed quotes, not form state, and
+cannot publish a subset into the full-query cache. The parent owns final result
+ordering, optional tax enrichment, conversion, history and caching.

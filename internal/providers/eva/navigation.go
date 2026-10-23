@@ -13,8 +13,6 @@ import (
 	"awarddesk/internal/session"
 )
 
-// Follow a small number of redirects inside EVA. Send forms once; return known
-// security pages to the caller, which decides how to continue safely.
 func navigate(ctx context.Context, c *session.Client, method, target string, values url.Values, from ...string) ([]byte, string, error) {
 	previous := LoginURL
 	if len(from) > 0 {
@@ -53,6 +51,9 @@ func navigate(ctx context.Context, c *session.Client, method, target string, val
 		var data []byte
 		res, data, err = c.Do(ctx, method, target, body, h)
 		if err != nil {
+			if res != nil && awardForwardResponse(res.StatusCode, target, data) {
+				return data, target, nil
+			}
 			if res != nil && (res.StatusCode == 403 || res.StatusCode == 428) && u.Host == "eservice.evaair.com" && (strings.EqualFold(u.Path, "/flyeva/eva/ffp/login.aspx") || strings.EqualFold(u.Path, "/flyeva/EVA/FFP/register-now.aspx")) && bytes.Contains(data, []byte(`name="sec_chlge_forward_wrap"`)) {
 				return data, target, nil
 			}

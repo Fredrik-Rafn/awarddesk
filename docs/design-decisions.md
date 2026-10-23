@@ -6,6 +6,11 @@ has been load-tested.
 
 | Decision | Why / benefit | Cost or limit | Alternative and when it helps |
 | --- | --- | --- | --- |
+| Award tickets by default; Miles & Cash optional | Real redemption availability and mileage are the main product; mode isolates cache/job identity | Two upstream protocols to maintain; their inventory and money fields have different meanings | Removing Miles & Cash would reduce scope but discard the existing independently useful flow |
+| Separate cash-derived tax estimates and dated USD conversion | Provide useful indicative fees without pretending they are verified award charges | Extra optional cash-fare requests; estimates can differ from actual award taxes | A funded award account could expose verified charges; unknown fees remain unavailable when no exact match is found |
+| Actual-party award check before per-person mileage | Checks whether the requested party can travel, then multiplies the quoted mileage by adults | Does not expose exact inventory or taxes; availability can change before booking | A supported party-level award pricing API if EVA exposes one |
+| Quote each distinct award itinerary | Connections and mixed cabins cannot safely inherit another flight's mileage | Each account's state transitions remain sequential | Exact recent quote recovery and bounded helpers on separate accounts reduce latency; never assume equal route mileage proves all quotes |
+| Opportunistic independent-account quote helpers | Price disjoint exact flights concurrently without sharing mutable booking state | Consumes spare global account capacity; helpers can fail and need serial fallback | Same-account goroutines would share EVA server state; cloning cookie jars does not isolate that state |
 | Go backend with goroutines | One deployable process; cheap concurrent network waits; cancellation through context | Goroutines do not remove upstream bottlenecks; locks and ownership still matter | Separate worker processes when isolation or multiple hosts are needed |
 | Embedded plain HTML/CSS/JS | go run . boots everything; no frontend toolchain/runtime needed | Larger hand-maintained scripts; source edits require restart/rebuild | A component framework/build pipeline when UI complexity merits it |
 | Request-based airline integration | Explicit state transitions, reusable connections, lower local resource use than a browser per search | Must track markup/security changes and exact state dependencies | Browser automation for unsupported flows, with higher memory/CPU and operational complexity |
@@ -17,7 +22,7 @@ has been load-tested.
 | Sticky identity per member session | Preserves egress identity; distinct saved IDs can overlap on one template | Residential peers disappear; fresh allocation still prefers unused templates | Distributed identity leases when multiple worker hosts are introduced |
 | Warm HTTP client plus saved member state | Reuses TLS connections and sometimes recent verification | Still needs IP checks/fresh booking context; memory-only optimization | Pool transports only across independently safe identities; never share cookie state |
 | Thirty-minute complete-result cache | Avoids repeated security/pricing work; cheap repeats | Fares can change during TTL; currently keyed per account and query | Shared normalized result cache with source/session-independent keys and explicit freshness policy |
-| Coalesce identical running queries | Prevents duplicate airline/solver work | Callers share job cancellation; works in one process only | Distributed single-flight and per-caller subscriptions/cancellation |
+| Coalesce identical running queries | Prevents duplicate airline/solver work; the UI can stop following without cancelling shared work | Explicit API cancellation still affects the shared job; works in one process only | Distributed single-flight and per-caller subscriptions/cancellation |
 | Sequential pricing inside a cart | PAGE_TICKET/session/recommendation state rotates | Each distinct fare group adds upstream latency | Independent booking carts per quote with a global cap, if proven correct and worth solver cost |
 | Group quote deduplication | One quote can populate multiple matching itinerary fares | Depends on stable recommendation identity | Stronger composite identity if upstream identifiers change |
 | One pricing work list and indexed quote recovery | Counting/execution share eligibility rules; recovered quotes avoid repeated scans | Matching must keep flight/fare/price boundaries exact | Reconsider keys if EVA changes recommendation semantics |
@@ -54,7 +59,7 @@ has been load-tested.
 
 ## Why pricing is still slow
 
-The dynamic catalogue call had a median of about 8.3 seconds in the recorded
+For the optional Miles & Cash flow, the dynamic catalogue call had a median of about 8.3 seconds in the recorded
 benchmark. A unique quote requires fare selection, travellers, catalogue and
 checkout preparation, plus availability refresh between groups. These are real
 upstream requests with dependent state. Local concurrency helps across accounts;
@@ -64,3 +69,17 @@ Avoiding the catalogue/checkout chain requires a verified alternate mileage
 calculation endpoint, not just deleting calls that appear expensive. Until then,
 deduplication, complete-result reuse and preauthenticated sessions are the safe
 speed improvements already used.
+
+Award search avoids that catalogue/checkout sequence. It still needs sequential
+fresh state for each flight's mileage quote within each independent account.
+Up to two idle accounts can quote other flights while the parent works, with the
+same shared capacity limit and parent fallback for missing quotes. Fresh positive
+parent availability evidence can avoid a duplicate helper check for 60 seconds;
+opaque forms and security payloads are never shared.
+
+Optional tax enrichment first reads reconciled cash-availability tax totals for
+all exact matching flights, falling back to individual FARE responses when needed.
+It shares a two-minute budget and does not run the Miles & Cash calculation.
+USD rates are shared and cached daily. Selection security is
+prepared only before a real submission, saving three Hyper calls on a wholly
+reused or unusable selection page without removing required protection rounds.

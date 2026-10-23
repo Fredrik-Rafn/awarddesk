@@ -9,7 +9,6 @@ import (
 	"awarddesk/internal/storage"
 )
 
-// Build the dashboard summary without returning account passwords or tokens.
 func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 	a := s.Admin
 	accounts, e := a.DB.Accounts()

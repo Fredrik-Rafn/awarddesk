@@ -1,0 +1,470 @@
+<!-- Sanitized response structure; all session state below is synthetic. -->
+<form action="./award-upgrade-availability.aspx" method="POST"><input name="__ZIPSTATE" value="fresh-test-state"><input name="ctl00$__MasterEVENTTARGET"><input name="ctl00$__MasterEVENTARGUMENT"><div id="mainContent">
+
+    <input type="hidden" name="ctl00$content$hid_Dep" id="content_hid_Dep" value="SIN"/>
+    <input type="hidden" name="ctl00$content$hid_Arr" id="content_hid_Arr" value="TPE"/>
+    <input type="hidden" name="ctl00$content$hid_From" id="content_hid_From" value="SIN"/>
+    <input type="hidden" name="ctl00$content$hid_To" id="content_hid_To" value="TPE"/>
+    <input type="hidden" name="ctl00$content$hid_Segment" id="content_hid_Segment" value="ONE_WAY"/>
+    <input type="hidden" name="ctl00$content$hid_SearchType" id="content_hid_SearchType" value="award"/>
+    <input type="hidden" name="ctl00$content$hid_InitGoDate" id="content_hid_InitGoDate" value="2026/11/25"/>
+    <input type="hidden" name="ctl00$content$hid_InitBackDate" id="content_hid_InitBackDate"/>
+    <main class="content">
+            <div class="editorA">
+                <h1 class="heading-h1 editorA-heading">
+                    Award/Upgrade Availability
+                </h1>
+                <div class="editor editorA-editor">
+                    <p>
+                        You&#39;ll be shown availability for EVA Air(BR) and UNI Air (B7) international flights only.
+                    </p>
+                </div>
+            </div>
+            <div class="fullWidth formBlock formBlock--large">
+                <div id="content_vds_Summary" class="js-validationSummary message message--error margin-b-3" tabindex="-1"></div>
+                <div class="form">
+
+                    <p class="form-note" aria-hidden="true">
+                        <strong class="form-required">*</strong>
+                        Mandatory Items
+                    </p>
+
+                    <div class="margin-b-4" role="group">
+                        <p class="form-label">
+                            Inquiry Function<strong class="form-required" aria-hidden="true">*</strong>
+                        </p>
+                        <div class="form-radioGroup js-radioTypeGroup">
+                            <div class="form-radio">
+                                <input value="award" name="ctl00$content$rbn_SearchType" type="radio" id="content_Radio_Award" class="form-inputRadio" aria-invalid="false" checked="checked"/>
+                                <label class="form-labelRadio" for="content_Radio_Award">
+                                    <span class="form-labelText">
+                                        Award Ticket
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="form-radio">
+                                <input value="upgrade" name="ctl00$content$rbn_SearchType" type="radio" id="content_Radio_Upgrade" class="form-inputRadio" aria-invalid="false"/>
+                                <label class="form-labelRadio" for="content_Radio_Upgrade">
+                                    <span class="form-labelText">
+                                        Upgrade Award
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="margin-b-4" role="group">
+                        <p class="form-label">
+                            Type of Trip<strong class="form-required" aria-hidden="true">*</strong>
+                        </p>
+                        <div class="form-radioGroup js-radioGroup">
+                            <div class="form-radio">
+                                <input value="ONE_WAY" name="ctl00$content$rbn_Segment" type="radio" id="content_Radio_OneWay" class="form-inputRadio" aria-invalid="false" checked="checked"/>
+                                <label class="form-labelRadio" for="content_Radio_OneWay">
+                                    <span class="form-labelText">
+                                        One Way
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="form-radio">
+                                <input value="ROUND_TRIP" name="ctl00$content$rbn_Segment" type="radio" id="content_Radio_RoundTrip" class="form-inputRadio" aria-invalid="false"/>
+                                <label class="form-labelRadio" for="content_Radio_RoundTrip">
+                                    <span class="form-labelText">
+                                        Round Trip
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-direction-column-sm margin-b-4 js-cityPair">
+                        <div class="col-6 col-sm-4 margin-r-6 margin-r-none-sm margin-b-4-sm">
+                            <label for="content_txt_formcity" class="form-label">
+                                From :<strong class="form-required" aria-hidden="true">*</strong>
+                            </label>
+                            <div class="flex form-flightSearch js-fieldGroup">
+                                <input name="ctl00$content$txt_formcity" type="text" value="SIN" maxlength="50" id="content_txt_formcity" class="form-inputText" aria-invalid="false" required="" data-required="Please select the departure city"/>
+                                <button type="button" class="btn btn--icon btn--icon--input" aria-label="Departure place selection" data-step="Please select a region,Please select an airport">
+                                    <svg class="btn-icon icon-flightSearch">
+                                        <use xlink:href="#icon-flightSearch"></use>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-combinator display-none">
+                            <button type="button" class="btn btn--icon" aria-label="Departure place and destination exchange">
+                                <svg class="btn-icon icon-fromtoSwitch">
+                                    <use xlink:href="#icon-fromtoSwitch"></use>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="col-6 col-sm-4">
+                            <label for="content_txt_tocity" class="form-label">
+                                To :<strong class="form-required" aria-hidden="true">*</strong>
+                            </label>
+                            <div class="flex form-flightSearch js-fieldGroup">
+                                <input name="ctl00$content$txt_tocity" type="text" value="TPE" maxlength="50" id="content_txt_tocity" aria-invalid="false" class="form-inputText" required="" data-required="Please select the destination city"/>
+                                <button type="button" class="btn btn--icon btn--icon--input" aria-label="Destination selection" data-step="Please select a region,Please select an airport">
+                                    <svg class="btn-icon icon-flightSearch">
+                                        <use xlink:href="#icon-flightSearch"></use>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-direction-column-sm margin-b-4 js-GoBack display-none">
+                        <div class="col-6 col-sm-4 margin-r-6 margin-r-none-sm margin-b-4-sm">
+                            <label for="content_txt_tbGoYYYYMM" class="form-label">
+                                Departure Date<strong class="form-required" aria-hidden="true">*</strong>
+                            </label>
+                            <input name="ctl00$content$txt_tbGoYYYYMM" type="date" id="content_txt_tbGoYYYYMM" class="form-inputText form-datepicker js-DateGo" aria-invalid="false" required="" data-required="Please select your travel date" value="2026-11-25" min="2026-10-24" max="2027-10-19"/>
+                        </div>
+                        <div class="col-6 col-sm-4" id="div_BackDate">
+                            <label for="content_txt_tbBackYYYYMM" class="form-label">
+                                Return Date<strong class="form-required" aria-hidden="true">*</strong>
+                            </label>
+                            <input name="ctl00$content$txt_tbBackYYYYMM" type="date" id="content_txt_tbBackYYYYMM" class="form-inputText form-datepicker js-DateBack" aria-invalid="false" required="" data-required="Please select your travel date" value="2026-11-25" min="2026-10-24" max="2027-10-19"/>
+                        </div>
+                    </div>
+
+                    <div class="margin-b-4 js-Go ">
+                        <label for="content_txt_tbGo2YYYYMM" class="form-label">
+                            Departure Date<strong class="form-required" aria-hidden="true">*</strong>
+                        </label>
+                        <input name="ctl00$content$txt_tbGo2YYYYMM" type="date" id="content_txt_tbGo2YYYYMM" class="form-inputText form-datepicker js-DateGo" aria-invalid="false" required="" data-required="Please select your travel date" value="2026-11-25" min="2026-10-24" max="2027-10-19"/>
+                    </div>
+
+                    <div class="margin-b-4 js_award_cabin">
+                         <label for="content_ddl_Award_Cabin" class="form-label">
+                             Class<strong class="form-required" aria-hidden="true">*</strong>
+                          </label>
+                          <div class="form-select">
+                              <select name="ctl00$content$ddl_Award_Cabin" id="content_ddl_Award_Cabin" class="form-inputSelect form-inputSelect--middle" aria-invalid="false">
+	<option selected="selected" value="EY">Economy</option>
+	<option value="PE">Premium Economy Class</option>
+	<option value="SD">Business Class/Royal Laurel Class/Premium Laurel Class</option>
+
+</select>
+                          </div>
+                    </div>
+
+                    <div class="margin-b-4 js_upgrade_cabin">
+                          <label for="content_ddl_Upgrade_Cabin" class="form-label">
+                             Travel class after upgrade<strong class="form-required" aria-hidden="true">*</strong>
+                          </label>
+                          <div class="form-select">
+                              <select name="ctl00$content$ddl_Upgrade_Cabin" id="content_ddl_Upgrade_Cabin" class="form-inputSelect form-inputSelect--middle" aria-invalid="false">
+	<option selected="selected" value="PE">Premium Economy Class</option>
+	<option value="SD">Business Class/Royal Laurel Class/Premium Laurel Class</option>
+
+</select>
+                          </div>
+                    </div>
+
+                    <div class="col-4 col-sm-4 margin-b-4-sm margin-r-6 margin-r-none-sm">
+                        <label for="content_ddl_PassengerCount" class="form-label">
+                            Passengers
+                            <strong class="form-required" aria-hidden="true">*</strong>
+                        </label>
+                        <div class="form-select">
+                            <select name="ctl00$content$ddl_PassengerCount" id="content_ddl_PassengerCount" class="form-inputSelect form-inputSelect--middle">
+	<option value="1">1</option>
+	<option value="2">2</option>
+	<option value="3">3</option>
+	<option selected="selected" value="4">4</option>
+	<option value="5">5</option>
+	<option value="6">6</option>
+
+</select>
+
+                        </div>
+                    </div>
+
+                    <div class="form-btnBlock">
+                        <button type="submit" name="ctl00$content$btn_ok" value="" id="content_btn_ok" class="btn btn--lg btn--green">Search</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="content_div_result2" class="fullWidth container-1 margin-b-2" tabindex="-1">
+
+
+
+<div class="editor margin-b-2 padding-x-6">
+    <p class="text-4 text-medium color-green">
+         25 Nov.2026
+        SINGAPORE(SIN)
+        →
+        TAIPEI (TPE)
+    </p>
+</div>
+<div class="flex flex-justifyContent-end flex-direction-column-sm flex-justifyContent-start-md margin-b-6 padding-x-6" aria-hidden="true">
+    <div class="display-inlineFlex flex-alignItems-start margin-r-4 margin-r-none-sm margin-b-4-sm">
+        <img class="icon icon-flightCompany margin-r-8" src="https://booking.evaair.com/flyeva/content/images/b2c/icon_rwd/BR.png" alt="Available"/><span>Available</span>
+    </div>
+    <div class="display-inlineFlex flex-alignItems-start margin-r-4 margin-r-none-sm margin-b-4-sm">
+        <img class="icon icon-flightCompany margin-r-8" src="https://booking.evaair.com/flyeva/content/images/b2c/icon_rwd/Triangle.png" alt="Ｗaiting"/><span>Ｗaiting</span>
+    </div>
+</div>
+<div id="content_control_Award_AvailabilityGO_div_Result" class="bg-gray-light padding-3 padding-b-none-md padding-4-md margin-b-3">
+    <table class="table table--large table--layoutFixed">
+        <thead class="table-content table-content--schedule table-content--schedule--head">
+            <tr class="col-12 display-block-md js-fixHide">
+                <th class="table-flightSegment table-flightSegment--head display-block-md" rowspan="4">
+                    <div class="flightSegment flightSegment--mini text-5 text-5-sm">
+                        <span class="sr-only">From</span>
+                        <div class="flightSegment-airport flightSegment-airport--mini">
+                            SINGAPORE(SIN)<span class="text-9 text-light display-block"></span>
+                        </div>
+                        <span class="sr-only">To</span>
+                        <div class="flightSegment-airport flightSegment-airport--mini">
+                            TAIPEI (TPE)<span class="text-9 text-light display-block"></span>
+                        </div>
+                    </div>
+                </th>
+                <td class="flex-item padding-b-4 display-block-md" colspan="7">
+
+                    <a href="javascript:;" class="btn btn--sm btn--transparent--green margin-x-none float-left">＜Previous Week</a>
+
+                    <a href="javascript:;" class="btn btn--sm btn--transparent--green margin-x-none float-right">Next Week＞</a>
+
+                </td>
+            </tr>
+
+            <tr class="col-12 display-flex-md js-date js-fixTarget" aria-hidden="true">
+                <td class="table-year clearfix" colspan="7">
+                    <span class="text-regular float-left">
+                         Nov.2026
+                    </span>
+
+
+                </td>
+            </tr>
+
+            <tr class="col-12 display-flex-md js-date" aria-hidden="true">
+
+                        <td class="table-day">
+                            22
+                        </td>
+
+                        <td class="table-day">
+                            23
+                        </td>
+
+                        <td class="table-day">
+                            24
+                        </td>
+
+                        <td class="table-day">
+                            25
+                        </td>
+
+                        <td class="table-day">
+                            26
+                        </td>
+
+                        <td class="table-day">
+                            27
+                        </td>
+
+                        <td class="table-day">
+                            28
+                        </td>
+
+            </tr>
+
+            <tr class="col-12 display-block-md js-date" aria-hidden="true">
+
+                        <td id="content_control_Award_AvailabilityGO_lv_WeekInfo_td_Week_0" class="table-week">
+                            Sun.
+                        </td>
+
+
+                        <td id="content_control_Award_AvailabilityGO_lv_WeekInfo_td_Week_1" class="table-week">
+                            Mon.
+                        </td>
+
+
+                        <td id="content_control_Award_AvailabilityGO_lv_WeekInfo_td_Week_2" class="table-week">
+                            Tue.
+                        </td>
+
+
+                        <td id="content_control_Award_AvailabilityGO_lv_WeekInfo_td_Week_3" class="table-week bg-orange">
+                            Wed.
+                        </td>
+
+
+                        <td id="content_control_Award_AvailabilityGO_lv_WeekInfo_td_Week_4" class="table-week">
+                            Thu.
+                        </td>
+
+
+                        <td id="content_control_Award_AvailabilityGO_lv_WeekInfo_td_Week_5" class="table-week">
+                            Fri.
+                        </td>
+
+
+                        <td id="content_control_Award_AvailabilityGO_lv_WeekInfo_td_Week_6" class="table-week">
+                            Sat.
+                        </td>
+
+
+            </tr>
+        </thead>
+        <tbody class="table-content table-content--schedule table-content--schedule--list">
+
+                    <tr class="table-dataRow table-dataRow--schedule clearfix">
+                        <th class="table-flightSegment table-flightSegment--detail table-data">
+                            <ul class="list list-none">
+
+
+                                        <li class="list-item">
+                                            <span class="table-flightNumber text-4 text-5-sm text-bold display-inlineBlock">
+                                                BR226
+                                            </span>SIN
+                                            <span class="text-4 text-5-sm text-bold margin-r-6 margin-l-8">
+                                                13:15
+                                            </span>TPE
+                                            <span class="text-4 text-5-sm text-bold margin-l-8">
+                                                17:50
+                                            </span>
+                                        </li>
+
+                            </ul>
+                        </th>
+
+
+                                <td id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_0_td_Day_0" class="table-day table-day--schedule table-data" aria-label=" 22 Nov.2026Sunday">
+                                    <img src="https://booking.evaair.com/flyeva/content/images/b2c/icon_rwd/Triangle.png" id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_0_img_Status_0" class="icon icon-flightCompany table-flightCompany" alt="Ｗaiting"/>
+                                </td>
+
+
+                                <td id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_0_td_Day_1" class="table-day table-day--schedule table-data" aria-label=" 23 Nov.2026Monday">
+                                    <img src="https://booking.evaair.com/flyeva/content/images/b2c/icon_rwd/Triangle.png" id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_0_img_Status_1" class="icon icon-flightCompany table-flightCompany" alt="Ｗaiting"/>
+                                </td>
+
+
+                                <td id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_0_td_Day_2" class="table-day table-day--schedule table-data" aria-label=" 24 Nov.2026Tuesday">
+                                    <img src="https://booking.evaair.com/flyeva/content/images/b2c/icon_rwd/Triangle.png" id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_0_img_Status_2" class="icon icon-flightCompany table-flightCompany" alt="Ｗaiting"/>
+                                </td>
+
+
+                                <td id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_0_td_Day_3" class="table-day table-day--schedule table-data bg-orange-light" aria-label=" 25 Nov.2026Wednesday">
+                                    <img src="https://booking.evaair.com/flyeva/content/images/b2c/icon_rwd/Triangle.png" id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_0_img_Status_3" class="icon icon-flightCompany table-flightCompany" alt="Ｗaiting"/>
+                                </td>
+
+
+                                <td id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_0_td_Day_4" class="table-day table-day--schedule table-data" aria-label=" 26 Nov.2026Thursday">
+                                    <img src="https://booking.evaair.com/flyeva/content/images/b2c/icon_rwd/Triangle.png" id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_0_img_Status_4" class="icon icon-flightCompany table-flightCompany" alt="Ｗaiting"/>
+                                </td>
+
+
+                                <td id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_0_td_Day_5" class="table-day table-day--schedule table-data" aria-label=" 27 Nov.2026Friday">
+                                    <img src="https://booking.evaair.com/flyeva/content/images/b2c/icon_rwd/Triangle.png" id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_0_img_Status_5" class="icon icon-flightCompany table-flightCompany" alt="Ｗaiting"/>
+                                </td>
+
+
+                                <td id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_0_td_Day_6" class="table-day table-day--schedule table-data" aria-label=" 28 Nov.2026Saturday">
+                                    <img src="https://booking.evaair.com/flyeva/content/images/b2c/icon_rwd/Triangle.png" id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_0_img_Status_6" class="icon icon-flightCompany table-flightCompany" alt="Ｗaiting"/>
+                                </td>
+
+
+                    </tr>
+
+                    <tr class="table-dataRow table-dataRow--schedule clearfix">
+                        <th class="table-flightSegment table-flightSegment--detail table-data">
+                            <ul class="list list-none">
+
+
+                                        <li class="list-item">
+                                            <span class="table-flightNumber text-4 text-5-sm text-bold display-inlineBlock">
+                                                BR216
+                                            </span>SIN
+                                            <span class="text-4 text-5-sm text-bold margin-r-6 margin-l-8">
+                                                15:45
+                                            </span>TPE
+                                            <span class="text-4 text-5-sm text-bold margin-l-8">
+                                                20:15
+                                            </span>
+                                        </li>
+
+                            </ul>
+                        </th>
+
+
+                                <td id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_1_td_Day_0" class="table-day table-day--schedule table-data" aria-label=" 22 Nov.2026Sunday">
+                                    <img src="https://booking.evaair.com/flyeva/content/images/b2c/icon_rwd/Triangle.png" id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_1_img_Status_0" class="icon icon-flightCompany table-flightCompany" alt="Ｗaiting"/>
+                                </td>
+
+
+                                <td id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_1_td_Day_1" class="table-day table-day--schedule table-data" aria-label=" 23 Nov.2026Monday">
+                                    <img src="https://booking.evaair.com/flyeva/content/images/b2c/icon_rwd/Triangle.png" id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_1_img_Status_1" class="icon icon-flightCompany table-flightCompany" alt="Ｗaiting"/>
+                                </td>
+
+
+                                <td id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_1_td_Day_2" class="table-day table-day--schedule table-data" aria-label=" 24 Nov.2026Tuesday">
+                                    <img src="https://booking.evaair.com/flyeva/content/images/b2c/icon_rwd/BR.png" id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_1_img_Status_2" class="icon icon-flightCompany table-flightCompany" alt="Available"/>
+                                </td>
+
+
+                                <td id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_1_td_Day_3" class="table-day table-day--schedule table-data bg-orange-light" aria-label=" 25 Nov.2026Wednesday">
+                                    <img src="https://booking.evaair.com/flyeva/content/images/b2c/icon_rwd/Triangle.png" id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_1_img_Status_3" class="icon icon-flightCompany table-flightCompany" alt="Ｗaiting"/>
+                                </td>
+
+
+                                <td id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_1_td_Day_4" class="table-day table-day--schedule table-data" aria-label=" 26 Nov.2026Thursday">
+                                    <img src="https://booking.evaair.com/flyeva/content/images/b2c/icon_rwd/Triangle.png" id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_1_img_Status_4" class="icon icon-flightCompany table-flightCompany" alt="Ｗaiting"/>
+                                </td>
+
+
+                                <td id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_1_td_Day_5" class="table-day table-day--schedule table-data" aria-label=" 27 Nov.2026Friday">
+                                    <img src="https://booking.evaair.com/flyeva/content/images/b2c/icon_rwd/Triangle.png" id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_1_img_Status_5" class="icon icon-flightCompany table-flightCompany" alt="Ｗaiting"/>
+                                </td>
+
+
+                                <td id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_1_td_Day_6" class="table-day table-day--schedule table-data" aria-label=" 28 Nov.2026Saturday">
+                                    <img src="https://booking.evaair.com/flyeva/content/images/b2c/icon_rwd/Triangle.png" id="content_control_Award_AvailabilityGO_lv_Schedule_lv_DetailDate_1_img_Status_6" class="icon icon-flightCompany table-flightCompany" alt="Ｗaiting"/>
+                                </td>
+
+
+                    </tr>
+
+        </tbody>
+    </table>
+</div>
+
+
+                <div id="content_div_Book" class="btnBlock btnBlock--right btnBlock--center--sm">
+
+                    <button type="submit" name="ctl00$content$btn_MakeAward" value="" id="content_btn_MakeAward" type="button" class="btn btn--lg btn--green btn--space margin-l-4 margin-r-4" data-track="Search and Award">Redeem a flight</button>
+
+
+
+
+                </div>
+            </div>
+
+            <div class="listTextNote listTextNote--gray">
+                <p class="listTextNote-title listTextNote-title--gray">
+                    Note
+                </p>
+                <div class="editor">
+                    <ul>
+                        <li>
+                            Flight information is subject to change at any time. Please refer to the final booking result to confirm whether the reservation is successful.
+                        </li>
+                        <li>
+                            All departure/arrival times shown are local times.
+                        </li>
+                        <li>
+                            +1… indicates number of days elapsed since departure.
+                        </li>
+                    </ul>
+
+                </div>
+            </div>
+        </main>
+
+        </div></form>

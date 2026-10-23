@@ -1,4 +1,3 @@
-// Package jobs runs bounded, cancellable searches without concurrent account use.
 package jobs
 
 import (
@@ -34,7 +33,6 @@ type Job struct {
 	runTimer   *time.Timer
 }
 
-// StageEvent records provider progress without credentials, headers or response bodies.
 type StageEvent struct {
 	At        time.Time       `json:"at"`
 	Stage     string          `json:"stage"`
@@ -88,8 +86,6 @@ func NewConcurrent(workers int, providers ...award.Provider) *Service {
 	return s
 }
 
-// Apply dispatch capacity live. Lowering the limit lets active operations finish
-// and delays new dispatches until capacity is available.
 func (s *Service) EnsureWorkers(limit int) {
 	if limit < 1 {
 		limit = 1
@@ -119,8 +115,6 @@ func (s *Service) Capabilities() []award.Capabilities {
 	return a
 }
 
-// Submit reuses an identical active search or a complete cache entry first.
-// Only new live work needs a queue slot and an available account.
 func (s *Service) Submit(q award.Query) (Job, error) {
 	if e := q.Validate(time.Now()); e != nil {
 		return Job{}, e
@@ -141,7 +135,7 @@ func (s *Service) Submit(q award.Query) (Job, error) {
 		return Job{}, e
 	}
 	id := hex.EncodeToString(b)
-	// Cache I/O must not hold the scheduler lock or block unrelated progress/cancel.
+
 	s.mu.Lock()
 	if s.ctx.Err() != nil {
 		s.mu.Unlock()
@@ -290,8 +284,6 @@ func (s *Service) work() {
 	}
 }
 
-// Run one claimed job. A cancelled or timed-out job keeps its final state even
-// if the provider returns later, so late progress cannot bring it back to life.
 func (s *Service) execute(id string) {
 	s.mu.Lock()
 	j := s.items[id]
@@ -324,6 +316,14 @@ func (s *Service) execute(id string) {
 		return
 	}
 	ctx, q := award.WithExecutionObserver(j.ctx, func() { s.started(id) }), j.Query
+	ctx = award.WithExecutionDeadlineSource(ctx, func() time.Time {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if j.StartedAt == nil {
+			return time.Time{}
+		}
+		return j.StartedAt.Add(s.runBudget)
+	})
 	s.mu.Unlock()
 	if deferred, ok := s.providers[q.Provider].(interface{ DefersExecutionStart() bool }); !ok || !deferred.DefersExecutionStart() {
 		s.started(id)
@@ -357,8 +357,7 @@ func (s *Service) execute(id string) {
 		slog.Info("search finished", "id", j.ID, "provider", q.Provider, "status", j.Status, "errorCode", code, "elapsed", time.Since(j.CreatedAt).Round(time.Second))
 	}()
 	if err != nil {
-		// Keep validated flight data and any finished quotes when a later
-		// pricing step fails. The job remains failed, never a full success.
+
 		if len(result.Itineraries) > 0 {
 			result.Complete = false
 			j.Result = &result
@@ -391,7 +390,6 @@ func managesCooldowns(p award.Provider) bool {
 	return ok && v.ManagesCooldowns()
 }
 
-// Persistence is attached before HTTP serving. Interrupted jobs never replay checkout.
 func (s *Service) SetPersistence(p Persistence) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

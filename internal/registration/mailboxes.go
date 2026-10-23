@@ -12,8 +12,6 @@ type Mailbox struct{ Email, ClientID, RefreshToken string }
 
 var uuid = regexp.MustCompile(`^[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}$`)
 
-// Passwords in the colon format are accepted but not retained or used: Outlook
-// access uses OAuth2 exclusively. Never include raw input in validation errors.
 func ParseMailboxes(text string) ([]Mailbox, error) {
 	var result []Mailbox
 	seen := map[string]bool{}

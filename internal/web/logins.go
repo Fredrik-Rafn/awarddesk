@@ -2,8 +2,6 @@ package web
 
 import "net/http"
 
-// loginRoutes exposes the bounded EVA preparation check. Fleet maintenance owns
-// automatic refresh and per-account recovery.
 func (s *Server) loginRoutes(mux *http.ServeMux) {
 	service := s.EVALogin
 	mux.HandleFunc("GET /api/logins/eva", func(w http.ResponseWriter, r *http.Request) {

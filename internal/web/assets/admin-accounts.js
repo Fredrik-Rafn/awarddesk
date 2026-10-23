@@ -252,7 +252,7 @@ function renderAccounts(data) {
         if (row.children[cellIndex]) row.children[cellIndex].replaceWith(td);
         else row.append(td);
       });
-      // Retry replacing controls after focus leaves, while status cells stay live.
+
       if (!focused) row.dataset.snapshot = next;
     }
     if (body.children[index] !== row)

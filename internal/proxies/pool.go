@@ -1,4 +1,3 @@
-// Package proxies leases one endpoint for an entire login, never per request.
 package proxies
 
 import (
@@ -53,7 +52,6 @@ type Lease struct {
 	once     sync.Once
 }
 
-// Release quarantines transport failures briefly. It is safe to call twice.
 func (l *Lease) Release(failed bool) { l.once.Do(func() { l.release(failed) }) }
 
 func New(path string) (*Pool, error) {
@@ -65,8 +63,6 @@ func New(path string) (*Pool, error) {
 }
 func (p *Pool) Count() int { p.mu.Lock(); defer p.mu.Unlock(); return len(p.entries) }
 
-// reload runs under the pool lock after initialization. Live leases survive
-// edits/removals; invalid replacement files fail closed without leaking lines.
 func (p *Pool) reload() error {
 	if p.source != nil {
 		if len(p.entries) > 0 && time.Since(p.sourceChecked) < time.Second {
@@ -135,7 +131,7 @@ func (p *Pool) apply(data []byte) error {
 			return fmt.Errorf("invalid proxy on line %d", i+1)
 		}
 		u, _ := url.Parse(value)
-		// This integration requires Evomi's strict no-IP-replacement mode.
+
 		if !strings.HasSuffix(u.Hostname(), ".evomi.com") || u.User == nil {
 			return fmt.Errorf("line %d must be an authenticated Evomi endpoint", i+1)
 		}
@@ -171,13 +167,11 @@ func lockedURL(raw string) (string, error) {
 	}
 	pass, _ := u.User.Password()
 	pass = sessionTag.ReplaceAllString(pass, "_lockedsession-"+hex.EncodeToString(b))
-	pass = lifetimeTag.ReplaceAllString(pass, "") // lifetime does not apply to locked sessions.
+	pass = lifetimeTag.ReplaceAllString(pass, "")
 	u.User = url.UserPassword(u.User.Username(), pass)
 	return u.String(), nil
 }
 
-// Acquire is bounded and nonblocking; no goroutine queue accumulates here.
-// Each new lease gets a fresh 10-character ID. All requests use its exact URL.
 func (p *Pool) Acquire(ctx context.Context) (*Lease, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -203,8 +197,6 @@ func (p *Pool) Acquire(ctx context.Context) (*Lease, error) {
 	return nil, ErrUnavailable
 }
 
-// WaitResume waits for a busy/cooling original slot without changing the saved
-// identity or replaying any airline request. The caller bounds the queue time.
 func (p *Pool) WaitResume(ctx context.Context, template, raw string) (*Lease, error) {
 	for {
 		p.mu.Lock()
@@ -229,8 +221,6 @@ func (p *Pool) WaitResume(ctx context.Context, template, raw string) (*Lease, er
 	}
 }
 
-// Resume reserves the original pool slot without generating another session ID.
-// A removed/changed endpoint cannot be used to restore an old airline session.
 func (p *Pool) Resume(ctx context.Context, template, raw string) (*Lease, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -276,9 +266,6 @@ func (p *Pool) Resume(ctx context.Context, template, raw string) (*Lease, error)
 	return nil, ErrRemoved
 }
 
-// Exclusivity belongs to the actual sticky identity, not its export template.
-// Fresh allocation still prefers an unused template; saved independent sessions
-// may run together without changing either session's proxy or cookies.
 func (p *Pool) leaseLocked(e *entry, raw string, fresh bool) *Lease {
 	if p.sticky == nil {
 		p.sticky = make(map[string]*stickyState)

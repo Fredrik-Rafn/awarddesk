@@ -1,5 +1,8 @@
 # EVA reliability — 21 October 2026
 
+These historical measurements concern Miles & Cash. For current award-ticket
+validation, see [verification status](verification-status.md).
+
 Live sequential searches through the local website API, one configured EVA account,
 sticky residential proxy, Hyper preferred for booking security, AnySolver fallback.
 Every query used refresh=true: no result-cache hits. The baseline had normal background

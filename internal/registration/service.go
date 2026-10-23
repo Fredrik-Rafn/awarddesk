@@ -1,5 +1,3 @@
-// Package registration owns durable bulk EVA onboarding. Secrets and provider
-// checkpoints stay in SQLite; the public view contains progress only.
 package registration
 
 import (
@@ -197,8 +195,6 @@ func (s *Service) Import(text string) (ImportResult, error) {
 	return result, nil
 }
 
-// Current reads only this browser page's explicitly submitted batch. Durable
-// recovery records remain private even when the transient progress UI is gone.
 func (s *Service) Current(ids []string) ([]Summary, error) {
 	if len(ids) == 0 || len(ids) > 500 {
 		return nil, errors.New("Invalid account creation batch")
@@ -293,8 +289,6 @@ func (s *Service) RefreshWorkers() {
 	}
 }
 
-// Background login preparation can recover after the onboarding worker has
-// finished. Reflect that verified session without creating/logging in again.
 func (s *Service) syncReady(states []fleet.Status) {
 	ready := map[string]bool{}
 	for _, state := range states {
@@ -447,7 +441,6 @@ func (s *Service) create(ctx context.Context, r *request, report award.Reporter)
 	return s.fleet.Prepare(ctx, r.AccountID, report, true)
 }
 
-// RetryAll queues resumable setups without resetting memberships or uncertain submissions.
 func (s *Service) RetryAll() ([]string, int, error) {
 	rows, err := s.db.DB.Query("SELECT id FROM registrations WHERE json_extract(data,'$.status') IN ('attention','failed')")
 	if err != nil {
@@ -513,9 +506,6 @@ func (s *Service) Retry(id string) error {
 	return nil
 }
 
-// Restart requires explicit confirmation and an expired, unverified checkpoint.
-// Archive the complete prior attempt atomically; never reset a known membership
-// or a verification submission whose outcome is uncertain.
 func (s *Service) Restart(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

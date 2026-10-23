@@ -1,7 +1,7 @@
 "use strict";
-// A token rejection happens in the server middleware before any action runs.
-// Only that explicit response may refresh the token and replay once. Network
-// failures, provider errors and all other responses are never replayed here.
+
+
+
 const workspaceHTTP = (() => {
   let token = "",
     refresh;

@@ -29,14 +29,21 @@
       </section>
       <section
         class="search-panel flight-search-panel"
-        aria-label="Search award flights"
+        aria-label="Search EVA flights"
       >
         <div class="panel-top">
           <select class="program" id="provider" aria-label="Award program">
-            <option value="eva">EVA Air · Miles &amp; Cash</option></select
+            <option value="eva">EVA Air · Infinity MileageLands</option></select
           ><span>One way</span>
         </div>
         <form id="search">
+          <div class="field search-mode-field">
+            <label for="search-mode">Search mode</label>
+            <select id="search-mode">
+              <option value="award" selected>Award tickets</option>
+              <option value="">Miles &amp; Cash</option>
+            </select>
+          </div>
           <div class="route-grid">
             <div class="field airport">
               <label for="origin">From</label
@@ -151,7 +158,7 @@
           ></small>
         </div>
         <button id="cancel" class="secondary" type="button">
-          Cancel search
+          Stop following search
         </button>
       </section>
       <div
@@ -189,7 +196,7 @@
           ><label
             >Sort
             <select id="sort">
-              <option value="points">Lowest points</option>
+              <option value="points">Lowest miles</option>
               <option value="departure">Earliest departure</option>
             </select></label
           >

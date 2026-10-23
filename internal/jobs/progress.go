@@ -6,8 +6,6 @@ import (
 	"awarddesk/internal/award"
 )
 
-// Save a progress update as a snapshot. Copy previews and recovery details so
-// the provider can keep working without changing what readers already see.
 func (s *Service) reportProgress(id string, p award.Progress) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

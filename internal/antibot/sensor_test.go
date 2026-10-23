@@ -30,7 +30,7 @@ func TestResolveSensorScriptCoexistingChallenges(t *testing.T) {
 	calls := 0
 	path, err := resolveSensorScript(body, func([]byte) ([]byte, error) {
 		calls++
-		// The refreshed page may still advertise SBSD. It must not recurse.
+
 		return []byte(`<script type="text/javascript" nonce="fixture" src="/fresh"></script><script src="/secondary?v=00000000-0000-0000-0000-000000000002"></script>`), nil
 	})
 	if err != nil || path != "/fresh" || calls != 1 {

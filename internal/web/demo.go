@@ -14,8 +14,6 @@ import (
 
 var publicHostname = regexp.MustCompile(`^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
 
-// ConfigureDemo is startup configuration, not a live settings change. Accept
-// exactly one public HTTPS address; never accept arbitrary forwarded hostnames.
 func (s *Server) ConfigureDemo(address, password string) error {
 	if address == "" {
 		return nil
@@ -39,8 +37,6 @@ func (s *Server) ConfigureDemo(address, password string) error {
 	return nil
 }
 
-// Check the real Host header. Forwarding headers cannot turn a public request
-// into a trusted localhost request or grant access to admin operations.
 func (s *Server) accessOrigin(w http.ResponseWriter, r *http.Request) (string, bool) {
 	u, err := url.Parse("http://" + r.Host)
 	if err != nil || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {

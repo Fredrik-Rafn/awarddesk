@@ -5,9 +5,6 @@ import (
 	"time"
 )
 
-// EVAID supplies a member-cookie deadline. The Amadeus booking page's separate
-// 600-second timeout is not the member login lifetime. A cookie deadline is an
-// upper bound, not a promise: EVA may invalidate a login earlier server-side.
 func (p *Provider) expiry(s cached) (time.Time, string) {
 	age := p.config.SessionMaxAge
 	if age <= 5*time.Minute {

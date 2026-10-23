@@ -14,9 +14,6 @@ type searchRenewal struct{ cause error }
 func (e *searchRenewal) Error() string { return e.cause.Error() }
 func (e *searchRenewal) Unwrap() error { return e.cause }
 
-// Reopen the booking form with the same authenticated client and sticky proxy.
-// An explicit rejection before pricing is safe to restart; uncertain requests,
-// credential/OTP submissions, solver outages and price preparation are not.
 func retrySearchPreparation(ctx context.Context, run func() (string, error), report award.Reporter) error {
 	for attempt := 0; ; attempt++ {
 		if err := ctx.Err(); err != nil {
@@ -62,8 +59,6 @@ func canRenewSearch(stage string, err error) bool {
 type bookingSolver func(context.Context, string, []byte) error
 type bookingForward func(context.Context, string, url.Values, string) ([]byte, string, error)
 
-// Only continue a request explicitly intercepted by Imperva. Never replay the
-// original SSO request, a credential submission, or a pricing operation here.
 func completeBookingSecurity(ctx context.Context, body []byte, target string, solve bookingSolver, forward bookingForward, progress func(string, string)) ([]byte, string, error) {
 	for attempt := 0; bytes.Contains(body, []byte("Pardon Our Interruption")) || bytes.Contains(body, []byte("reese84-resubmit-data")); attempt++ {
 		if err := ctx.Err(); err != nil {

@@ -184,7 +184,7 @@ section {
   }
 }
 
-/* Operations dashboard */
+
 header,
 main,
 footer {
@@ -1075,7 +1075,7 @@ input:focus-visible {
   }
 }
 
-/* Readable setting groups and accessible binary controls. */
+
 .settings-group {
   border: 1px solid #e9ebf2;
   border-radius: 14px;
@@ -1270,7 +1270,7 @@ input:focus-visible {
   margin: 16px 0;
 }
 
-/* Account operations: real fleet totals, focused filters and incremental rows. */
+
 .account-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1760,7 +1760,7 @@ input:focus-visible {
   }
 }
 
-/* Action feedback remains visible without disturbing the workspace layout. */
+
 .admin-content > [data-view] {
   animation: surface-arrive 0.18s ease-out;
 }

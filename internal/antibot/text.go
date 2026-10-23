@@ -12,7 +12,6 @@ import (
 
 var imageAnswer = regexp.MustCompile(`^[A-Za-z0-9]{4,12}$`)
 
-// SolveText sends only the CAPTCHA image, never the surrounding login form.
 func (a AnySolver) SolveText(ctx context.Context, page string, image []byte) (string, error) {
 	if len(image) == 0 || len(image) > 512*1024 {
 		return "", errors.New("CAPTCHA image has invalid size")

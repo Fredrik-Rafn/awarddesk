@@ -11,9 +11,6 @@ import (
 	"awarddesk/internal/award"
 )
 
-// The primary traveller must be the authenticated member. Other adult slots use
-// synthetic profiles for this aggregation-only quotation flow. These are never
-// ticketed; no payment details or ticketing endpoints are used.
 func travellerValues(page pageData, q award.Query) (url.Values, error) {
 	var list struct {
 		Travellers []struct {
@@ -92,8 +89,6 @@ func advancePage(previous, next pageData) (pageData, error) {
 	return next, nil
 }
 
-// ACTION=BOOK is the user-authorized price-preparation step captured in the
-// HAR. This adapter never sends payment details or calls ticketing endpoints.
 func checkoutQuote(ctx context.Context, c pricingClient, page pageData, q award.Query) (pageData, error) {
 	v := ajaxContext(page)
 	v.Set("FROM_PAX", "false")

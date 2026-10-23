@@ -31,9 +31,6 @@ func (s *Store) CachePolicy() (CachePolicy, error) {
 
 const cacheAllowedSQL = `COALESCE((SELECT value FROM settings WHERE key='FLIGHT_CACHE_ENABLED'),'true')<>'false' AND COALESCE((SELECT value FROM settings WHERE key='EVA_RESULT_CACHE_TTL'),'30m') NOT IN ('0s','0','0m','0h')`
 
-// Policy and deletion commit together. The cache write path checks the same
-// setting in its INSERT statement, so an already-running search cannot repopulate
-// the cache after it has been switched off. Job history is never deleted.
 func (s *Store) ApplySettings(values map[string]string, confirmed bool) error {
 	disabling := values["FLIGHT_CACHE_ENABLED"] == "false"
 	if raw, ok := values["EVA_RESULT_CACHE_TTL"]; ok {

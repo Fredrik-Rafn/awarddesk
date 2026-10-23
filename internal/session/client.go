@@ -1,4 +1,3 @@
-// Package session owns isolated browser-like HTTP sessions and request limits.
 package session
 
 import (
@@ -20,16 +19,9 @@ import (
 	"awarddesk/internal/award"
 )
 
-// Keep the HTTP identity shared with solver inputs and browser diagnostics.
-// On 2026-10-20 the installed Chrome 155 and Chrome_152 transport profile
-// produced identical JA4/JA4_r and HTTP/2 fingerprints on a direct connection.
-// A profile name is not proof of equivalence; rerun the opt-in transport probe
-// when changing the library or browser version.
 const UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
 const Language = "en-GB,en;q=0.9"
 
-// Client belongs to exactly one search runner. Its request counter and cookie
-// state are deliberately not shared between workers or used concurrently.
 type Client struct {
 	http             tlsclient.HttpClient
 	hosts            map[string]bool
@@ -49,8 +41,6 @@ func New(proxy string, hosts []string) (*Client, error) {
 	return NewWithTimeout(proxy, hosts, 40*time.Second)
 }
 
-// NewWithTimeout sets the transport ceiling. Ordinary requests retain their
-// 40-second bound; a provider can explicitly allow a slower pricing operation.
 func NewWithTimeout(proxy string, hosts []string, timeout time.Duration) (*Client, error) {
 	if timeout < time.Second || timeout > 2*time.Minute {
 		return nil, errors.New("invalid HTTP transport timeout")
@@ -80,11 +70,8 @@ func NewWithTimeout(proxy string, hosts []string, timeout time.Duration) (*Clien
 }
 func (c *Client) UserAgent() string { return c.userAgent }
 
-// BeginOperation resets only the request budget. The owner must hold exclusive
-// access; cookies, connections and the immutable HTTP identity remain unchanged.
 func (c *Client) BeginOperation() { c.count = 0 }
 
-// PinEgressIP checks a proxy's observed identity without exposing the IP.
 func (c *Client) PinEgressIP(value string) error {
 	ip := net.ParseIP(value)
 	if ip == nil {
@@ -97,9 +84,6 @@ func (c *Client) PinEgressIP(value string) error {
 	return nil
 }
 
-// SetUserAgent selects an HTTP identity before the first request. Changing it
-// within an established cookie session is forbidden. This does not change the
-// TLS profile; callers must validate transport compatibility separately.
 func (c *Client) SetUserAgent(value string) error {
 	if c.started || c.count != 0 {
 		return errors.New("cannot change user-agent after session initialization")
@@ -146,8 +130,7 @@ func Headers(extra http.Header) http.Header {
 	h[http.PHeaderOrderKey] = []string{":method", ":authority", ":scheme", ":path"}
 	h[http.HeaderOrderKey] = []string{"content-length", "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform", "upgrade-insecure-requests", "user-agent", "accept", "authorization", "origin", "content-type", "x-xsrf-token", "sec-fetch-site", "sec-fetch-mode", "sec-fetch-user", "sec-fetch-dest", "referer", "accept-encoding", "accept-language", "cookie", "priority"}
 	if mode := h["sec-fetch-mode"]; len(mode) > 0 && mode[0] == "navigate" {
-		// Observed on a Chrome 155 form POST at an HTTP/2 echo endpoint.
-		// HAR exports alphabetize headers and cannot establish wire order.
+
 		h[http.HeaderOrderKey] = []string{"content-length", "cache-control", "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform", "upgrade-insecure-requests", "content-type", "user-agent", "origin", "accept", "sec-fetch-site", "sec-fetch-mode", "sec-fetch-user", "sec-fetch-dest", "referer", "accept-encoding", "accept-language", "cookie", "priority"}
 	}
 	return h
@@ -168,7 +151,7 @@ func (c *Client) DoWithTimeout(ctx context.Context, method, raw string, body io.
 	if e != nil || u.Scheme != "https" || u.User != nil || !c.hosts[u.Host] {
 		return nil, nil, award.Failure("unsafe_destination", "unexpected destination in provider flow")
 	}
-	// Only idempotent GETs retry, once, on transient transport/5xx failures.
+
 	tries := 1
 	if method == "GET" {
 		tries = 2
@@ -251,8 +234,7 @@ func (c *Client) DoWithTimeout(ctx context.Context, method, raw string, body io.
 			return res, b, &award.Error{Code: "authentication", Message: "provider rejected the session (HTTP " + strconv.Itoa(res.StatusCode) + ")", HTTPStatus: res.StatusCode}
 		}
 		if res.StatusCode >= 400 {
-			// Keep the bounded response in memory for provider-specific error
-			// classification. Never serialize or log its contents.
+
 			return res, b, &award.Error{Code: "provider_http", Message: "provider returned HTTP " + strconv.Itoa(res.StatusCode), HTTPStatus: res.StatusCode}
 		}
 		return res, b, nil
@@ -260,8 +242,6 @@ func (c *Client) DoWithTimeout(ctx context.Context, method, raw string, body io.
 	return nil, nil, errors.New("request attempts exhausted")
 }
 
-// Preserve useful failure categories without returning upstream URLs, proxy
-// passwords, response bodies, or raw transport error strings.
 func transportFailure(err error) error {
 	var timeout net.Error
 	if errors.As(err, &timeout) && timeout.Timeout() {

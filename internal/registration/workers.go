@@ -2,8 +2,6 @@ package registration
 
 import "encoding/json"
 
-// Call with mu held. Wake every waiting worker after new work or a limit change.
-// Replacing the channel lets the next group of idle workers wait again.
 func (s *Service) notifyLocked() {
 	close(s.changed)
 	s.changed = make(chan struct{})
@@ -17,8 +15,6 @@ func (s *Service) Close() {
 	s.wg.Wait()
 }
 
-// Claim one row while holding mu, so two workers cannot start the same signup.
-// Return the wake channel under the same lock to avoid missing a new import.
 func (s *Service) next(index int) (request, <-chan struct{}, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -50,8 +46,7 @@ func (s *Service) worker(index int) {
 			s.run(r)
 			continue
 		}
-		// Imports/retries wake us immediately. The existing 15-second upkeep
-		// tick also wakes us, so a temporary database failure can recover.
+
 		select {
 		case <-s.ctx.Done():
 			return

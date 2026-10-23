@@ -14,9 +14,12 @@ behavior; [capacity and scaling](capacity.md) labels future work separately.
 5. [fleet/fleet.go](../internal/fleet/fleet.go): follow Search, claim and outcome.
 6. [eva/login.go](../internal/providers/eva/login.go): follow withSession,
    sessionAttempts and ensureLocked.
-7. [eva/search.go](../internal/providers/eva/search.go): follow searchLive.
-8. [eva/pricing.go](../internal/providers/eva/pricing.go) and
-   [checkout.go](../internal/providers/eva/checkout.go): follow one fare quote.
+7. [eva/search.go](../internal/providers/eva/search.go): follow Search into
+   searchAwardWithTaxes, then [award_search.go](../internal/providers/eva/award_search.go).
+8. [award_parallel.go](../internal/providers/eva/award_parallel.go),
+   [award_taxes.go](../internal/providers/eva/award_taxes.go) and
+   [exchange.go](../internal/exchange/exchange.go): follow parallel mileage,
+   optional tax estimates and USD conversion.
 9. Return to storage, maintenance, registration and the frontend with that path
    in mind. Use [design decisions](design-decisions.md) to understand the tradeoffs.
 
@@ -44,202 +47,228 @@ not EVA accounts, registration history or search history.
 
 ## Flight search, end to end
 
-### 1. Browser submission
+The main page starts in **Award tickets** mode and sends `mode: "award"`.
+**Miles & Cash** remains a secondary option. For backwards compatibility, an API
+query with an empty mode still selects Miles & Cash; API callers wanting award
+prices must send the award mode explicitly.
 
-[app.js](../internal/web/assets/app.js), the search form submit handler, builds a
-query containing provider=eva, origin, destination, date, cabin and adult count.
-[http.js](../internal/web/assets/http.js) sends JSON with the current request token.
+### 1. Browser and HTTP boundary
 
-The normal UI uses the result cache. The API can set refresh=true for a live
-request. Validation requires different three-letter airports, a date from today
-through one year ahead, supported cabin and 1–9 adults. Only one-way is implemented.
-The airport directory supplies suggestions; it does not prove route service.
+[app.js](../internal/web/assets/app.js) builds provider, mode, route, date, cabin,
+adult count and refresh fields. [http.js](../internal/web/assets/http.js) sends
+JSON with the current request token. [server.go](../internal/web/server.go) checks
+Host, Origin, token, body size, JSON shape and query before submitting a job.
 
-### 2. Local HTTP boundary
+Award queries support 1–6 adults and dates from today through 360 days ahead.
+Miles & Cash supports 1–9 adults through one year ahead. Both support one-way
+routes in economy, premium economy and business; infants, children, round trips
+and first class are unsupported. Airport suggestions do not prove route service.
 
-[server.go](../internal/web/server.go), Handler and submit, validates Host, Origin,
-request token, JSON shape and query. It passes the request to jobs.Submit and
-returns a job ID; the browser does not hold an HTTP request open for all pricing.
+A stale token receives one browser refresh/retry only after an explicit middleware
+rejection before the action. Network errors do not authorize mutation replay.
 
-A stale token gets one explicit token-refresh retry in the browser only when
-middleware rejected it before the action. An ordinary timeout is not proof a
-mutation failed, so it is not automatically replayed.
+### 2. Job, cache and capacity
 
-### 3. Deduplication, cache and queue
+[jobs/service.go](../internal/jobs/service.go), Submit, coalesces identical active
+queries and checks complete result caches before admitting live work. The browser
+receives a job ID immediately and polls instead of keeping a pricing HTTP request
+open. The API can set `refresh: true` to bypass the result cache.
 
-[jobs/service.go](../internal/jobs/service.go), Submit:
+[queue.go](../internal/jobs/queue.go) admits at most 1,024 queued jobs, with a
+30-minute wait budget. The 15-minute execution budget begins when the fleet first
+claims an account; failovers share the remaining time. The logical execution
+deadline also lets quotation helpers reserve time for primary-account fallback.
+The concurrency setting applies live and is shared with account preparation and
+registration. Lowering it lets active work drain.
 
-- Coalesce an identical queued/running Query, including its refresh flag.
-- Ask the fleet for a complete valid cache result before entering live queues.
-- Otherwise create a cancellable job with a 30-minute capacity-wait budget.
-- Admit at most 1,024 queued searches into a FIFO. Cancellation removes queued
-  entries immediately. Finished snapshots have a separate hot-memory bound (256
-  with persistence, 1,000 without); their permanent database history remains.
-- Flush the accepted snapshot before dispatch, outside the scheduler lock.
-- Start the separate 15-minute execution budget when the fleet claims an account,
-  rather than while waiting for an account. Later failovers share that budget.
-- Apply increased or decreased concurrency live; lowering it drains active work.
+[result_cache.go](../internal/providers/eva/result_cache.go) keys results by account
+configuration and the full query, including mode and passenger count. Refresh is
+normalized away in cache identity. Only complete successful results, including
+recognized empty availability, are cached. Default TTL is 30 minutes from the
+availability check, not final pricing. Disabling caching clears temporary entries
+and blocks late writes; permanent search history remains.
 
-See [queue.go](../internal/jobs/queue.go) for admission/timers and
-[persistence.go](../internal/jobs/persistence.go) for the history writer. Cache
-lookup and historical database reads also run outside the scheduler mutex.
+### 3. Claim an account and restore its session
 
-Cache identity includes account configuration and query, with refresh normalized
-away for the cache key. A fleet cache lookup visits configured accounts. Default
-TTL is 30 minutes from availability retrieval, not from final pricing completion.
-Only complete successful results are cached, including recognized empty results.
-Failed/partial results are not cached. SQLite cache cleanup limits entries to 1,000.
+[fleet/fleet.go](../internal/fleet/fleet.go), claim, excludes disabled, incomplete,
+cooling and attention-paused accounts. It prefers ready snapshots, then the least
+recently used account. An OS account lock and an in-process busy flag prevent
+concurrent mutations of one account. When eligible accounts are temporarily busy
+or cooling, claim waits within the capacity deadline.
 
-Read [result_cache.go](../internal/providers/eva/result_cache.go),
-[cache_policy.go](../internal/storage/cache_policy.go) and fleet.CachedSearch.
-Disabling caching clears temporary results immediately and blocks late cache
-writes from in-flight searches; permanent job history remains.
+[login.go](../internal/providers/eva/login.go), withSession and ensureLocked,
+restore portable cookies, browser identity and the original sticky proxy. The
+provider verifies egress IP and member authentication. A retained exclusive client
+may reuse member verification for two minutes; five minutes idle, changed state,
+failure or shutdown discards it. Prepare always verifies. Session expiry is the
+earlier of EVA's cookie deadline and configured age, minus five minutes; default
+maximum age is three hours. Renewal follows the login/OTP rules below.
 
-### 4. Choose and lease an account
+### 4. Check actual-party award inventory
 
-[fleet.go](../internal/fleet/fleet.go), Search and claim:
+[search.go](../internal/providers/eva/search.go), Search, selects
+searchAwardWithTaxes for award mode. [award_search.go](../internal/providers/eva/award_search.go)
+then calls [award_party_evidence.go](../internal/providers/eva/award_party_evidence.go),
+loadAwardPartyAvailability:
 
-1. Exclude disabled, incompletely configured, cooling or attention-paused accounts.
-2. Respect the shared active-operation ceiling, including registration leases.
-3. Prefer a locally valid saved member snapshot.
-4. Among equally ready candidates, prefer the account least recently used.
-5. Acquire the account's OS state lock and mark its in-process entry busy.
-6. Keep ownership through the entire search; release exactly once.
+1. GET the weekly award-availability form and prepare its current security state.
+2. POST the requested route, date, cabin and actual adult count with fresh hidden fields.
+3. Confirm the echoed query and parse the requested date's availability icons.
 
-When eligible accounts are busy or temporarily cooling down, claim waits for a
-release/configuration notification, with a one-second fallback for retry deadlines
-and external changes. The 30-minute capacity budget bounds this wait. If every
-account is disabled, incomplete or attention-paused, it returns accounts_unavailable.
-Runtime statuses are read in one database query; small settings reads exclude the
-large proxy list. Actual sticky identities, rather than whole templates, own
-resumed proxy leases, so independent saved sessions can overlap.
+Only positive availability qualifies. Waiting and known unavailable entries are
+excluded. Unfamiliar status data remains a diagnosed protocol error rather than
+being treated as available or silently hidden. Recognized empty availability is a
+complete result and skips mileage and tax quotation entirely.
 
-Up to three different accounts may be tried for recognized safe preparation
-failures. safeFailover excludes uncertain outcomes, credential/OTP/pricing stages,
-and failover stops once partial itineraries exist. Account switching is not a
-universal retry of every failed search.
+`availableFor` records the checked party size, not an exact remaining-seat count.
+The availability check does not create or confirm a reservation.
 
-### 5. Restore or create member login
+### 5. Discover exact bookable itineraries
 
-Provider.Search wraps cache handling and calls searchLive.
-searchLive uses [login.go](../internal/providers/eva/login.go), withSession:
+[award_itinerary.go](../internal/providers/eva/award_itinerary.go), loadAwardJourneys,
+opens select-itinerary.aspx, supplies route/cabin/date using EVA's airport metadata,
+and follows its fresh Parameter handoff to select-first-journey.aspx.
+[award_pricing.go](../internal/providers/eva/award_pricing.go) matches positive
+inventory to full flight segments, dates, airports, actual leg cabins and statuses.
+Airport changes remain visible with a self-transfer warning. Mixed-cabin journeys
+retain the cabin of each leg instead of pretending every leg has the requested cabin.
 
-Account configuration and construction live in
-[provider.go](../internal/providers/eva/provider.go). Saved cookies, account
-identity and persistence helpers live in
-[member_state.go](../internal/providers/eva/member_state.go). Shared form requests
-and redirect checks live in [navigation.go](../internal/providers/eva/navigation.go).
+Public airport metadata is retained per provider for 24 hours. Cookies, form fields,
+ZIPSTATE and handoff values remain account/session specific.
 
-1. Apply the operation deadline: six minutes for preparation, ten for search.
-2. Acquire the provider gate and logical snapshot OS lock.
-3. Load/validate the portable saved session, configuration identity and expiry.
-4. Resume the original sticky proxy and restore scoped cookies/browser identity.
-5. Verify egress IP and the authenticated member page.
-6. If a recognized expiry/proxy failure permits renewal, discard the old snapshot
-   and create a new login. See the next section for credentials and OTP.
+### 6. Quote independent itineraries in parallel when capacity allows
 
-[expiry.go](../internal/providers/eva/expiry.go) calculates expiry as
-min(EVAID cookie deadline, creation + configured age) minus five minutes.
-Default age is three hours. The server may revoke a login earlier.
+[award_parallel.go](../internal/providers/eva/award_parallel.go), priceAwardWithWorkers,
+partitions unpriced full itineraries between the primary account and up to two
+helpers. [fleet/award_helpers.go](../internal/fleet/award_helpers.go) reserves only
+idle ready accounts within the shared capacity ceiling. It never waits for nested
+helper capacity: without spare accounts, pricing continues sequentially.
 
-[warm_session.go](../internal/providers/eva/warm_session.go) retains one exclusive
-HTTP client. Changed state, failure, more than five minutes idle or shutdown
-discards it. Searches may reuse a successful member verification for two minutes;
-explicit Prepare always checks. Neither optimization extends session expiry.
+Each helper owns another account, sticky proxy, cookie jar, forms and HTTP client.
+It calls SearchAwardQuotes directly, without result-cache writes, tax enrichment,
+recursive fan-out or fresh login. A missing authenticated award session returns
+control to primary-account fallback.
 
-### 6. Create a booking context
+The primary creates private immutable party-inventory evidence only after its fresh
+availability parse and exact choice validation. A helper may skip repeating that
+availability request when the normalized query, passenger count and every full
+assigned target match and the evidence is no more than 60 seconds old. Its timestamp
+is separate from recovery-quote age. Helpers still load fresh booking choices and
+validate each selection and mileage response. No cookies or opaque form state are
+shared. Missing, stale, future or mismatched evidence uses the full availability
+path. One safe initial direct-setup failure may disable evidence and restart that
+path, within the same helper deadline and two-attempt limit.
 
-[search.go](../internal/providers/eva/search.go), searchLive, opens BookingURL,
-handles a recognized member-login redirect/adaptive page, parses the search form,
-and prepares fresh form fields. A saved member login does not mean the previous
-booking cart can be reused.
+Each helper gets 45 seconds setup plus 35 seconds per assigned itinerary, capped
+at three minutes. Its budget also reserves primary execution time for missing
+quotations. Reservations are released on completion, timeout, cancellation or panic.
+Only exact validated helper fares are merged; missing quotes continue on the primary.
+Helper failures and fallback appear in recovery diagnostics.
 
-[verification.go](../internal/providers/eva/verification.go) runs independent
-reCAPTCHA solving and Akamai preparation concurrently. It waits for both before
-submitting availability. The same airline HTTP client is not used by two
-concurrent state-changing sequences.
+### 7. Submit each mileage quotation with fresh state
 
-The booking handoff carries fresh opaque fields, not hardcoded session tickets.
-[handoff.go](../internal/providers/eva/handoff.go) validates/forwards the expected
-flow. Imperva/Reese84 may interrupt it; Hyper is preferred in auto mode and
-AnySolver is a fallback for solver-generation failures. Additional hCaptcha and
-Akamai adaptive continuations are retained because EVA uses them.
+For every actual selection,
+[award_selection_security.go](../internal/providers/eva/award_selection_security.go)
+prepares three fresh Akamai sensor rounds against that page. Displaying a page or
+reusing an already validated recovery quote does not spend those selection rounds.
+The provider POSTs the chosen flight, follows its Parameter bridge to
+mileage-deducted.aspx and verifies that the returned full itinerary still matches.
+It parses the per-person mileage and multiplies by adult count using integer arithmetic.
+It stops before passenger information or a reservation submission.
 
-### 7. Parse availability
+[award_journey_refresh.go](../internal/providers/eva/award_journey_refresh.go)
+retrieves fresh selection state for the next quote. Once reopening the journey page
+proves that EVA discarded the query, later quotes directly rebuild the itinerary;
+they do not repeatedly issue the same unsuccessful reopen request.
 
-[parse.go](../internal/providers/eva/parse.go), decodePage and parseAvailability,
-extract page tickets, booking-session identifiers, recommendations, segments,
-fare families, cash totals and eligibility from the supported response shapes.
+Fleet award failover may try up to five different primary accounts for recognized
+safe failures, retaining the strongest validated partial result. Unknown credential
+or OTP outcomes are excluded. [award_resume.go](../internal/providers/eva/award_resume.go)
+reuses an exact quote from this search's recovery context only after fresh party
+inventory and full choice matching, with a five-minute original age limit. It never
+copies mileage merely because another flight has the same route. Failed or
+incomplete searches are not cached.
 
-Availability is not yet a mileage quote. [money.go](../internal/providers/eva/money.go)
-uses exact decimal arithmetic to normalize per-adult cash to the whole party.
-An explicitly ineligible Miles & Cash fare is removed; a flight with no remaining
-eligible fares is removed too. Unknown legacy eligibility is not fabricated.
+### 8. Enrich with cash-derived tax estimates
 
-Progress publishes an isolated preview, so later provider mutations cannot change
-a result the UI is already reading. [award/snapshot.go](../internal/award/snapshot.go)
-copies nested pointers and slices.
+[award_taxes.go](../internal/providers/eva/award_taxes.go) optionally opens one
+separate cash booking context on the primary saved session after complete award
+mileage retrieval. Insufficient award balance prevents obtaining verified award
+taxes; this enrichment does not relabel cash charges as an actual award-tax quote.
+It has a two-minute budget and at most one recognized safe restart. Failure retains
+verified award results and completed estimates.
 
-### 8. Price each distinct fare group
+[award_tax_match.go](../internal/providers/eva/award_tax_match.go) requires the same
+query, party, full flights, airports, times and cabin. Mixed-cabin awards currently
+receive no estimate. [award_tax_availability.go](../internal/providers/eva/award_tax_availability.go)
+first reconciles each matching cash recommendation's total, base and tax values,
+family, flight association, currency and per-adult units. Supported bulk availability
+can supply all estimates from one cash response, without per-flight FARE selections
+or refresh calls. These estimates have source `eva_cash_availability` and no invented
+itemized components.
 
-[pricing.go](../internal/providers/eva/pricing.go), priceFaresWithReplans:
+When those checks cannot establish an estimate, a fresh FARE selection may expose an
+itemized breakdown. [award_tax_parse.go](../internal/providers/eva/award_tax_parse.go)
+checks selected flights and requires the component sum to equal the per-adult and
+whole-party totals. These estimates have source `eva_cash_fare`. Later selections
+refresh rotated booking state. Both paths exclude the base fare and return party
+totals; neither reaches traveller/catalogue/BOOK, payment or ticketing steps.
+Verified taxes and cash-derived `taxEstimate` remain separate fields.
 
-1. Count unique QuoteID groups still needing mileage values. Shared recommendations
-   are priced once and applied to all matching fares.
-2. Enforce the bounded limit of 30 groups. Larger sets remain incomplete with a
-   warning; they are not cached as complete.
-3. For later groups, refresh availability because booking state rotated during
-   the previous quote. Match the same flight/fare against the fresh response.
-4. Submit fare selection with fresh recommendation/flight IDs and PAGE_TICKET.
-5. Require the selected price context to match currency, mode and normalized
-   whole-party cash price. A true changed price still fails this check.
-6. Call checkoutQuote, which performs the ordered sequence below.
-7. Parse maxRankAvailable and distribute the quote to every fare sharing QuoteID.
-8. Publish completed-quote previews and continue.
+### 9. Convert displayed taxes to USD
 
-[pricing_plan.go](../internal/providers/eva/pricing_plan.go) builds that work list
-once, so counting and executing use the same eligibility/deduplication rules.
-[quote_matching.go](../internal/providers/eva/quote_matching.go) matches refreshed
-flights/fares and indexes completed quotes for reuse. It keeps fresh booking IDs
-and copies a quote only when its flights, family, cabin, currency and price match.
+[exchange/exchange.go](../internal/exchange/exchange.go) converts original tax or
+estimate totals with exact rational arithmetic and rounds USD to two decimals.
+The conversion retains original currency, units per USD, rate source and date.
+One service shared across the fleet caches validated daily rates in SQLite and
+refreshes after the feed's next-update time. It rejects invalid or stale feeds.
 
-[checkout.go](../internal/providers/eva/checkout.go), checkoutQuote:
-travellers -> dynamic catalogue -> checkout price preparation.
-[pricing.go](../internal/providers/eva/pricing.go), quoteRequest, maps those stages
-to AddElementsTravellerInformation, AddElementsDynamicCatalog and
-AddDynamicCatalogSelectionToTripPlan. The final payload uses ACTION=BOOK,
-TRANSACTION_ID=RequestAdditionalInformation and CONFIRM_SERVICE_SELECTION=TRUE.
-No payment or ticketing endpoint is permitted by this adapter.
+A missing conversion does not erase the original airline amount. Conversion has a
+seven-second enrichment budget; rate HTTP requests allow six seconds, and failed
+refreshes back off for 30 seconds across concurrent callers. Rates use a direct
+public request without airline cookies or proxy credentials. Cached rates do not
+require a network request for each flight or search.
 
-[refresh.go](../internal/providers/eva/refresh.go) refreshes and matches selections,
-carrying one ADT traveller entry per adult. At most two pricing replans recover
-recognized availability/state changes, preserving unchanged quotes. A lost BOOK
-response is not blindly resubmitted.
+### 10. Persist, render and follow recovery
 
-parseMilesCash reads the theoretical maximum offset, not merely slider positions
-selectable by the account's current balance. Selectable remains metadata;
-aggregation does not hide a maximum estimate because the test account lacks miles.
+The job stores result/error, timestamps, stage timeline and recovery events. A
+single history writer coalesces snapshots outside the scheduler lock, retains
+failed writes for retry and flushes on shutdown. Admission pauses during storage
+failure or an overloaded pending writer. All unfinished records are marked
+interrupted after restart, including records beyond the recent-history window.
 
-### 9. Complete, persist and render
+The browser polls every 1.8 seconds, or five seconds after a connection error.
+ETag/If-None-Match avoids retransmitting unchanged results. Preview snapshots are
+copied so later mutations cannot alter data already being rendered. Completed,
+failed, cancelled and interrupted states stop polling. A failed later quotation
+can still leave clearly marked validated partial results.
 
-The job records final Result/Error, timestamps, stage timeline and recoveries.
-[storage/analytics.go](../internal/storage/analytics.go) computes retained history
-statistics. One history writer coalesces superseded snapshots and performs SQL/JSON
-work outside the scheduler lock. Failed writes are retained for retry; admissions
-pause while storage is failing or its pending map reaches 2,048 jobs. Shutdown
-flushes pending snapshots. Sudden crashes may lose the latest progress update;
-uncertain mutations are never resumed from history.
+Identical active queries share one job. **Stop following search** detaches the
+browser without cancelling another visitor's shared work. The API cancellation
+endpoint still cancels its job globally. A recovered error within the same job
+counts as a completed user-visible search; a separate retry job does not rewrite
+its predecessor's status.
 
-The browser polls active job status every 1.8 seconds (five seconds
-after a connection error). ETag/If-None-Match returns an empty 304 for unchanged
-snapshots and avoids cloning large live results. The browser keeps at most four
-poll snapshots. Changed progress replaces previews
-with the final result and offers filters/export. Cancellation applies to the
-shared job ID, so all callers coalesced to it see that cancellation.
+### Secondary Miles & Cash flow
 
-A valid empty result is a completed job; a protocol/security error is a failure.
-A recovered error inside the same job still yields a user-visible success.
-A separate later job does not rewrite the earlier failure.
+An empty query mode selects the retained original implementation in
+[search.go](../internal/providers/eva/search.go), searchLive. It opens the cash
+booking form, solves reCAPTCHA and Akamai, follows the Imperva-protected handoff,
+and parses paid fare families. Explicitly Miles & Cash-ineligible fares are removed.
+
+[pricing_plan.go](../internal/providers/eva/pricing_plan.go) deduplicates QuoteID
+groups. [pricing.go](../internal/providers/eva/pricing.go) prices at most 30 groups,
+refreshing rotated availability and matching full flight/fare/party cash values.
+[checkout.go](../internal/providers/eva/checkout.go) performs traveller, dynamic
+catalogue and checkout-price preparation with ACTION=BOOK, without payment or
+ticketing. Up to two safe replans preserve unchanged quotes; a lost BOOK response
+is not blindly replayed. Fleet failover is limited to three accounts and stops
+once partial itineraries exist.
+
+The resulting `milesCash` maximum offset and remaining cash are party totals and
+are explicitly estimates against paid fares. The remaining cash is not taxes alone,
+and paid-fare seat inventory is not award inventory. Account balance/selectability
+remains metadata rather than suppressing theoretical maximum-offset estimates.
 
 ## Login and OTP
 
@@ -266,6 +295,11 @@ polling runs every three seconds for at most 170 seconds, accepting a matching
 recipient/sender/subject and new UID with a code less than three minutes old.
 It does not use old messages, send mail or mark messages read.
 
+[outlook/retry.go](../internal/outlook/retry.go) retries transient mailbox reads
+and temporary OAuth service failures within that same deadline, with delays of
+3, 6, 12 and then 15 seconds. Permanent authentication, consent or mailbox-identity
+failures stop. These retries never submit EVA credentials or OTP again.
+
 [outlook/token_store.go](../internal/outlook/token_store.go) persists rotated
 refresh tokens per mailbox/client, with an exclusive lock. A cached IMAP access
 token rejection triggers one forced refresh/new connection; a second failure stops.
@@ -286,7 +320,9 @@ Read [fleet/recovery.go](../internal/fleet/recovery.go),
 - The fifteenth consecutive failure sets NeedsAttention. Success clears the budget.
 - Manual Prepare re-arms an exhausted account; queued/busy work is deduplicated.
 - Cancellation preserves prior recovery metadata rather than penalizing an account.
-- Mileage-pricing errors leave login usable and do not consume this failure budget.
+- Mileage-pricing and recognized award query/protocol errors do not consume the
+  account failure budget. Helper not-ready and speculative timeout outcomes also
+  do not establish a bad login. Actual authentication/transport failures still do.
 - Counters/deadlines survive restart. Old permanent attention flags are converted
   to delayed recovery; interrupted running work gets a new delayed check.
 - Fresh failed logins do not save a member snapshot. The next scheduled fresh
@@ -364,7 +400,7 @@ limits are layered; they are not additive promises of total execution time.
 | Search capacity wait | 30 minutes before account acquisition | jobs/queue.go, expire |
 | Search execution | 15 minutes from first account acquisition; shorter provider budgets still apply | jobs/queue.go, started; fleet/fleet.go, Search |
 | Fleet preparation | 6 minutes after account claim | fleet/fleet.go, Prepare |
-| Provider session operation | 6 minutes for prepare; 10 for search | eva/login.go, withSession |
+| Provider session acquisition/preparation | 6 minutes for prepare; 10 for search setup; outer search execution budget still applies | eva/login.go, withSession |
 | Registration worker | 15 minutes | registration/service.go, run |
 | Airline HTTP | Normally 40 seconds; selected pricing calls 90; 180 requests/operation | session/client.go; eva/pricing.go |
 | Transport GET retry | At most one retry, two-second pause | session/client.go |
@@ -374,7 +410,12 @@ limits are layered; they are not additive promises of total execution time.
 | Imperva continuation | At most two supported continuation solves | eva/handoff.go, completeBookingSecurity |
 | Explicit wrong image CAPTCHA | One fresh verification retry | eva/login.go, sessionAttempts |
 | Pricing replanning | At most two refresh/replan recoveries | eva/pricing.go |
-| Fleet failover | At most three distinct accounts; stage/uncertainty restrictions apply | fleet/fleet.go |
+| Fleet failover | Award: at most five distinct primary accounts; Miles & Cash: three; stage/uncertainty restrictions apply | fleet/fleet.go; fleet/award_recovery.go |
+| Award helpers | Up to two additional ready accounts, only spare shared capacity; 45s + 35s/assigned flight, capped at 3m, with parent fallback reserve | fleet/award_helpers.go |
+| Helper inventory evidence | Same query, party and full targets; at most 60s old; missing/invalid evidence uses a fresh availability request | eva/award_party_evidence.go |
+| Award setup retry | At most two attempts total; inventory change or safe direct-helper setup fallback; no deadline extension | eva/award_attempts.go |
+| Award tax estimates | Optional two-minute enrichment context, at most one safe restart; completed estimates retained | eva/award_taxes.go |
+| USD conversion | Seven-second enrichment context; six-second HTTP timeout; shared validated rate cache and 30s failed-refresh backoff | eva/award_taxes.go; exchange/exchange.go |
 | Akamai sensors | Up to three sequential rounds; booking requires three | antibot/sensor.go; eva/search.go |
 | SBSD | Two passive rounds or one hard round | antibot/sbsd.go |
 | reCAPTCHA v3 | 150 seconds, three-second task polls | antibot/recaptcha.go |
@@ -384,6 +425,7 @@ limits are layered; they are not additive promises of total execution time.
 | AnySolver Reese84 | 120 seconds, two-second task polls | antibot/reese_anysolver.go |
 | Login email OTP | 170-second wait, three-second polls, three-minute code age | outlook/otp.go |
 | Registration email | Five-minute wait, three-second polls, one-hour original verification window | outlook/registration.go |
+| Transient mailbox reads | Retry after 3s, 6s, 12s, then 15s, inside the existing email deadline; auth/identity failures stop | outlook/retry.go |
 | Delayed account recovery | 15–30 minutes, longer Retry-After honored, pause after 15 consecutive failures | fleet/recovery.go; fleet/fleet.go |
 
 The proxy pool wakes saved-identity waiters on release, with a one-second fallback.
@@ -424,6 +466,18 @@ deployment work in [capacity/scaling](capacity.md).
 
 ## Tests to read and debugging checklist
 
+- [award_test.go](../internal/providers/eva/award_test.go),
+  [award_party_evidence_test.go](../internal/providers/eva/award_party_evidence_test.go)
+  and [award_attempts_test.go](../internal/providers/eva/award_attempts_test.go):
+  party inventory, exact mileage, evidence boundaries and fresh setup fallback.
+- [award_parallel_test.go](../internal/providers/eva/award_parallel_test.go),
+  [fleet/award_helpers_test.go](../internal/fleet/award_helpers_test.go) and
+  [award_helper_budget_test.go](../internal/fleet/award_helper_budget_test.go):
+  disjoint work, account/capacity ownership, merging, fallback and cancellation.
+- [award_tax_availability_test.go](../internal/providers/eva/award_tax_availability_test.go),
+  [award_tax_flow_test.go](../internal/providers/eva/award_tax_flow_test.go) and
+  [exchange_test.go](../internal/exchange/exchange_test.go): bulk/itemized tax
+  reconciliation, estimate provenance, exact conversion and shared rate caching.
 - [fleet/recovery_test.go](../internal/fleet/recovery_test.go): delay, 15-failure
   budget, restart migration, cooldown eligibility and provider pauses.
 - [fleet/fleet_test.go](../internal/fleet/fleet_test.go): exclusive accounts,

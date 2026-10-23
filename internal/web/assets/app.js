@@ -8,6 +8,79 @@ const cabinNames = {
 };
 let config, currentJob, result, timer, previewRevision, startedAt, elapsedTimer;
 let searchBusy = false;
+let searchEpoch = 0;
+function updateModeLabels() {
+  const award = $("search-mode").value === "award";
+  $("submit").textContent = searchBusy
+    ? award ? "Searching award flights…" : "Searching EVA flights…"
+    : award ? "Find award flights ↗" : "Find EVA flights ↗";
+
+  $("sort").options[0].textContent =
+    (result ? result.query.mode === "award" : award) ? "Lowest miles" : "Lowest cash fare";
+}
+function providerChanged() {
+  const p = config?.providers.find((p) => p.id === $("provider").value);
+  if (!p) return;
+  const cabin = $("cabin").value, adults = Number($("adults").value) || 1;
+  $("cabin").replaceChildren(
+    ...p.cabins.map((c) => new Option(cabinNames[c] || c, c)),
+  );
+  if (p.cabins.includes(cabin)) $("cabin").value = cabin;
+  const max = $("search-mode").value === "award" ? (p.awardMaxAdults || 6) : p.maxAdults;
+  $("adults").replaceChildren(
+    ...Array.from({ length: max }, (_, i) => new Option(i + 1 + " adult" + (i ? "s" : ""), i + 1)),
+  );
+  $("adults").value = String(Math.min(adults, max));
+  updateModeLabels();
+}
+function restoreQuery(q) {
+  if (!q) return;
+  $("provider").value = q.provider;
+  $("search-mode").value = q.mode || "";
+  providerChanged();
+  for (const id of ["origin", "destination", "date", "cabin", "adults"])
+    $(id).value = String(q[id]);
+  for (const id of ["origin", "destination"])
+    $(id + "-hint").textContent = "Airport " + q[id];
+
+  for (const id of ["provider", "search-mode", "cabin", "adults", "date"])
+    $(id).dispatchEvent(new Event("change", { bubbles: true }));
+  updateModeLabels();
+}
+const taxesQuoted = (taxes) => (typeof taxes?.amount === "string" || typeof taxes?.amount === "number") &&
+  String(taxes.amount).trim() !== "" && Number.isFinite(Number(taxes.amount)) &&
+  Number(taxes.amount) >= 0 && !!taxes.currency;
+function estimatedTaxes(fare) {
+  const estimate = fare.taxEstimate;
+  return fare.pricingType !== "miles_cash" && !taxesQuoted(fare.taxes) &&
+    ["eva_cash_fare", "eva_cash_availability"].includes(estimate?.source) && taxesQuoted(estimate.total)
+    ? estimate : null;
+}
+function taxDisplay(fare) {
+  const estimate = estimatedTaxes(fare);
+  const original = taxesQuoted(fare.taxes) ? fare.taxes : estimate?.total;
+  const usd = estimate ? estimate.usd : fare.taxesUsd;
+  const conversion = original && original.currency !== "USD" && taxesQuoted(usd) &&
+    usd.currency === "USD" && usd.source === "https://www.exchangerate-api.com" &&
+    Number.isFinite(Number(usd.rate)) && Number(usd.rate) > 0 &&
+    typeof usd.asOf === "string" && Number.isFinite(Date.parse(usd.asOf)) &&
+    Math.abs(Number(original.amount) / Number(usd.rate) - Number(usd.amount)) < 0.011
+    ? usd : null;
+  return { original, estimate, conversion };
+}
+const usdAmount = (amount) => "US$" + new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 2, maximumFractionDigits: 2,
+}).format(Number(amount));
+function taxLabel(fare) {
+  const { original, estimate, conversion } = taxDisplay(fare);
+  if (!original) return "Taxes / fees not quoted";
+  const amount = conversion ? usdAmount(conversion.amount)
+    : original.currency === "USD" ? usdAmount(original.amount)
+    : estimate ? original.currency + " " + number(Number(original.amount)) : money(original);
+  return (estimate ? "≈ " : conversion ? "+ ≈ " : "+ ") + amount +
+    (estimate ? " taxes & fees (estimate)" : "") +
+    (!conversion && original.currency !== "USD" ? " · USD conversion unavailable" : "");
+}
 function updateElapsed() {
   if (!startedAt) return;
   const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
@@ -67,12 +140,11 @@ function busy(value) {
   $("submit").disabled = value || !config?.ready;
   $("submit").classList.toggle("is-loading", value);
   $("submit").setAttribute("aria-busy", String(value));
-  $("submit").textContent = value
-    ? "Searching EVA flights…"
-    : "Find EVA flights ↗";
+  updateModeLabels();
+  $("search-mode").disabled = value;
   $("cancel").hidden = !value;
   $("cancel").disabled = false;
-  $("cancel").textContent = "Cancel search";
+  $("cancel").textContent = "Stop following search";
   $("search-skeleton").hidden = !value || !$("results").hidden;
   $("search-progress").hidden = !value;
   $("search-elapsed").hidden = !value;
@@ -87,17 +159,22 @@ function busy(value) {
   }
 }
 function stop() {
+  searchEpoch++;
   clearTimeout(timer);
   currentJob = null;
   sessionStorage.removeItem("awarddesk.job");
   busy(false);
+  progress();
+  $("search-elapsed").textContent = "";
 }
 async function poll() {
   if (!currentJob) return;
   const requestedJob = currentJob;
+  const requestedEpoch = searchEpoch;
   try {
     const job = await api("/api/searches/" + requestedJob);
-    if (currentJob !== requestedJob) return;
+    if (currentJob !== requestedJob || searchEpoch !== requestedEpoch) return;
+    restoreQuery(job.query || job.result?.query);
     const createdAt = Date.parse(job.createdAt);
     if (
       Number.isFinite(createdAt) &&
@@ -114,7 +191,20 @@ async function poll() {
       showResults();
       return;
     }
+    if (job.status === "interrupted") {
+      stop();
+      if (job.result?.itineraries?.length) {
+        result = job.result;
+        showResults();
+      }
+      status("interrupted", "Search interrupted",
+        "The server restarted before this search finished. " +
+        (job.result?.itineraries?.length ? "Available results from before the restart are shown below. " : "") +
+        "Start a new search to try again.");
+      return;
+    }
     if (job.status === "failed" || job.status === "cancelled") {
+      const partialAward = job.result?.query?.mode === "award" && job.result?.itineraries?.length;
       stop();
       if (job.result?.itineraries?.length) {
         result = job.result;
@@ -122,10 +212,14 @@ async function poll() {
       }
       status(
         job.status,
-        job.status === "failed"
+        partialAward
+          ? "Some award results are available"
+          : job.status === "failed"
           ? "We couldn’t finish this search"
           : "Search cancelled",
-        (job.result?.itineraries?.length
+        (partialAward
+          ? "This search is incomplete. Only validated award results are shown; additional flights or mileage quotes may be missing. "
+          : job.result?.itineraries?.length
           ? "Retrieved flights and finished quotes are shown below as partial results. "
           : "") + "You can adjust your search and try again.",
         job.status === "failed",
@@ -137,12 +231,17 @@ async function poll() {
       previewRevision = job.updatedAt;
       showResults();
     }
+    const retrievingTaxes = job.progress.stage === "award tax estimates";
     status(
-      "Searching EVA Air",
-      job.progress.total
-        ? "Calculating Miles & Cash options"
+      retrievingTaxes ? "Award tax estimates" : "Searching EVA Air",
+      retrievingTaxes
+        ? "Retrieving tax estimates"
+        : job.progress.total
+        ? $("search-mode").value === "award" ? "Checking award mileage quotes" : "Calculating Miles & Cash options"
         : "Looking for available flights",
-      job.progress.total
+      retrievingTaxes
+        ? "Checking EVA cash fares for tax estimates. Actual award taxes remain unverified."
+        : job.progress.total
         ? (job.progress.completed || 0) +
             " of " +
             job.progress.total +
@@ -150,9 +249,12 @@ async function poll() {
         : "This can take a few minutes. Flight options will appear as they become available.",
     );
     progress(job.progress.completed, job.progress.total);
+    if (retrievingTaxes && job.progress.total)
+      $("search-progress").setAttribute("aria-valuetext",
+        (job.progress.completed || 0) + " of " + job.progress.total + " tax estimates checked");
     timer = setTimeout(poll, 1800);
   } catch (e) {
-    if (currentJob !== requestedJob) return;
+    if (currentJob !== requestedJob || searchEpoch !== requestedEpoch) return;
     if (e.status === 404) {
       stop();
       status(
@@ -174,6 +276,7 @@ async function poll() {
 $("search").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (searchBusy) return;
+  const requestedEpoch = ++searchEpoch;
   previewRevision = null;
   $("results").hidden = true;
   $("empty").hidden = true;
@@ -191,12 +294,14 @@ $("search").addEventListener("submit", async (e) => {
       date: $("date").value,
       cabin: $("cabin").value,
       adults: Number($("adults").value),
+      mode: $("search-mode").value,
       refresh: false,
     };
     const job = await api("/api/searches", {
       method: "POST",
       body: JSON.stringify(q),
     });
+    if (searchEpoch !== requestedEpoch) return;
     currentJob = job.id;
     location.hash = job.id;
     sessionStorage.setItem("awarddesk.job", job.id);
@@ -207,6 +312,7 @@ $("search").addEventListener("submit", async (e) => {
       showResults();
     } else poll();
   } catch (e) {
+    if (searchEpoch !== requestedEpoch) return;
     busy(false);
     status(
       "unable to start",
@@ -216,18 +322,13 @@ $("search").addEventListener("submit", async (e) => {
     );
   }
 });
-$("cancel").addEventListener("click", async () => {
-  if (!currentJob) return;
-  $("cancel").disabled = true;
-  $("cancel").textContent = "Cancelling…";
-  try {
-    await api("/api/searches/" + currentJob, { method: "DELETE" });
-    await poll();
-  } catch (e) {
-    $("cancel").disabled = false;
-    $("cancel").textContent = "Cancel search";
-    status("cancel", e.message, "Try cancelling again.", true);
-  }
+$("cancel").addEventListener("click", () => {
+  if (!searchBusy) return;
+  stop();
+  location.hash = "";
+  if (result && !$("results").hidden) showResults();
+  status("detached", "Stopped following this search",
+    "This shared search can continue for others. You can start another search now.");
 });
 $("swap").addEventListener("click", () => {
   const a = $("origin").value,
@@ -320,23 +421,26 @@ for (const id of ["origin", "destination"]) {
   input.addEventListener("blur", close);
 }
 function showResults() {
-  if (result.query.provider === "eva")
+  if (result.query.provider === "eva" && result.query.mode !== "award")
     result.itineraries = result.itineraries
       .map((item) => ({
         ...item,
-        fares: item.fares.filter((f) => f.milesCashEligible !== false),
+        fares: (item.fares || []).filter((f) => f.milesCashEligible !== false),
       }))
       .filter((item) => item.fares.length > 0);
   $("search-skeleton").hidden = true;
   document.body.classList.add("has-results");
   const q = result.query;
+  updateModeLabels();
   $("results").hidden = false;
   $("result-route").textContent = q.origin + " → " + q.destination;
   $("result-title").textContent =
     result.itineraries.length +
-    (q.provider === "eva"
-      ? " flight options · Miles & Cash"
-      : " award itineraries");
+    (q.mode === "award"
+      ? " award itinerar" + (result.itineraries.length === 1 ? "y" : "ies")
+      : q.provider === "eva"
+      ? " flight option" + (result.itineraries.length === 1 ? "" : "s") + " · Miles & Cash"
+      : " award itinerar" + (result.itineraries.length === 1 ? "y" : "ies"));
   $("result-meta").textContent =
     q.date +
     " · " +
@@ -368,8 +472,11 @@ function showResults() {
     [...$("airline").options].some((option) => option.value === selectedAirline)
   )
     $("airline").value = selectedAirline;
-  $("warnings").replaceChildren(...result.warnings.map((w) => el("p", w)));
-  $("warnings").hidden = !result.warnings.length;
+  const warnings = result.warnings.filter((w) =>
+    w !== "Award availability was checked for the requested party. Mileage is the per-person quote multiplied by adults; taxes and fees were not quoted. Availability is not a confirmed reservation.",
+  );
+  $("warnings").replaceChildren(...warnings.map((w) => el("p", w)));
+  $("warnings").hidden = !warnings.length;
   renderFlights();
 }
 function renderFlights() {
@@ -484,6 +591,8 @@ function renderFlights() {
     const info = el("div", cabinNames[result.query.cabin], "flight-sub");
     if (fare.seats !== undefined)
       info.append(el("div", fare.seats + " seats shown", "seat"));
+    if (fare.availableFor)
+      info.append(el("div", "Available for " + fare.availableFor + " adult" + (fare.availableFor === 1 ? "" : "s"), "seat"));
     const price = el("div", undefined, "price");
     if (fare.pricingType === "miles_cash") {
       price.classList.add("miles-cash");
@@ -517,7 +626,7 @@ function renderFlights() {
       price.append(
         el("strong", number(fare.points)),
         el("small", " " + fare.program),
-        el("div", "+ " + fare.taxes.amount + " " + fare.taxes.currency, "cash"),
+        el("div", taxLabel(fare), "cash"),
       );
     main.append(carrier, route, info, price);
     card.append(main);
@@ -550,6 +659,7 @@ function renderFlights() {
             (s.operatingAirline ? " · Operated by " + s.operatingAirline : ""),
         ),
       );
+      if (s.cabin) seg.append(el("div", "Cabin: " + (cabinNames[s.cabin] || s.cabin)));
       segments.append(seg);
     }
     details.append(segments);
@@ -573,13 +683,44 @@ function renderFlights() {
             : number(f.points) +
                 " " +
                 f.program +
-                " + " +
-                f.taxes.amount +
-                " " +
-                f.taxes.currency,
+                " · " + taxLabel(f),
         ),
       );
       details.append(row);
+      const { original, estimate, conversion } = taxDisplay(f);
+      if (estimate) {
+        const breakdown = el("div", undefined, "segments");
+        breakdown.append(
+          el("strong", "Estimated taxes & fees"),
+          el("p", (estimate.source === "eva_cash_availability"
+            ? "Based on EVA cash availability for these flights."
+            : "Based on EVA selected cash fare pricing for these flights.") + " Actual award taxes are unverified." +
+            (result.query.adults > 1 ? " Total for " + result.query.adults + " adults." : " Total for 1 adult."), "flight-sub"),
+        );
+        breakdown.append(el("div", "Original total: " + original.currency + " " + number(Number(original.amount))));
+        for (const component of estimate.components || []) {
+          if (!taxesQuoted(component.amount)) continue;
+          const tax = el("div", undefined, "fare");
+          const name = component.name || component.code || "Tax / fee";
+          tax.append(
+            el("span", name + (component.code && !name.includes(component.code) ? " (" + component.code + ")" : "")),
+            el("strong", component.amount.currency + " " + number(Number(component.amount.amount))),
+          );
+          breakdown.append(tax);
+        }
+        details.append(breakdown);
+      }
+      if (conversion && f.pricingType !== "miles_cash") {
+        const attribution = el("p", undefined, "flight-sub");
+        if (!estimate)
+          attribution.append(el("span", "Original total: " + original.currency + " " + number(Number(original.amount)) + ". "));
+        attribution.append(el("span", "USD conversion: 1 USD = " + conversion.rate + " " + original.currency +
+          " · Rate date: " + conversion.asOf.slice(0, 10) + " · "));
+        const source = el("a", "Rates by ExchangeRate-API");
+        source.href = "https://www.exchangerate-api.com";
+        attribution.append(source);
+        details.append(attribution);
+      }
     }
     card.append(details);
     flights.append(card);
@@ -599,6 +740,7 @@ $("download").addEventListener("click", () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 (async () => {
+  $("search-mode").value = "award";
   const date = new Date();
   const local = (d) =>
     [
@@ -627,29 +769,13 @@ $("download").addEventListener("click", () => {
     config.ready = config.evaLoginReady;
     $("provider").replaceChildren(
       ...config.providers.map(
-        (p) => new Option(p.name + " · " + p.program, p.id),
+        (p) => new Option((p.id === "eva" ? "EVA Air" : p.name) + " · " + p.program, p.id),
       ),
     );
     if (config.providers.some((p) => p.id === "eva"))
       $("provider").value = "eva";
-    function providerChanged() {
-      const p = config.providers.find((p) => p.id === $("provider").value);
-      if (!p) return;
-      $("submit").textContent =
-        p.id === "eva" ? "Find EVA flights ↗" : "Find award flights ↗";
-      $("sort").options[0].textContent =
-        p.id === "eva" ? "Lowest cash fare" : "Lowest points";
-      $("cabin").replaceChildren(
-        ...p.cabins.map((c) => new Option(cabinNames[c] || c, c)),
-      );
-      $("adults").replaceChildren(
-        ...Array.from(
-          { length: p.maxAdults },
-          (_, i) => new Option(i + 1 + " adult" + (i ? "s" : ""), i + 1),
-        ),
-      );
-    }
     $("provider").addEventListener("change", providerChanged);
+    $("search-mode").addEventListener("change", providerChanged);
     providerChanged();
     $("setup").hidden = config.ready;
     busy(false);

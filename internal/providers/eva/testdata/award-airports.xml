@@ -1,0 +1,482 @@
+<?xml version="1.0" encoding="UTF-8"?><airports>
+<airport>
+<chinese>TAIPEI (TAOYUAN) - TPE</chinese>
+<label>TAIPEI (TAOYUAN) - TPE</label>
+<value>TPE</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>KAOHSIUNG - KHH</chinese>
+<label>KAOHSIUNG - KHH</label>
+<value>KHH</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>TAIPEI (SONGSHAN) - TSA</chinese>
+<label>TAIPEI (SONGSHAN) - TSA</label>
+<value>TSA</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>HONG KONG - HKG</chinese>
+<label>HONG KONG - HKG</label>
+<value>HKG</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>07</community>
+</airport>
+<airport>
+<chinese>MACAU - MFM</chinese>
+<label>MACAU - MFM</label>
+<value>MFM</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>07</community>
+</airport>
+<airport>
+<chinese>BEIJING - PEK</chinese>
+<label>BEIJING - PEK</label>
+<value>PEK</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>05</community>
+</airport>
+<airport>
+<chinese>CHENGDU(SHUANGLIU) - CTU</chinese>
+<label>CHENGDU(SHUANGLIU) - CTU</label>
+<value>CTU</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>05</community>
+</airport>
+<airport>
+<chinese>GUANGZHOU - CAN</chinese>
+<label>GUANGZHOU - CAN</label>
+<value>CAN</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>05</community>
+</airport>
+<airport>
+<chinese>HANGZHOU - HGH</chinese>
+<label>HANGZHOU - HGH</label>
+<value>HGH</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>05</community>
+</airport>
+<airport>
+<chinese>SHANGHAI (HONGQIAO) - SHA</chinese>
+<label>SHANGHAI (HONGQIAO) - SHA</label>
+<value>SHA</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>05</community>
+</airport>
+<airport>
+<chinese>SHANGHAI (PUDONG) - PVG</chinese>
+<label>SHANGHAI (PUDONG) - PVG</label>
+<value>PVG</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>05</community>
+</airport>
+<airport>
+<chinese>SHENZHEN - SZX</chinese>
+<label>SHENZHEN - SZX</label>
+<value>SZX</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>05</community>
+</airport>
+<airport>
+<chinese>XIAMEN - XMN</chinese>
+<label>XIAMEN - XMN</label>
+<value>XMN</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>05</community>
+</airport>
+<airport>
+<chinese>AOMORI - AOJ</chinese>
+<label>AOMORI - AOJ</label>
+<value>AOJ</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>02</community>
+</airport>
+<airport>
+<chinese>ASAHIKAWA - AKJ</chinese>
+<label>ASAHIKAWA - AKJ</label>
+<value>AKJ</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>02</community>
+</airport>
+<airport>
+<chinese>BUSAN - PUS</chinese>
+<label>BUSAN - PUS</label>
+<value>PUS</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>02</community>
+</airport>
+<airport>
+<chinese>FUKUOKA - FUK</chinese>
+<label>FUKUOKA - FUK</label>
+<value>FUK</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>02</community>
+</airport>
+<airport>
+<chinese>KOMATSU - KMQ</chinese>
+<label>KOMATSU - KMQ</label>
+<value>KMQ</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>02</community>
+</airport>
+<airport>
+<chinese>MATSUYAMA - MYJ</chinese>
+<label>MATSUYAMA - MYJ</label>
+<value>MYJ</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>02</community>
+</airport>
+<airport>
+<chinese>OKINAWA - OKA</chinese>
+<label>OKINAWA - OKA</label>
+<value>OKA</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>02</community>
+</airport>
+<airport>
+<chinese>OSAKA(KANSAI AIRPORT) - KIX</chinese>
+<label>OSAKA(KANSAI AIRPORT) - KIX</label>
+<value>KIX</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>02</community>
+</airport>
+<airport>
+<chinese>OSAKA(KOBE AIRPORT) - UKB</chinese>
+<label>OSAKA(KOBE AIRPORT) - UKB</label>
+<value>UKB</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>02</community>
+</airport>
+<airport>
+<chinese>SAPPORO - CTS</chinese>
+<label>SAPPORO - CTS</label>
+<value>CTS</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>02</community>
+</airport>
+<airport>
+<chinese>SENDAI - SDJ</chinese>
+<label>SENDAI - SDJ</label>
+<value>SDJ</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>02</community>
+</airport>
+<airport>
+<chinese>SEOUL (GIMPO) - GMP</chinese>
+<label>SEOUL (GIMPO) - GMP</label>
+<value>GMP</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>02</community>
+</airport>
+<airport>
+<chinese>SEOUL (INCHEON) - ICN</chinese>
+<label>SEOUL (INCHEON) - ICN</label>
+<value>ICN</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>02</community>
+</airport>
+<airport>
+<chinese>TOKYO (HANEDA) - HND</chinese>
+<label>TOKYO (HANEDA) - HND</label>
+<value>HND</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>02</community>
+</airport>
+<airport>
+<chinese>TOKYO (NARITA) - NRT</chinese>
+<label>TOKYO (NARITA) - NRT</label>
+<value>NRT</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>02</community>
+</airport>
+<airport>
+<chinese>HAKODATE - HKD</chinese>
+<label>HAKODATE - HKD</label>
+<value>HKD</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>09</community>
+</airport>
+<airport>
+<chinese>ANGELES (CLARK AIRPORT) - CRK</chinese>
+<label>ANGELES (CLARK AIRPORT) - CRK</label>
+<value>CRK</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>03</community>
+</airport>
+<airport>
+<chinese>BANGKOK - BKK</chinese>
+<label>BANGKOK - BKK</label>
+<value>BKK</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>03</community>
+</airport>
+<airport>
+<chinese>CEBU - CEB</chinese>
+<label>CEBU - CEB</label>
+<value>CEB</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>03</community>
+</airport>
+<airport>
+<chinese>CHIANG MAI - CNX</chinese>
+<label>CHIANG MAI - CNX</label>
+<value>CNX</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>03</community>
+</airport>
+<airport>
+<chinese>DA NANG - DAD</chinese>
+<label>DA NANG - DAD</label>
+<value>DAD</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>03</community>
+</airport>
+<airport>
+<chinese>DENPASAR BALI - DPS</chinese>
+<label>DENPASAR BALI - DPS</label>
+<value>DPS</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>03</community>
+</airport>
+<airport>
+<chinese>HANOI - HAN</chinese>
+<label>HANOI - HAN</label>
+<value>HAN</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>03</community>
+</airport>
+<airport>
+<chinese>HO CHI MINH CITY - SGN</chinese>
+<label>HO CHI MINH CITY - SGN</label>
+<value>SGN</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>03</community>
+</airport>
+<airport>
+<chinese>JAKARTA - CGK</chinese>
+<label>JAKARTA - CGK</label>
+<value>CGK</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>03</community>
+</airport>
+<airport>
+<chinese>KUALA LUMPUR - KUL</chinese>
+<label>KUALA LUMPUR - KUL</label>
+<value>KUL</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>03</community>
+</airport>
+<airport>
+<chinese>MANILA - MNL</chinese>
+<label>MANILA - MNL</label>
+<value>MNL</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>03</community>
+</airport>
+<airport>
+<chinese>PHNOM PENH - KTI</chinese>
+<label>PHNOM PENH - KTI</label>
+<value>KTI</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>03</community>
+</airport>
+<airport>
+<chinese>SINGAPORE - SIN</chinese>
+<label>SINGAPORE - SIN</label>
+<value>SIN</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>03</community>
+</airport>
+<airport>
+<chinese>DELHI - DEL</chinese>
+<label>DELHI - DEL</label>
+<value>DEL</value>
+<region>Asia</region>
+<continent>01</continent>
+<community>04</community>
+</airport>
+<airport>
+<chinese>CHICAGO(O'HARE) - ORD</chinese>
+<label>CHICAGO(O'HARE) - ORD</label>
+<value>ORD</value>
+<region>America</region>
+<continent>02</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>DALLAS - DFW</chinese>
+<label>DALLAS - DFW</label>
+<value>DFW</value>
+<region>America</region>
+<continent>02</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>HOUSTON(GEORGE BUSH) - IAH</chinese>
+<label>HOUSTON(GEORGE BUSH) - IAH</label>
+<value>IAH</value>
+<region>America</region>
+<continent>02</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>LOS ANGELES - LAX</chinese>
+<label>LOS ANGELES - LAX</label>
+<value>LAX</value>
+<region>America</region>
+<continent>02</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>NEW YORK (JOHN F KENNEDY) - JFK</chinese>
+<label>NEW YORK (JOHN F KENNEDY) - JFK</label>
+<value>JFK</value>
+<region>America</region>
+<continent>02</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>SAN FRANCISCO - SFO</chinese>
+<label>SAN FRANCISCO - SFO</label>
+<value>SFO</value>
+<region>America</region>
+<continent>02</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>SEATTLE - SEA</chinese>
+<label>SEATTLE - SEA</label>
+<value>SEA</value>
+<region>America</region>
+<continent>02</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>TORONTO - YYZ</chinese>
+<label>TORONTO - YYZ</label>
+<value>YYZ</value>
+<region>America</region>
+<continent>02</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>VANCOUVER - YVR</chinese>
+<label>VANCOUVER - YVR</label>
+<value>YVR</value>
+<region>America</region>
+<continent>02</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>WASHINGTON D.C. - IAD</chinese>
+<label>WASHINGTON D.C. - IAD</label>
+<value>IAD</value>
+<region>America</region>
+<continent>02</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>AMSTERDAM - AMS</chinese>
+<label>AMSTERDAM - AMS</label>
+<value>AMS</value>
+<region>Europe</region>
+<continent>03</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>LONDON (HEATHROW) - LHR</chinese>
+<label>LONDON (HEATHROW) - LHR</label>
+<value>LHR</value>
+<region>Europe</region>
+<continent>03</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>MILAN (MALPENSA) - MXP</chinese>
+<label>MILAN (MALPENSA) - MXP</label>
+<value>MXP</value>
+<region>Europe</region>
+<continent>03</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>MUNICH - MUC</chinese>
+<label>MUNICH - MUC</label>
+<value>MUC</value>
+<region>Europe</region>
+<continent>03</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>PARIS (CHARLES DE GAULLE) - CDG</chinese>
+<label>PARIS (CHARLES DE GAULLE) - CDG</label>
+<value>CDG</value>
+<region>Europe</region>
+<continent>03</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>VIENNA - VIE</chinese>
+<label>VIENNA - VIE</label>
+<value>VIE</value>
+<region>Europe</region>
+<continent>03</continent>
+<community>01</community>
+</airport>
+<airport>
+<chinese>BRISBANE - BNE</chinese>
+<label>BRISBANE - BNE</label>
+<value>BNE</value>
+<region>Oceania</region>
+<continent>04</continent>
+<community>01</community>
+</airport>
+</airports>

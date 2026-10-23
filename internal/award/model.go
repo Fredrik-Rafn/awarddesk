@@ -1,4 +1,3 @@
-// Package award defines the airline-independent search contract.
 package award
 
 import (
@@ -28,7 +27,9 @@ type Query struct {
 	Date        string `json:"date"`
 	Cabin       Cabin  `json:"cabin"`
 	Adults      int    `json:"adults"`
-	Refresh     bool   `json:"refresh,omitempty"`
+
+	Mode    string `json:"mode,omitempty"`
+	Refresh bool   `json:"refresh,omitempty"`
 }
 
 var iata = regexp.MustCompile(`^[A-Z]{3}$`)
@@ -51,31 +52,62 @@ func (q Query) Validate(now time.Time) error {
 	if q.Adults < 1 || q.Adults > 9 {
 		return errors.New("adults must be between 1 and 9")
 	}
+	if q.Mode != "" && q.Mode != "award" {
+		return errors.New("unsupported search mode")
+	}
+	if q.Mode == "award" && q.Adults > 6 {
+		return errors.New("EVA award availability supports at most 6 adults")
+	}
+	if q.Mode == "award" && d.After(today.AddDate(0, 0, 360)) {
+		return errors.New("EVA award searches must be within the next 360 days")
+	}
 	return nil
 }
 
-// Money preserves the provider's decimal amount without binary float rounding.
 type Money struct {
 	Amount   string `json:"amount"`
 	Currency string `json:"currency"`
 }
 
-// Fare is an award quote for the search party. Seats is the count displayed by
-// the provider (which may be capped), not a guarantee of total inventory.
 type Fare struct {
-	Name      string `json:"name"`
-	Cabin     Cabin  `json:"cabin"`
-	Points    int    `json:"points"`
-	Program   string `json:"program"`
-	Taxes     Money  `json:"taxes"`
-	Seats     *int   `json:"seats,omitempty"`
-	Estimated bool   `json:"estimated"`
-	// CashPrice is the full cash fare, not the cash remainder of a redemption.
+	Name     string         `json:"name"`
+	Cabin    Cabin          `json:"cabin"`
+	Points   int            `json:"points"`
+	Program  string         `json:"program"`
+	Taxes    Money          `json:"taxes"`
+	TaxesUSD *USDConversion `json:"taxesUsd,omitempty"`
+
+	TaxEstimate *TaxEstimate `json:"taxEstimate,omitempty"`
+	Seats       *int         `json:"seats,omitempty"`
+	Estimated   bool         `json:"estimated"`
+
+	AvailableFor      int        `json:"availableFor,omitempty"`
 	CashPrice         *Money     `json:"cashPrice,omitempty"`
 	PricingType       string     `json:"pricingType,omitempty"`
 	MilesCash         *MilesCash `json:"milesCash,omitempty"`
 	QuoteID           string     `json:"-"`
 	MilesCashEligible *bool      `json:"milesCashEligible,omitempty"`
+}
+
+type TaxEstimate struct {
+	Total      Money          `json:"total"`
+	Components []TaxComponent `json:"components,omitempty"`
+	Source     string         `json:"source"`
+	QuotedAt   time.Time      `json:"quotedAt"`
+	USD        *USDConversion `json:"usd,omitempty"`
+}
+
+type USDConversion struct {
+	Money
+	Rate   string    `json:"rate"`
+	AsOf   time.Time `json:"asOf"`
+	Source string    `json:"source"`
+}
+
+type TaxComponent struct {
+	Code   string `json:"code"`
+	Name   string `json:"name"`
+	Amount Money  `json:"amount"`
 }
 
 type MilesCash struct {
@@ -84,9 +116,8 @@ type MilesCash struct {
 	Selectable    bool  `json:"selectable"`
 }
 
-// Segment times are local airport wall times, without a fabricated UTC offset.
-// Aircraft is nil when the airline does not expose a usable value.
 type Segment struct {
+	Cabin            Cabin   `json:"cabin,omitempty"`
 	FlightNumber     string  `json:"flightNumber"`
 	Airline          string  `json:"airline"`
 	OperatingAirline string  `json:"operatingAirline,omitempty"`
@@ -103,8 +134,6 @@ type Itinerary struct {
 	Summary  string    `json:"summary"`
 }
 
-// Result.Complete concerns the recognized search and pricing response. Optional
-// details and later checkout offers can remain unavailable; see Warnings.
 type Result struct {
 	Query          Query       `json:"query"`
 	FetchedAt      time.Time   `json:"fetchedAt"`
@@ -120,9 +149,7 @@ type Progress struct {
 	Completed int       `json:"completed,omitempty"`
 	Total     int       `json:"total,omitempty"`
 	Recovery  *Recovery `json:"recovery,omitempty"`
-	// Preview is borrowed for this synchronous callback; consumers must clone
-	// it before retaining it. It is exposed through Job.Result, not progress JSON.
-	Preview *Result `json:"-"`
+	Preview   *Result   `json:"-"`
 }
 type Recovery struct {
 	Stage   string `json:"stage"`
@@ -137,12 +164,11 @@ type Capabilities struct {
 	Cabins         []Cabin `json:"cabins"`
 	VerifiedCabins []Cabin `json:"verifiedCabins"`
 	MaxAdults      int     `json:"maxAdults"`
+	AwardMaxAdults int     `json:"awardMaxAdults,omitempty"`
 	OneWayOnly     bool    `json:"oneWayOnly"`
 	Currency       string  `json:"currency"`
 }
 
-// Provider implementations must be safe to reuse across searches, keep session
-// state per call, honor cancellation, and stop mutating results before returning.
 type Provider interface {
 	Capabilities() Capabilities
 	Search(context.Context, Query, Reporter) (Result, error)

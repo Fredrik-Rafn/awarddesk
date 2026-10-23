@@ -32,7 +32,7 @@ func (f *Fleet) enqueuePrepare(id string, force bool) (bool, error) {
 	st := Status{ID: id}
 	f.db.RuntimeValue("account:"+id, &st)
 	if force && st.NeedsAttention {
-		st.ConsecutiveFailures = 0 // An explicit retry starts a new attempt budget.
+		st.ConsecutiveFailures = 0
 	}
 	st.State, st.Stage, st.Message = "queued", "queued preparation", "Waiting for an available session worker"
 	st.Queued, st.CheckedAt = true, time.Now().UTC()

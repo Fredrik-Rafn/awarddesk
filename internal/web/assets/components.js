@@ -1,6 +1,6 @@
 "use strict";
-// Native selects remain the form/data source; the visible control is a keyboard
-// accessible combobox. Menus live outside cards so they never get clipped.
+
+
 (() => {
   let nextID = 0,
     opened = null;

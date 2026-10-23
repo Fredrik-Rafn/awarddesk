@@ -17,8 +17,6 @@ import (
 	"awarddesk/internal/session"
 )
 
-// PrepareReese handles only the fresh interstitial. The caller decides whether
-// its intercepted request is safe to resubmit.
 func (h Hyper) PrepareReese(ctx context.Context, c *session.Client, page string, body []byte) (resultErr error) {
 	started := time.Now()
 	defer func() {
@@ -88,8 +86,7 @@ func submitReese(ctx context.Context, c reeseClient, page, sensorURL, origin, pa
 	if domain != "" && domain != u.Hostname() && !(domain == "evaair.com" && strings.HasSuffix(u.Hostname(), ".evaair.com")) {
 		return award.Failure("challenge_changed", "EVA booking security returned a different cookie domain")
 	}
-	// Honor the validated cookie scope and lifetime. The old host-only token
-	// must not shadow a newly issued parent-domain token in restored sessions.
+
 	c.SetCookies(u, []*http.Cookie{{Name: "reese84", Path: "/", MaxAge: -1}})
 	if strings.HasSuffix(u.Hostname(), ".evaair.com") {
 		c.SetCookies(u, []*http.Cookie{{Name: "reese84", Domain: "evaair.com", Path: "/", MaxAge: -1}})

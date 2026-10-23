@@ -7,9 +7,6 @@ type fareSelection struct {
 	fare   award.Fare
 }
 
-// Several flights can share one EVA recommendation. Price it once, and skip
-// quotes already recovered from an earlier pass or explicitly marked ineligible.
-// Keeping this list also makes the progress total match the work we will do.
 func unpricedFares(result award.Result) []fareSelection {
 	seen := make(map[string]bool)
 	var plan []fareSelection

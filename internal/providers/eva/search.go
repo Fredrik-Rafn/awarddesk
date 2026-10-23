@@ -31,9 +31,12 @@ func isReeseContinuation(body []byte, target string) bool {
 }
 
 func (p *Provider) Capabilities() award.Capabilities {
-	return award.Capabilities{ID: "eva", Name: "EVA Air · Miles & Cash", Program: "Infinity MileageLands", Cabins: []award.Cabin{award.Economy, award.PremiumEconomy, award.Business}, VerifiedCabins: []award.Cabin{award.Economy, award.PremiumEconomy, award.Business}, MaxAdults: 9, OneWayOnly: true}
+	return award.Capabilities{ID: "eva", Name: "EVA Air · Miles & Cash", Program: "Infinity MileageLands", Cabins: []award.Cabin{award.Economy, award.PremiumEconomy, award.Business}, VerifiedCabins: []award.Cabin{award.Economy, award.PremiumEconomy, award.Business}, MaxAdults: 9, AwardMaxAdults: 6, OneWayOnly: true}
 }
 func (p *Provider) Search(ctx context.Context, q award.Query, report award.Reporter) (award.Result, error) {
+	if q.Mode == "award" {
+		return p.searchCached(ctx, q, report, p.searchAwardWithTaxes)
+	}
 	if report != nil {
 		observer := report
 		report = func(pr award.Progress) {
@@ -48,6 +51,10 @@ func (p *Provider) Search(ctx context.Context, q award.Query, report award.Repor
 }
 
 func (p *Provider) searchLive(ctx context.Context, q award.Query, report award.Reporter) (award.Result, error) {
+	return p.searchCashWithPricing(ctx, q, report, priceFares)
+}
+
+func (p *Provider) searchCashWithPricing(ctx context.Context, q award.Query, report award.Reporter, price func(context.Context, *session.Client, pageData, *award.Result, award.Reporter) error) (award.Result, error) {
 	result := award.Result{Query: q}
 	if err := q.Validate(time.Now()); err != nil {
 		return result, err
@@ -146,9 +153,7 @@ func (p *Provider) searchLive(ctx context.Context, q award.Query, report award.R
 				if err = fillSearch(&f, q, verified.Success, verified.Source); err != nil {
 					return err
 				}
-				// A saved member session can retain a stop marker from an earlier
-				// protected action. EVA's booking form needs the complete new sensor
-				// sequence: the one-sensor shortcut returned 403 on repeated searches.
+
 				progress("availability", "Requesting all flight options for the selected date")
 				body, target, err = navigate(ctx, c, "POST", f.action, f.values, target)
 				if err != nil {
@@ -161,9 +166,7 @@ func (p *Provider) searchLive(ctx context.Context, q award.Query, report award.R
 					if err = p.clearAvailabilityChallenge(ctx, c, body, target, attempt, progress); err != nil {
 						return err
 					}
-					// The interstitial explicitly intercepted the search. Reopen the
-					// form and acquire fresh CAPTCHA and form state, as history.back
-					// does in EVA's browser flow. No credentials or pricing are replayed.
+
 					continue
 				}
 				sso, err = parseForm(body, target)
@@ -172,8 +175,7 @@ func (p *Provider) searchLive(ctx context.Context, q award.Query, report award.R
 				}
 				break
 			}
-			// Use the observed availability handoff. Price preparation is handled
-			// separately with the authenticated member profile; no payment is sent.
+
 			progress("booking handoff", "Opening EVA's flight availability application")
 			body, target, err = navigate(ctx, c, "POST", sso.action, sso.values, target)
 			if err != nil {
@@ -210,7 +212,7 @@ func (p *Provider) searchLive(ctx context.Context, q award.Query, report award.R
 			if err != nil {
 				return err
 			}
-			return priceFares(ctx, c, page, &result, report)
+			return price(ctx, c, page, &result, report)
 		}
 		return retrySearchPreparation(ctx, func() (string, error) {
 			err := attempt()
@@ -242,8 +244,7 @@ func fillSearch(f *form, q award.Query, captchaResult, captchaData string) error
 			return award.Failure("search_protocol", "EVA search fields changed")
 		}
 	}
-	// Unchecked controls are not successful HTML inputs, but this flow
-	// explicitly selects Miles & Cash.
+
 	prefix := strings.TrimSuffix(f.field("$txt_From"), "txt_From")
 	f.values.Set(prefix+"cbs_MNC", "True")
 	return nil

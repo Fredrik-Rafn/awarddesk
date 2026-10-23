@@ -38,8 +38,6 @@ func ajaxContext(page pageData) url.Values {
 	return values
 }
 
-// Endpoints are fixed to the captured price-preparation flow. Payment and
-// ticketing endpoints are never accepted.
 func quoteRequest(ctx context.Context, c pricingClient, sessionID, action string, values url.Values) (pageData, error) {
 	started := time.Now()
 	defer func() {
@@ -102,9 +100,7 @@ func parseMilesCash(raw json.RawMessage, currency string) (*award.MilesCash, err
 	if err != nil || cash < 0 || cash > 1e9 {
 		return nil, award.Failure("pricing_protocol", "EVA returned an invalid cash remainder")
 	}
-	// maxRankAvailable describes a theoretical maximum, while listRanks
-	// contains the account's usable slider positions. Availability alone does
-	// not mean this particular maximum is selectable.
+
 	selectable := false
 	if m.IsAvailable {
 		for _, r := range m.ListRanks {
@@ -181,8 +177,7 @@ func priceFaresWithReplans(ctx context.Context, c pricingClient, page pageData, 
 		if selected.SessionID != "" {
 			page.SessionID = selected.SessionID
 		}
-		// A successful selection response may contain only an error/delta page.
-		// Reopen availability before checkout; never infer a price or repeat BOOK.
+
 		rawPrice := selected.Business["Price"]
 		if len(rawPrice) == 0 || strings.TrimSpace(string(rawPrice)) == "null" {
 			if replans <= 0 {

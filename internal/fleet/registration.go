@@ -10,8 +10,6 @@ import (
 	"awarddesk/internal/proxies"
 )
 
-// Registration shares both the worker ceiling and proxy leases with searches
-// and session preparation. Each acquisition creates a new locked sticky identity.
 func (f *Fleet) RegistrationLease(ctx context.Context, saved ...string) (*proxies.Lease, func(), error) {
 	for {
 		if err := ctx.Err(); err != nil {

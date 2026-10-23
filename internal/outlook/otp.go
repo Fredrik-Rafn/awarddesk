@@ -1,5 +1,3 @@
-// Package outlook reads fresh EVA verification messages through OAuth2 IMAP.
-// It never sends mail, marks messages read, or uses the mailbox password.
 package outlook
 
 import (
@@ -67,7 +65,7 @@ func (r *Reader) refreshAccess(ctx context.Context, force bool) (string, error) 
 	store := r.tokenStore()
 	unlock, err := store.Lock()
 	if err != nil {
-		return "", errors.New("Outlook token store is busy")
+		return "", &temporaryMailboxError{"Outlook token store is busy"}
 	}
 	defer unlock()
 	refresh, err := r.loadRefreshToken(store)
@@ -83,9 +81,12 @@ func (r *Reader) refreshAccess(ctx context.Context, force bool) (string, error) 
 	h := &http.Client{Timeout: 25 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	res, err := h.Do(req)
 	if err != nil {
-		return "", errors.New("Outlook OAuth connection failed")
+		return "", mailboxReadError("Outlook OAuth connection failed", err)
 	}
 	defer res.Body.Close()
+	if res.StatusCode == http.StatusTooManyRequests || res.StatusCode >= 500 {
+		return "", &temporaryMailboxError{"Outlook OAuth service is temporarily unavailable"}
+	}
 	var value struct {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
@@ -127,8 +128,6 @@ func (r *Reader) connect(ctx context.Context, folders ...string) (*client.Client
 
 var errIMAPAuth = errors.New("Outlook IMAP OAuth login rejected")
 
-// IMAP may reject a cached access token before its advertised expiry. Refresh
-// once using the latest durable refresh token; no EVA login/OTP is submitted here.
 func connectWithRefresh(ctx context.Context, token func(context.Context, bool) (string, error), open func(string) (*client.Client, *imap.MailboxStatus, func(), error)) (*client.Client, *imap.MailboxStatus, func(), error) {
 	for attempt := 0; attempt < 2; attempt++ {
 		access, err := token(ctx, attempt > 0)
@@ -150,7 +149,7 @@ func (r *Reader) openMailbox(ctx context.Context, token string, folders ...strin
 	dialer := tls.Dialer{NetDialer: &net.Dialer{Timeout: 20 * time.Second}, Config: &tls.Config{ServerName: "outlook.office365.com", MinVersion: tls.VersionTLS12}}
 	conn, err := dialer.DialContext(ctx, "tcp", "outlook.office365.com:993")
 	if err != nil {
-		return nil, nil, nil, errors.New("Outlook IMAP connection failed")
+		return nil, nil, nil, mailboxReadError("Outlook IMAP connection failed", err)
 	}
 	conn.SetDeadline(time.Now().Add(30 * time.Second))
 	stop := context.AfterFunc(ctx, func() { conn.Close() })
@@ -158,11 +157,15 @@ func (r *Reader) openMailbox(ctx context.Context, token string, folders ...strin
 	c, err := client.New(conn)
 	if err != nil {
 		cleanup()
-		return nil, nil, nil, errors.New("Outlook IMAP greeting failed")
+		return nil, nil, nil, mailboxReadError("Outlook IMAP greeting failed", err)
 	}
 	c.ErrorLog = log.New(io.Discard, "", 0)
 	if err = c.Authenticate(xoauth{r.config.Email, token}); err != nil {
 		cleanup()
+		var temporary *temporaryMailboxError
+		if failure := mailboxReadError("Outlook IMAP authentication connection interrupted", err); errors.As(failure, &temporary) {
+			return nil, nil, nil, failure
+		}
 		return nil, nil, nil, errIMAPAuth
 	}
 	folder := "INBOX"
@@ -172,7 +175,7 @@ func (r *Reader) openMailbox(ctx context.Context, token string, folders ...strin
 	box, err := c.Select(folder, true)
 	if err != nil {
 		cleanup()
-		return nil, nil, nil, errors.New("Outlook inbox could not be opened read-only")
+		return nil, nil, nil, mailboxReadError("Outlook inbox could not be opened read-only", err)
 	}
 	return c, box, cleanup, nil
 }
@@ -185,13 +188,11 @@ func (r *Reader) Checkpoint(ctx context.Context) (Checkpoint, error) {
 	return Checkpoint{UIDValidity: box.UidValidity, NextUID: box.UidNext, Since: time.Now().UTC()}, nil
 }
 
-// Wait accepts only new inbox UIDs, matching recipient/sender/subject, with
-// a code younger than EVA's three-minute validity. Captured emails are never used.
 func (r *Reader) Wait(ctx context.Context, point Checkpoint) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 170*time.Second)
 	defer cancel()
 	for {
-		code, err := r.poll(ctx, point)
+		code, err := retryMailboxRead(ctx, func() (string, error) { return r.poll(ctx, point) })
 		if err != nil {
 			return "", err
 		}
@@ -227,7 +228,7 @@ func (r *Reader) pollMessage(ctx context.Context, point Checkpoint, expectedSubj
 	criteria.Header.Set("Subject", expectedSubject)
 	ids, err := c.UidSearch(criteria)
 	if err != nil {
-		return "", errors.New("Outlook OTP search failed")
+		return "", mailboxReadError("Outlook OTP search failed", err)
 	}
 	var fresh []uint32
 	for _, id := range ids {
@@ -246,7 +247,7 @@ func (r *Reader) pollMessage(ctx context.Context, point Checkpoint, expectedSubj
 	section := &imap.BodySectionName{Peek: true, Partial: []int{0, 256*1024 + 1}}
 	messages := make(chan *imap.Message, 20)
 	if err = c.UidFetch(set, []imap.FetchItem{imap.FetchUid, imap.FetchInternalDate, section.FetchItem()}, messages); err != nil {
-		return "", errors.New("Outlook OTP fetch failed")
+		return "", mailboxReadError("Outlook OTP fetch failed", err)
 	}
 	var newest uint32
 	var code string

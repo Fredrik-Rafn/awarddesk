@@ -77,8 +77,6 @@ func TestCaptchaSolutionPreservesActualIdentity(t *testing.T) {
 
 func (f solverTransportFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
-// Verify the serialized external API contract without contacting a solver.
-// Cancellation after task creation ensures the test cannot poll or incur cost.
 func TestSolverUsesAirlineStickyProxy(t *testing.T) {
 	for _, raw := range []string{"", "127.0.0.1:8123:sticky-user:secret:with:colons", "http://sticky-user:secret%40value@127.0.0.1:8123"} {
 		t.Run(map[bool]string{true: "direct", false: "proxy"}[raw == ""], func(t *testing.T) {

@@ -8,8 +8,6 @@ import (
 	"strings"
 )
 
-// EVA availability amounts are per adult; checkout and our public fares are
-// totals for the search party. Preserve exact decimals when converting units.
 func partyCashAmount(raw string, adults int) (string, error) {
 	if adults < 1 {
 		adults = 1

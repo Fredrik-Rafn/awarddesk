@@ -1,57 +1,42 @@
 # Awarddesk
 
-A request-based EVA Air scraper with an embedded web UI, reusable login sessions
-and structured Go results.
-
-## Airline and scope
-
-EVA Air was chosen because its Miles & Cash journey combines authenticated flight
-availability, multiple fare families and mileage pricing across several booking
-systems. The implementation supports one-way searches for 1–9 adults in economy,
-premium economy and business, returning all eligible options exposed for the query.
-
-**This integration implements Miles & Cash (`IS_MILES_MODE=false`), not EVA's
-separate award-ticket redemption flow.** It reports the maximum mileage offset
-and remaining cash for the entire party, independent of the account's balance.
-The cash remainder is not a taxes-only amount; reported seats are paid-fare
-availability, not award-seat inventory. Estimates are explicitly marked, with a
-separate flag indicating whether the account can select the quoted offset.
+A request-based EVA Air award-flight scraper with structured Go results and an
+embedded web interface. EVA was chosen for its authenticated award availability,
+mileage quotation and challenging session/security handoffs.
 
 ## Reverse engineering
 
-Browser DevTools was used to inspect the request sequence, redirects, cookies,
-form fields and embedded JSON, separating fixed inputs from session-specific state.
-The resulting Go implementation uses HTTP requests throughout, without browser
-automation:
+Browser DevTools was used to trace requests, redirects, cookies, hidden form
+state and embedded JSON. Repeating the journey with different dates, cabins and
+passenger counts separated fixed inputs from session-specific values.
 
-1. Initialize member login, complete security checks, submit credentials and confirm
-   authenticated state. When required, Outlook OAuth and read-only IMAP retrieve
-   a fresh email verification code.
-2. Restore the saved cookies, browser identity and original sticky proxy for later
-   searches; create a fresh booking context for each uncached search.
-3. Submit route, date, cabin and passenger count. Follow the booking handoff and
-   parse flight segments, fare families and reported seats from availability data.
-4. Select each distinct fare and follow traveller, catalogue and checkout-price
-   preparation (`ACTION=BOOK`). Read `MilesAndCashView.maxRankAvailable` for its
-   mileage amount and cash remainder. No payment or ticketing request is submitted.
-5. Normalize party totals into Go structs, omit explicitly ineligible fares and
-   publish progress followed by the completed result.
+The default **Award tickets** flow checks the weekly availability grid for the
+requested party, matches bookable itineraries, then retrieves each itinerary's
+per-person mileage and multiplies it by the adult count. Fresh form state is used
+for every selection. Waitlists are excluded; unknown response layouts are errors,
+not empty inventory. The flow stops before passenger entry or reservation creation.
 
-The main challenges were rotating page tickets and recommendation IDs, separate
-member/booking sessions, delayed OTP delivery and security pages that resemble
-ordinary responses. Availability prices are per adult while checkout prices are
-party totals; normalizing those units prevents false price-change errors.
+The main challenges were separate member/booking sessions, rotating encrypted
+handoffs, delayed email OTP, security pages returned as ordinary HTML, mixed cabins
+and discrepancies between availability and booking inventory. Account failover,
+bounded retries and exact recent-quote reuse handle recoverable failures without
+replaying uncertain credential or OTP submissions.
 
-`tls-client`/`fhttp` maintains isolated HTTP sessions; HTML and JSON parsers extract
-fresh state. Hyper handles Akamai and Imperva/Reese84, with AnySolver for CAPTCHA
-and configured security fallback. Stage timings, diagnostic commands, local
-fixtures and `httptest` support investigation and regression testing. See the
-[request-flow walkthrough](docs/code-walkthrough.md) for functions and endpoints.
+Go uses `tls-client`/`fhttp` for isolated HTTP sessions, HTML/JSON parsers, Hyper
+for Akamai and Imperva, and AnySolver for CAPTCHA/security fallback. Outlook OAuth
+and read-only IMAP retrieve fresh verification mail. SQLite stores configuration,
+sticky proxies, reusable sessions, results and history. Production flows use no
+browser automation. See the [flow walkthrough](docs/eva-awards.md) and
+[code guide](docs/code-walkthrough.md) for implementation details.
+
+**Miles & Cash** remains a separate optional mode. It estimates the maximum
+mileage offset against a paid fare and its cash remainder; that remainder is not
+an award-ticket tax quote.
 
 ## Setup and run
 
-Requires Go 1.25.5 or newer on Windows, macOS or Linux. No separate frontend server,
-external database or C compiler is required.
+Requires Go 1.25.5 or newer on Windows, macOS or Linux. The frontend and SQLite
+database are included; no separate frontend server or C compiler is required.
 
 ```sh
 git clone https://github.com/Fredrik-Rafn/awarddesk.git
@@ -59,85 +44,73 @@ cd awarddesk
 go run .
 ```
 
-Open http://127.0.0.1:8080 for searches and http://127.0.0.1:8080/admin for setup.
-The initial admin password is **admin1234**, without a username; change it in Admin.
+Open http://127.0.0.1:8080 and configure http://127.0.0.1:8080/admin.
+The initial admin password is **admin1234**, with no username; change it in Admin.
 
-1. In Settings, enter funded `HYPER_API_KEY` and `ANYSOLVER_API_KEY` values. Hyper
-   must permit the EVA domains and the Akamai/Imperva products used by the flow.
-2. In Proxies, add sticky HTTP proxies, one per line:
-   `http://user:password@host:port` or `host:port:user:password`.
-3. In Accounts, add an EVA login/password, Outlook mailbox, OAuth client ID and
-   refresh token. The mailbox needs IMAP access; its ordinary password is not used.
-   The EVA member profile must have the contact details required for pricing.
-4. Prepare the account and wait for Ready, then submit a search on the main page.
-   Background maintenance keeps sessions prepared while the app is running.
+1. Add funded `HYPER_API_KEY` and `ANYSOLVER_API_KEY` values in Settings. Hyper
+   needs EVA domain access and the relevant Akamai/Imperva products enabled.
+2. Add authenticated **Evomi** proxies in Proxies, one per line. The current
+   adapter requires exactly one supported sticky tag in the password, for example
+   `http://USER:PASSWORD_session-demo@core-residential.evomi.com:1000`.
+   `host:port:user:password` format is also accepted. Other proxy providers are
+   not currently supported by this adapter. Fresh sessions receive distinct
+   strict sticky identities; saved sessions retain their original identity.
+3. Add an EVA login/password and its Outlook mailbox, OAuth client ID and refresh
+   token in Accounts. Outlook needs IMAP access; its ordinary password is unused.
+4. Prepare an account and wait for Ready, then search on the main page. Background
+   maintenance refreshes sessions and retries recoverable account failures.
 
-Configuration, sessions, cached results and history live in `data/awarddesk.db`.
-Existing `.env`, proxy and session files are imported once; subsequent changes
-belong in Admin. Keep the database private: it contains credentials and tokens.
-Stop with Ctrl+C; use `go run . -port 8090` for another port.
+Configuration is stored privately in `data/awarddesk.db`. Existing environment
+and proxy files are imported once; subsequent changes belong in Admin. Stop with
+Ctrl+C; use `go run . -port 8090` for another port. For a password-protected
+recruiter demo, follow [ngrok setup](docs/demo.md), or use `./start-demo.ps1` on
+Windows after installing/authenticating ngrok. Admin remains localhost-only.
 
-For a shared demo, Windows users can run `./start-demo.ps1` instead; it prints an
-HTTPS URL and separate demo credentials. Admin stays localhost-only. See
-[ngrok setup](docs/demo.md) for prerequisites and macOS/Linux instructions.
-
-Offline checks require no airline credentials or solver credits:
+Offline checks spend no solver credits:
 
 ```sh
 go test -p 1 ./...
 go vet -p 1 ./...
 ```
 
-Node is optional for the frontend test suite; [test instructions](tests/README.md)
-explain its scope.
+Node enables the optional frontend regression suite; see [tests](tests/README.md).
 
 ## Verified output
 
-Recorded on 22 October 2026: HKG → TPE, 10 December 2026, economy, two adults.
-The search completed in 131 seconds with seven itineraries and 21 priced fare
-entries. A [complete saved response](docs/examples/eva-result.json) is included;
-it contains historical results, not a current availability guarantee.
+The saved [award response](docs/examples/eva-award-result.json) records real
+availability and mileage. Results are Go `award.Result`, `Itinerary`, `Segment`
+and `Fare` values, serialized as JSON: route, date, actual segment cabins, airline,
+flight numbers, available aircraft, mileage, fees and checked party size. Multiple
+eligible itineraries remain separate. `availableFor` is the successfully checked
+party size, not an invented exact remaining-seat count.
 
-Example from that response: BR892, Boeing 787-10, Economy Basic, nine reported
-seats, **29,820 miles + HKD 1,388 for two adults**. The API represents the estimate
-as:
+For example, the recorded TPE → SIN search on 27 November 2026, premium economy
+for one adult, returned BR225 and BR215 at **20,000 miles each**, with separately
+labelled cash-derived tax estimates of **TWD 3,047 ≈ US$93.49 per itinerary**.
 
-```json
-{
-  "pricingType": "miles_cash",
-  "estimated": true,
-  "milesCash": {
-    "miles": 29820,
-    "remainingCash": { "amount": "1388.0", "currency": "HKD" },
-    "selectable": false
-  }
-}
-```
+On 23–24 October 2026, **200 distinct uncached searches completed with zero final
+failures**, at up to 30 concurrent searches: 168 without recorded recovery and
+32 after automatic recovery. There were 79 priced results (242 itineraries) and
+121 valid empty results. Priced-search latency was 60.5 seconds median and 150.2
+seconds P95. Cash-derived fee estimates with USD conversion covered 225 of 242
+quotes; the other fees remained unknown. See the [benchmark summary](docs/benchmarks/award-200-2026-10-24.json).
 
-Results use `award.Result`, `Itinerary`, `Segment` and `Fare` structs, serialized
-as JSON by the API. For this product, use `milesCash`; the generic award-only
-`points` and `taxes` fields are not populated. `selectable: false` means the saved
-account could not select that maximum offset, not that the calculation is an
-award quote. Multiple fare families remain separate entries.
+Recorded results are historical evidence, not a guarantee of future availability.
+Detailed methodology and failures are in [verification evidence](docs/verification-status.md).
 
-## Known limitations and edge cases
+## Limitations and edge cases
 
-- Actual award-ticket prices and award-seat inventory are not implemented.
-  Round trips, children, infants and first class are unsupported. Aircraft and
-  seat counts can be absent; displayed seat counts may be capped by EVA.
-- Pricing depends on mutable airline state and response times. More than 30
-  distinct fare groups yields an incomplete result; incomplete/failed results
-  are not cached. Genuine price changes and unknown response formats can fail.
-- Complete searches are cached for 30 minutes by default; results may become stale.
-  Sessions can be revoked before their estimated expiry or lose their sticky IP.
-- Retries and account failover are bounded. Uncertain credential, OTP and checkout
-  outcomes are not blindly replayed. OTP delivery and proxy/solver availability
-  can delay or prevent completion.
-- The 500-search baseline completed 423 jobs (84.6%, including 21 valid empty
-  results). After correcting per-adult/party comparisons, seven targeted searches
-  passed; the full benchmark has not been repeated. TPE–ICN handoffs and some
-  missing booking-data responses remain unresolved. See [verification evidence](docs/verification-status.md).
-- This is a single-process SQLite application with bounded concurrent workers and
-  exclusive account use. The ngrok demo shares one workspace; it is not a
-  tenant-isolated public service. Live use needs working accounts, sticky proxies
-  and funded solvers; the latest changes were checked offline without paid calls.
+- One-way award searches support economy, premium economy and business, 1–6 adults
+  and dates within 360 days. Children, infants, round trips and first class are
+  unsupported. Aircraft and exact seat counts can be absent.
+- Unfunded accounts expose award mileage but not the subsequent award-tax quote.
+  Verified `taxes` therefore stay unknown. Where an exact matching cash itinerary
+  is available, `taxEstimate` contains separately labelled cash-derived charges,
+  optionally converted to USD with the original amount, rate and date retained.
+  These are estimates, not verified award charges. Missing quotes are never zero.
+- Complete results are cached for 30 minutes by default and can become stale.
+  Sessions may expire early or lose their sticky IP. Retries have finite deadlines;
+  upstream changes, unavailable accounts or solver/proxy failures can still fail.
+- The app is one process with SQLite, bounded concurrent jobs and exclusive account
+  use. The ngrok demo shares one workspace; it is not a tenant-isolated public
+  service. Live use requires working accounts, proxies and funded solvers.

@@ -54,9 +54,6 @@ func (p *Provider) clearAvailabilityChallenge(ctx context.Context, c *session.Cl
 	return (antibot.Hyper{Key: p.config.HyperKey}).PrepareAdaptive(ctx, c, target, body)
 }
 
-// Imperva may replace its sensor interstitial with an hCaptcha page whose
-// title is simply "EVAAir". Parse the fresh challenge and its verification
-// endpoint rather than relying on a page title or a captured endpoint token.
 func bookingCaptcha(body []byte, page string) (key, endpoint string, found bool, err error) {
 	root, e := html.Parse(bytes.NewReader(body))
 	if e != nil {

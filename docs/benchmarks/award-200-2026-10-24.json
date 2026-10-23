@@ -1,0 +1,310 @@
+{
+  "scope": "EVA award tickets; historical live measurements, not an SLA",
+  "method": {
+    "seed": 20261023,
+    "distinctQueries": 200,
+    "refresh": true,
+    "maxConcurrentSubmittedSearches": 30,
+    "sharedAccountOperationLimit": 30,
+    "manualResubmissions": 0,
+    "routes": 8,
+    "dates": [
+      "2026-11-24",
+      "2026-11-27",
+      "2026-12-10",
+      "2027-01-15"
+    ],
+    "cabins": [
+      "economy",
+      "premium_economy",
+      "business"
+    ],
+    "adultCounts": [
+      1,
+      2,
+      4,
+      6
+    ],
+    "goMaxProcs": 4,
+    "goMemoryLimitMiB": 512,
+    "windowsProcessPeakWorkingSetMiB": 301.6,
+    "latencyIncludes": "Submission, queueing, account recovery, mileage and optional tax/FX lookup; one-second client polling resolution",
+    "successMeans": "Complete award availability/mileage result; recognized empty inventory counts as success. Optional missing fees do not fail award results.",
+    "taxMeaning": "Cash-derived estimates, not verified award charges; unknown charges are not zero.",
+    "quantiles": "Median averages central pair for even cohorts; P95 uses nearest rank"
+  },
+  "started": "2026-10-23T21:59:32.158Z",
+  "finished": "2026-10-23T22:18:08.111Z",
+  "total": 200,
+  "finishedJobs": 200,
+  "success": 200,
+  "finalFailure": 0,
+  "noRecordedRecovery": 168,
+  "recoveredSuccess": 32,
+  "awardRecoverySuccess": 23,
+  "taxOnlyRecoverySuccess": 9,
+  "priced": 79,
+  "validEmpty": 121,
+  "awardQuotes": 242,
+  "taxEstimates": 225,
+  "convertedUSD": 225,
+  "cached": 0,
+  "distinctJobIDs": 200,
+  "recoveryCodes": {
+    "session_denied": 5,
+    "award_protocol": 7,
+    "challenge_rejected": 12,
+    "search_protocol": 10,
+    "connection": 15,
+    "provider_error": 3,
+    "captcha_incorrect": 1
+  },
+  "recoveryStages": {
+    "award flights": 5,
+    "award pricing": 19,
+    "availability": 10,
+    "proxy verification": 7,
+    "login page": 2,
+    "award security": 3,
+    "credentials": 2,
+    "booking handoff": 1,
+    "session verification": 2,
+    "session verification retry": 1,
+    "session preparation": 1
+  },
+  "recoveryPhases": {
+    "award availability": 2,
+    "award pricing": 8,
+    "session failover": 19,
+    "award tax estimates": 12,
+    "proxy verification": 6,
+    "login page": 1,
+    "session verification": 1,
+    "session verification retry": 2,
+    "session renewal": 1,
+    "captcha retry": 1
+  },
+  "latencySeconds": {
+    "all": {
+      "n": 200,
+      "median": 18.724,
+      "p95": 118.019,
+      "max": 170.485
+    },
+    "priced": {
+      "n": 79,
+      "median": 60.546,
+      "p95": 150.22,
+      "max": 170.485
+    },
+    "empty": {
+      "n": 121,
+      "median": 12.135,
+      "p95": 39.396,
+      "max": 149.256
+    },
+    "firstMileage": {
+      "n": 79,
+      "median": 27.298,
+      "p95": 45.427,
+      "max": 112.978
+    },
+    "taxEnrichment": {
+      "n": 79,
+      "median": 15.337,
+      "p95": 36.237,
+      "max": 59.231
+    }
+  },
+  "byPhase": [
+    {
+      "concurrency": 2,
+      "planned": 20,
+      "finished": 20,
+      "success": 20,
+      "failed": 0,
+      "priced": 10,
+      "recovered": 6,
+      "quotes": 39,
+      "taxEstimates": 37,
+      "wallSeconds": 506.49,
+      "latencySeconds": {
+        "n": 20,
+        "median": 36.293,
+        "p95": 126.071,
+        "max": 153.276
+      }
+    },
+    {
+      "concurrency": 8,
+      "planned": 40,
+      "finished": 40,
+      "success": 40,
+      "failed": 0,
+      "priced": 18,
+      "recovered": 8,
+      "quotes": 61,
+      "taxEstimates": 58,
+      "wallSeconds": 248.322,
+      "latencySeconds": {
+        "n": 40,
+        "median": 20.714,
+        "p95": 120.149,
+        "max": 155.422
+      }
+    },
+    {
+      "concurrency": 20,
+      "planned": 80,
+      "finished": 80,
+      "success": 80,
+      "failed": 0,
+      "priced": 31,
+      "recovered": 11,
+      "quotes": 78,
+      "taxEstimates": 72,
+      "wallSeconds": 190.645,
+      "latencySeconds": {
+        "n": 80,
+        "median": 17.1715,
+        "p95": 84.66,
+        "max": 150.22
+      }
+    },
+    {
+      "concurrency": 30,
+      "planned": 60,
+      "finished": 60,
+      "success": 60,
+      "failed": 0,
+      "priced": 20,
+      "recovered": 7,
+      "quotes": 64,
+      "taxEstimates": 58,
+      "wallSeconds": 170.488,
+      "latencySeconds": {
+        "n": 60,
+        "median": 17.1865,
+        "p95": 113.987,
+        "max": 170.485
+      }
+    }
+  ],
+  "byRoute": {
+    "SIN-TPE": {
+      "total": 22,
+      "success": 22,
+      "priced": 7,
+      "recovered": 1
+    },
+    "TPE-SIN": {
+      "total": 29,
+      "success": 29,
+      "priced": 16,
+      "recovered": 4
+    },
+    "HND-SIN": {
+      "total": 21,
+      "success": 21,
+      "priced": 2,
+      "recovered": 3
+    },
+    "TPE-ICN": {
+      "total": 23,
+      "success": 23,
+      "priced": 10,
+      "recovered": 10
+    },
+    "TPE-HKG": {
+      "total": 26,
+      "success": 26,
+      "priced": 13,
+      "recovered": 5
+    },
+    "HKG-TPE": {
+      "total": 30,
+      "success": 30,
+      "priced": 17,
+      "recovered": 3
+    },
+    "TPE-LAX": {
+      "total": 25,
+      "success": 25,
+      "priced": 12,
+      "recovered": 4
+    },
+    "TPE-NRT": {
+      "total": 24,
+      "success": 24,
+      "priced": 2,
+      "recovered": 2
+    }
+  },
+  "byFlightCount": {
+    "empty": {
+      "jobs": 121,
+      "latencySeconds": {
+        "n": 121,
+        "median": 12.135,
+        "p95": 39.396,
+        "max": 149.256
+      },
+      "recovered": 4
+    },
+    "one": {
+      "jobs": 22,
+      "latencySeconds": {
+        "n": 22,
+        "median": 39.818,
+        "p95": 66.574,
+        "max": 81.746
+      },
+      "recovered": 6
+    },
+    "twoToThree": {
+      "jobs": 34,
+      "latencySeconds": {
+        "n": 34,
+        "median": 58.5505,
+        "p95": 118.019,
+        "max": 143.279
+      },
+      "recovered": 13
+    },
+    "fourToSix": {
+      "jobs": 9,
+      "latencySeconds": {
+        "n": 9,
+        "median": 83.699,
+        "p95": 170.485,
+        "max": 170.485
+      },
+      "recovered": 3
+    },
+    "sevenOrMore": {
+      "jobs": 14,
+      "latencySeconds": {
+        "n": 14,
+        "median": 113.5035,
+        "p95": 153.276,
+        "max": 153.276
+      },
+      "recovered": 6
+    }
+  },
+  "wallSeconds": 1115.953,
+  "recoveryEvents": 53,
+  "quoteReuseJobs": 7,
+  "taxGapJobs": 11,
+  "missingTaxEstimates": 17,
+  "taxGapRoutes": {
+    "TPE-ICN": {
+      "jobs": 10,
+      "missingEstimates": 15
+    },
+    "SIN-TPE": {
+      "jobs": 1,
+      "missingEstimates": 2
+    }
+  }
+}

@@ -62,8 +62,6 @@ func adminLogin(t *testing.T, s *web.Server, h http.Handler) *http.Cookie {
 	return cookies[0]
 }
 
-// Get the token through the same public endpoint used by the frontend.
-// These tests should not need access to the server's private fields.
 func requestToken(s *web.Server) string {
 	r := httptest.NewRequest("GET", "http://localhost:8080/api/config", nil)
 	w := httptest.NewRecorder()

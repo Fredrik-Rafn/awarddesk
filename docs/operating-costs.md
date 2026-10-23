@@ -1,8 +1,11 @@
 # Solver calls, bandwidth and operating costs
 
-Audited against the implementation and public price pages on 22 October 2026.
+Price pages were checked on 22 October 2026; award call paths were audited on 23 October.
 Counts below describe one successful attempt. Recovery, expired sessions and
 additional challenges add work. They are not invoice measurements.
+The flight-search cost estimates below describe **Miles & Cash**. The award flow
+uses a separate booking portal and has not received an invoice/bandwidth benchmark;
+its application sequence is documented in [award flow](eva-awards.md).
 
 ## What one flow calls
 
@@ -14,6 +17,8 @@ additional challenges add work. They are not invoice measurements.
 | Register and verify membership | 1–3 initial Akamai sensors; add adaptive/SBSD work when encountered | 1 registration reCAPTCHA v3; 0–1 fallback image task |
 | Onboard all the way to a saved login | Registration work above **plus a fresh member login** | Usually budget 2–3 v3 tasks plus 0–2 image tasks across both stages |
 | Live flight search with healthy saved member session | 3 mandatory booking Akamai sensors; 0–2 Reese84 generations for supported Imperva continuations; add adaptive/SBSD work when encountered | 1 booking reCAPTCHA v3; additional hCaptcha only if presented; Reese84 task only when using AnySolver for Imperva |
+| Award search with authenticated award portal | 3 availability Akamai sensors plus 3 per actual flight selection submitted; add adaptive/SBSD work when presented; no Imperva observed in this portal | Normally none for search itself; a separate award-portal login may require reCAPTCHA/image recognition and OTP verification |
+| Optional award tax estimates | Cash booking setup above for each fresh quotation context (at most two); matching-flight FARE quotes add no routine generation | Booking reCAPTCHA for each fresh cash context, plus conditional security fallback |
 
 Adaptive proof-of-work itself is calculated locally by the SDK, followed by its
 fresh sensor preparation. `Hyper.VerifyConnection` is an IP check through ipify,
@@ -24,11 +29,26 @@ recognized solver-generation failures. A healthy Hyper Reese84 path does not als
 create an AnySolver Reese84 task. Existing member cookies can avoid fresh login;
 they do not eliminate fresh booking CAPTCHA/Akamai work for an uncached search.
 
-Pricing adds no routine solver task per fare. It makes four dependent EVA calls
+Miles & Cash pricing adds no routine solver task per fare. It makes four dependent EVA calls
 per distinct quote group (fare, travellers, catalogue, checkout price), with
 availability refresh between groups. Group deduplication means ten displayed
 flights do not necessarily mean ten separate quotes. Recovery/replanning can add
 requests and sometimes restart protected search setup.
+
+Award mileage uses fresh three-round Akamai preparation for every actual flight
+selection. Lazy preparation skips three paid generations when a selection page
+needs no submission, including complete same-search quote reuse. Do not use the
+Miles & Cash per-fare solver assumption for award mileage. Tax estimates are
+optional extra work, prefer reconciled cash availability tax totals for all
+matching flights at once, fall back to FARE and share a two-minute budget. USD conversion
+uses one direct, daily-cached public rates response, outside the proxy and solvers.
+
+Parallel quote helpers normally reuse the same search's fresh actual-party
+availability evidence, saving a duplicate three-generation availability solve
+per authenticated helper. They retain their own selection solves, identity and
+fresh forms. Missing/stale evidence or safe setup recovery uses full availability
+instead, adding three calls per such helper. Parallelism is bounded to two helpers
+and the shared global account capacity; it does not imply sharing sensor payloads.
 
 Read: [login.go](../internal/providers/eva/login.go),
 [registration.go](../internal/providers/eva/registration.go),

@@ -19,7 +19,6 @@ import (
 	"awarddesk/internal/award"
 )
 
-// Optional, bounded sensor initialization using fresh scripts and this runner's jar.
 func (r *hyperSession) initializeSensor(page string, body []byte) error {
 	key := r.key
 	if key == "" {
@@ -105,8 +104,6 @@ func sensorMayStop(cookie string, submitted, minimum int) bool {
 	return submitted >= minimum && akamai.IsCookieValid(cookie, submitted)
 }
 
-// Security scripts and submissions must stay on the page's own HTTPS origin.
-// Relative scripts resolve against the current EVA page.
 func challengeEndpoint(page, path string) (endpoint, origin string, err error) {
 	base, err := url.Parse(page)
 	if err != nil || base.Scheme != "https" || base.Host == "" || base.User != nil {
@@ -123,8 +120,6 @@ func challengeEndpoint(page, path string) (endpoint, origin string, err error) {
 	return target.String(), base.Scheme + "://" + base.Host, nil
 }
 
-// SBSD and the regular sensor can coexist. Finding the regular script must not
-// skip SBSD. Resolve once, then parse the refreshed page without recursion.
 func resolveSensorScript(body []byte, solve func([]byte) ([]byte, error)) (string, error) {
 	if sbsdPattern.Match(body) {
 		var err error
@@ -136,8 +131,6 @@ func resolveSensorScript(body []byte, solve func([]byte) ([]byte, error)) (strin
 	return parseSensorPath(body)
 }
 
-// The SDK's regular expression requires a particular script attribute order
-// and does not recognize EVA's adaptive interstitial's async/defer tag.
 func parseSensorPath(body []byte) (string, error) {
 	if value, err := akamai.ParseScriptPath(bytes.NewReader(body)); err == nil {
 		return value, nil

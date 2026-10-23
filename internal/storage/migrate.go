@@ -10,8 +10,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// ImportLegacy is idempotent: after the first successful import the database
-// wins over stale .env files, including when an administrator clears a value.
 func (s *Store) ImportLegacy(root string) error {
 	if s.Setting("_IMPORTED") != "" {
 		return nil

@@ -55,7 +55,7 @@ func TestRegistrationImportRequiresAdminConsentAndKeepsSecretsPrivate(t *testing
 		t.Fatal(err)
 	}
 	defer svc.Close()
-	s.Admin.Registrations = svc // Do not start workers: this test makes no provider requests.
+	s.Admin.Registrations = svc
 	cookie := adminLogin(t, s, h)
 	s.Admin.DB.SetSettings(map[string]string{"PROXY_LIST": "http://example.com:8080", "HYPER_API_KEY": "test-hyper", "ANYSOLVER_API_KEY": "test-any"})
 	const credentials = "fixture@outlook.com:discarded-password:private-refresh-token-1234:9e5f94bc-e8a4-4e73-b8be-63364c29d753"

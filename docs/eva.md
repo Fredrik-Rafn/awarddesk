@@ -1,5 +1,9 @@
 # EVA Air — Miles & Cash
 
+This document describes the secondary Miles & Cash mode, which remains available.
+The main page defaults to [award tickets](eva-awards.md), with a separate
+availability and mileage-quotation flow.
+
 Run the entire application from the repository directory with `go run .`.
 The backend, session jobs and embedded frontend share port 8080. Restart the
 process after editing Go or frontend files. Configure accounts and keys in Admin.

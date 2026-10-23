@@ -27,8 +27,6 @@ func sessionSnapshotKey(data []byte) [32]byte {
 	return sha256.Sum256(data)
 }
 
-// JSON on disk remains authoritative, including changes by another process.
-// Never reuse transport or verification across a changed snapshot or proxy.
 func (p *Provider) sessionClient(proxy string, data []byte, saved bool) (*session.Client, bool, error) {
 	now := time.Now()
 	key := sessionSnapshotKey(data)

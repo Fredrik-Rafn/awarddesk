@@ -66,10 +66,7 @@ func (r *hyperSession) solveSbsd(page string, body []byte) ([]byte, error) {
 		if o == "" {
 			return nil, errors.New("SBSD O cookie missing")
 		}
-		// Current docs describe context-only subsequent rounds, but the live
-		// endpoint returned "missing script" for round 1 on 2026-10-20.
-		// Retain the supported script-based request; do not add a failed
-		// speculative context call to every login.
+
 		in := &hyper.SbsdInput{Index: i, UserAgent: r.client.UserAgent(), Uuid: string(m[2]), PageUrl: page, OCookie: o, AcceptLanguage: lang, IP: ipValue, Script: string(script)}
 		payload, _, e := api.GenerateSbsdData(ctx, in)
 		if e != nil {

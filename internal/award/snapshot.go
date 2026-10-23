@@ -8,7 +8,6 @@ func copyPointer[T any](p *T) *T {
 	return &v
 }
 
-// CloneResult isolates a published preview from subsequent provider mutations.
 func CloneResult(r Result) Result {
 	r.CacheExpiresAt = copyPointer(r.CacheExpiresAt)
 	r.Warnings = append([]string{}, r.Warnings...)
@@ -26,6 +25,12 @@ func CloneResult(r Result) Result {
 			f.CashPrice = copyPointer(f.CashPrice)
 			f.MilesCash = copyPointer(f.MilesCash)
 			f.MilesCashEligible = copyPointer(f.MilesCashEligible)
+			f.TaxesUSD = copyPointer(f.TaxesUSD)
+			f.TaxEstimate = copyPointer(f.TaxEstimate)
+			if f.TaxEstimate != nil {
+				f.TaxEstimate.USD = copyPointer(f.TaxEstimate.USD)
+				f.TaxEstimate.Components = append([]TaxComponent(nil), f.TaxEstimate.Components...)
+			}
 		}
 	}
 	return r

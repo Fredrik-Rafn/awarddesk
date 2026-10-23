@@ -1,0 +1,109 @@
+{
+  "query": {
+    "provider": "eva",
+    "origin": "TPE",
+    "destination": "SIN",
+    "date": "2026-11-27",
+    "cabin": "premium_economy",
+    "adults": 1,
+    "mode": "award"
+  },
+  "fetchedAt": "2026-10-23T21:59:45.6645551Z",
+  "itineraries": [
+    {
+      "id": "BR225@2026-11-27T07:25:00",
+      "segments": [
+        {
+          "cabin": "premium_economy",
+          "flightNumber": "BR225",
+          "airline": "EVA Air",
+          "origin": "TPE",
+          "destination": "SIN",
+          "departureLocal": "2026-11-27T07:25:00",
+          "arrivalLocal": "2026-11-27T12:05:00",
+          "aircraft": "777-300ER"
+        }
+      ],
+      "fares": [
+        {
+          "name": "Award ticket",
+          "cabin": "premium_economy",
+          "points": 20000,
+          "program": "EVA Infinity MileageLands",
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          },
+          "taxEstimate": {
+            "total": {
+              "amount": "3047.0",
+              "currency": "TWD"
+            },
+            "source": "eva_cash_availability",
+            "quotedAt": "2026-10-23T22:00:24.1659816Z",
+            "usd": {
+              "amount": "93.49",
+              "currency": "USD",
+              "rate": "32.591824",
+              "asOf": "2026-10-23T00:02:31Z",
+              "source": "https://www.exchangerate-api.com"
+            }
+          },
+          "estimated": false,
+          "availableFor": 1,
+          "pricingType": "award"
+        }
+      ],
+      "summary": "EVA award ticket"
+    },
+    {
+      "id": "BR215@2026-11-27T09:35:00",
+      "segments": [
+        {
+          "cabin": "premium_economy",
+          "flightNumber": "BR215",
+          "airline": "EVA Air",
+          "origin": "TPE",
+          "destination": "SIN",
+          "departureLocal": "2026-11-27T09:35:00",
+          "arrivalLocal": "2026-11-27T14:30:00",
+          "aircraft": "777-300ER"
+        }
+      ],
+      "fares": [
+        {
+          "name": "Award ticket",
+          "cabin": "premium_economy",
+          "points": 20000,
+          "program": "EVA Infinity MileageLands",
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          },
+          "taxEstimate": {
+            "total": {
+              "amount": "3047.0",
+              "currency": "TWD"
+            },
+            "source": "eva_cash_availability",
+            "quotedAt": "2026-10-23T22:00:24.1685503Z",
+            "usd": {
+              "amount": "93.49",
+              "currency": "USD",
+              "rate": "32.591824",
+              "asOf": "2026-10-23T00:02:31Z",
+              "source": "https://www.exchangerate-api.com"
+            }
+          },
+          "estimated": false,
+          "availableFor": 1,
+          "pricingType": "award"
+        }
+      ],
+      "summary": "EVA award ticket"
+    }
+  ],
+  "warnings": [],
+  "complete": true,
+  "cacheExpiresAt": "2026-10-23T22:29:45.6645551Z"
+}

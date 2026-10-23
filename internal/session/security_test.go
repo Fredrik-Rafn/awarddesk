@@ -11,7 +11,6 @@ import (
 	"time"
 )
 
-// Exercise production defaults, not testClient (which trusts fixture certificates).
 func TestProductionRejectsUntrustedTLS(t *testing.T) {
 	target := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("request reached a server with an untrusted certificate")
@@ -27,7 +26,7 @@ func TestProductionRejectsUntrustedTLS(t *testing.T) {
 	defer client.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	// POST avoids the GET retry and tests that verification fails immediately.
+
 	if _, _, err := client.Do(ctx, "POST", target.URL, nil, nil); err == nil {
 		t.Fatal("accepted an untrusted TLS certificate")
 	}

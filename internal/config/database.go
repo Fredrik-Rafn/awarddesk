@@ -8,7 +8,6 @@ import (
 	"awarddesk/internal/storage"
 )
 
-// DatabasePath is shared by storage and workspace locking.
 func DatabasePath() string {
 	path := os.Getenv("AWARDDESK_DB")
 	if path == "" {
@@ -17,7 +16,6 @@ func DatabasePath() string {
 	return path
 }
 
-// Database is shared by server and diagnostics; .env is only a first-run import.
 func Database() (*storage.Store, error) {
 	path := DatabasePath()
 	db, e := storage.Open(path)

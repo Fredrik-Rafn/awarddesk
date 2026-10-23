@@ -1,5 +1,9 @@
 # Recovery and account readiness
 
+This page describes shared fleet maintenance and the original Miles & Cash
+search. The [award flow](eva-awards.md#recovery-and-safeguards) adds its own
+five-account search recovery and exact-quote reuse rules.
+
 Source: [fleet.go](../internal/fleet/fleet.go), [recovery.go](../internal/fleet/recovery.go),
 [prepare.go](../internal/fleet/prepare.go), [login.go](../internal/providers/eva/login.go),
 [session_verification.go](../internal/providers/eva/session_verification.go).

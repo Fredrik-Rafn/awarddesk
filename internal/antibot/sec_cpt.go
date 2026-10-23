@@ -92,12 +92,11 @@ func (h Hyper) PrepareAdaptive(ctx context.Context, c *session.Client, page stri
 	if err != nil {
 		return err
 	}
-	// Some deployments place the sensor on the interstitial rather than
-	// the challenge iframe. Never use the explanatory sec-text-if frame.
+
 	if _, parseErr := parseSensorPath(brandingBody); parseErr != nil {
 		brandingURL, brandingBody = page, body
 	}
-	// Adaptive requires fresh sensor context after its proof-of-work step.
+
 	if err = (Hyper{Key: h.Key, VerifyApplication: true}).Prepare(ctx, c, brandingURL, brandingBody); err != nil {
 		return err
 	}

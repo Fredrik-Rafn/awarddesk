@@ -45,16 +45,13 @@ func loginStageError(err error, stage string) error {
 	return &copy
 }
 
-// Hold this account for the whole operation. Searches and login preparation
-// share its cookies and must not change the same session at the same time.
 func (p *Provider) withSession(ctx context.Context, report award.Reporter, use func(*session.Client, string) error) error {
 	if p.config.Email == "" || p.config.Password == "" || p.config.Pool == nil || p.config.Mailbox == nil {
 		return award.Failure("configuration", "EVA login, proxy pool and Outlook OAuth must be configured")
 	}
 	timeout := 6 * time.Minute
 	if use != nil {
-		// A search may encounter both a mandatory Akamai wait and Imperva's
-		// additional CAPTCHA before pricing. Login-only checks stay bounded.
+
 		timeout = 10 * time.Minute
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -74,15 +71,18 @@ func (p *Provider) withSession(ctx context.Context, report award.Reporter, use f
 		return award.Failure("busy", "EVA session store is locked")
 	}
 	defer unlock()
-	err = sessionAttempts(func() error { return p.ensureLocked(ctx, report, store, use) }, func() error { p.discardWarm(); return store.Delete() }, report)
+	if savedSessionOnly(ctx) {
+
+		err = p.ensureLocked(ctx, report, store, use)
+	} else {
+		err = sessionAttempts(func() error { return p.ensureLocked(ctx, report, store, use) }, func() error { p.discardWarm(); return store.Delete() }, report)
+	}
 	if err != nil {
 		p.discardWarm()
 	}
 	return err
 }
 
-// Retry only known safe setup failures or an explicit wrong-CAPTCHA response.
-// A lost credential or OTP response is not permission to submit it again.
 func sessionAttempts(run func() error, reset func() error, report award.Reporter) error {
 	renewedSession, retriedCaptcha := false, false
 	for attempt := 0; attempt < 3; attempt++ {
@@ -136,9 +136,7 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 				if report != nil {
 					report(award.Progress{Stage: "proxy queue", Message: "Waiting for the saved session's sticky proxy to become available"})
 				}
-				// Another active operation may own this slot longer than its
-				// transport cooldown. Keep the existing bounded operation deadline
-				// rather than falsely failing an otherwise valid saved session.
+
 				lease, err = p.config.Pool.WaitResume(ctx, saved.Template, saved.Proxy)
 			}
 			if err != nil {
@@ -221,7 +219,7 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 			p.markVerified(time.Now())
 			return p.finish(store, c, saved, use)
 		}
-		// A redirect to the member login is the only supported expiry signal.
+
 		f, e := parseForm(body, target)
 		if e != nil || f.field("$txt_Member") == "" {
 			return award.Failure("session_unverified", "EVA saved session status could not be verified")
@@ -230,6 +228,9 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 			return award.Failure("session_store", "Could not remove expired EVA session")
 		}
 		return errExpired
+	}
+	if savedSessionOnly(ctx) {
+		return award.Failure("session_expired", "EVA tax lookup needs an existing member session")
 	}
 	credentialsSubmitted := false
 	defer func() {
@@ -320,8 +321,7 @@ func (p *Provider) ensureLocked(ctx context.Context, report award.Reporter, stor
 			return err
 		}
 		progress("otp", "Waiting for a fresh EVA OTP in Outlook")
-		// The returned page contains fresh ASP.NET state. Never reuse the login
-		// request's ZIPSTATE, CSRF token, or a code from a previous operation.
+
 		if next.key != "" {
 			if err = p.solve(ctx, c, lease.URL, target, &next); err != nil {
 				return err
@@ -371,8 +371,6 @@ func imageCaptchaRejected(original, next form, feedback string) bool {
 	return original.captchaImage != "" && next.field("$txt_Member") != "" && strings.EqualFold(strings.TrimSpace(feedback), "Wrong CAPTCHA entry. Please try again.")
 }
 
-// Classify transport failures only. Callers must separately establish that
-// the current stage permits recovery without replaying credentials or pricing.
 func proxyNeedsRenewal(err error) bool {
 	var e *award.Error
 	return errors.As(err, &e) && (e.Code == "connection" || e.Code == "proxy_changed" || e.Code == "response_read")
@@ -392,8 +390,7 @@ func (p *Provider) resumePortalChallenge(ctx context.Context, c *session.Client,
 	if err != nil || u.Scheme != "https" || u.Host != "eservice.evaair.com" || !strings.EqualFold(u.Path, expectedPath) || u.Query().Get("akamai-challenge-resubmit") != "true" {
 		return nil, target, award.Failure("challenge_changed", "EVA challenge forwarding destination changed")
 	}
-	// Forward only EVA's fresh opaque wrapper after explicit verification;
-	// never retry the original credential request on a timeout or rejection.
+
 	values := url.Values{}
 	for _, key := range []string{"sec_chlge_forward_wrap", "sec_chlge_content_type_wrap"} {
 		if f.values.Get(key) == "" {
@@ -414,8 +411,6 @@ func (p *Provider) resumePortalChallenge(ctx context.Context, c *session.Client,
 	return navigate(ctx, c, "POST", f.action, values, target)
 }
 
-// EVA's getClientDT JavaScript fills these initially empty fields on page load.
-// The timestamp is Taiwan local time, independent of the runner's timezone.
 func prepareLoginForm(f *form, target string, now time.Time) error {
 	if err := f.set("$hid_url", target); err != nil {
 		return award.Failure("login_protocol", "EVA login URL field changed")

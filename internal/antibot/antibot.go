@@ -1,4 +1,3 @@
-// Package antibot supplies independent CAPTCHA and browser-challenge adapters.
 package antibot
 
 import (
@@ -20,19 +19,15 @@ type Captcha interface {
 	Solve(context.Context, string, string) (CaptchaSolution, error)
 }
 
-// CaptchaSolution preserves the solver's actual browser identity. A requested
-// user-agent is a hint to the upstream provider, not a guarantee.
 type CaptchaSolution struct {
 	Token     string
 	UserAgent string
 }
 type Hyper struct {
 	Key string
-	// VerifyApplication permits completed sensor rounds without a stop marker.
-	// The caller must then verify access through EVA's application response.
+
 	VerifyApplication bool
-	// MinimumSensorRounds prevents an inherited stop marker from ending a new
-	// protected-action sequence before its interaction sensors are submitted.
+
 	MinimumSensorRounds int
 }
 type challengeClient interface {
@@ -62,7 +57,6 @@ func (h Hyper) Prepare(ctx context.Context, c *session.Client, page string, body
 	return r.initializeSensor(page, body)
 }
 
-// VerifyConnection checks the same locked proxy before account submission.
 func (h Hyper) VerifyConnection(ctx context.Context, c *session.Client) error {
 	r := hyperSession{ctx: ctx, client: c, key: h.Key}
 	_, err := r.outboundIP()

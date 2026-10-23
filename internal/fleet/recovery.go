@@ -9,16 +9,12 @@ import (
 
 const MaxPreparationFailures = 15
 
-// preparationRetryDelay spreads retries across a 15–30 minute window. It is
-// stable for one account/attempt, so restarts do not shorten its cooldown.
 func preparationRetryDelay(id string, failures int) time.Duration {
 	hash := sha256.Sum256([]byte(id + ":" + strconv.Itoa(failures)))
 	spread := binary.BigEndian.Uint64(hash[:8]) % uint64(15*time.Minute+1)
 	return 15*time.Minute + time.Duration(spread)
 }
 
-// recoverPreparationStatus upgrades old permanent pauses and records interrupted
-// work as a delayed fresh attempt. No credential request is replayed on restart.
 func recoverPreparationStatus(st Status, now time.Time) Status {
 	if st.NeedsAttention && st.ConsecutiveFailures == 0 {
 		st.ConsecutiveFailures = 1

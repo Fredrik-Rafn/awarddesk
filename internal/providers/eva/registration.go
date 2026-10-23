@@ -49,8 +49,6 @@ func NewRegistrationProfile() (RegistrationProfile, error) {
 	return RegistrationProfile{FirstName: name("Alex", b[:3]), LastName: name("Morgan", b[3:6]), Password: "Ev!" + hex.EncodeToString(b[6:14]) + "Z7", Phone: "20255501" + strconv.Itoa(10+int(b[14])%90), Year: strconv.Itoa(1970 + int(b[15])%30), Month: strconv.Itoa(1 + int(b[16])%12), Day: strconv.Itoa(1 + int(b[17])%28)}, nil
 }
 
-// Registration checkpoints are private database data. Pending mutations are
-// persisted before sending, and never replayed automatically after a restart.
 type RegistrationState struct {
 	ChallengeBody  []byte              `json:"challengeBody,omitempty"`
 	ChallengeURL   string              `json:"challengeURL,omitempty"`
@@ -101,8 +99,6 @@ func (p *Provider) registrationCaptcha(ctx context.Context, c *session.Client, p
 	return f.set("$hid_grecaptcharesponse", solution.Token)
 }
 
-// Register uses the caller's exclusive sticky client throughout creation and
-// verification. Only the caller may decide to restart a pre-submission failure.
 func (p *Provider) Register(ctx context.Context, c *session.Client, proxy string, state *RegistrationState, save func() error, report award.Reporter) error {
 	progress := func(stage, message string) {
 		if report != nil {
@@ -125,8 +121,7 @@ func (p *Provider) Register(ctx context.Context, c *session.Client, proxy string
 			return nil, page, err
 		}
 		return p.resumePortalChallenge(ctx, c, body, page, "/flyeva/EVA/FFP/register-now.aspx", progress, func() error {
-			// Once forwarding starts, a restart must poll email instead of
-			// replaying the opaque account-creation wrapper.
+
 			state.ChallengeBody = nil
 			state.ChallengeURL = ""
 			return persist("submit_pending")
@@ -178,7 +173,7 @@ func (p *Provider) Register(ctx context.Context, c *session.Client, proxy string
 		if err != nil {
 			return err
 		}
-		// Choose the same English/UK market as the captured registration flow.
+
 		if err = f.set("__MasterEVENTTARGET", "SETMarket"); err != nil {
 			return err
 		}
@@ -192,8 +187,7 @@ func (p *Provider) Register(ctx context.Context, c *session.Client, proxy string
 		if err != nil {
 			return err
 		}
-		// SETMarket redirects to the public home page. Its cookies are already
-		// stored; reopening registration avoids loading the unrelated homepage.
+
 		location, e := url.Parse(response.Header.Get("Location"))
 		if e != nil || response.StatusCode != 302 || location.Scheme != "https" || location.Host != "www.evaair.com" || location.Path != "/en-gb/index.html" {
 			return award.Failure("registration_market", "EVA market-selection response changed")
@@ -274,8 +268,7 @@ func (p *Provider) Register(ctx context.Context, c *session.Client, proxy string
 		}
 		progress("creating account", "Submitting registration once")
 		body, _, err = visit("POST", f.action, f.values, target)
-		// Keep the actual submission error and its checkpoint. Do not turn an
-		// explicit rejection or unknown response into a misleading email timeout.
+
 		if err = confirmSubmission(body, err); err != nil {
 			return err
 		}
@@ -345,8 +338,6 @@ func registrationSubmissionFailure(body []byte, email, password string, submissi
 	return award.Failure("registration_unconfirmed", "EVA did not return its registration-complete screen; submission outcome is unconfirmed. Inspect the mailbox before retrying.")
 }
 
-// The completion container is the provider's acknowledgement in the captured
-// flow. Text alone (including text inside scripts/hidden fields) is insufficient.
 func registrationAcknowledged(body []byte) bool {
 	root, err := html.Parse(bytes.NewReader(body))
 	if err != nil {

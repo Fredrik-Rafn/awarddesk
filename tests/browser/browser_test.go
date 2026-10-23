@@ -14,7 +14,7 @@ func TestBrowserRequestTokenRecovery(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	if b, e := exec.CommandContext(ctx, node, "--test", "http.test.cjs", "registration.test.cjs", "accounts.test.cjs").CombinedOutput(); e != nil {
+	if b, e := exec.CommandContext(ctx, node, "--test", "http.test.cjs", "registration.test.cjs", "accounts.test.cjs", "award-mode.test.cjs").CombinedOutput(); e != nil {
 		t.Fatalf("browser request-helper checks failed: %s", b)
 	}
 }

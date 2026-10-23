@@ -83,7 +83,7 @@ func TestPricingPlanSkipsDuplicateFinishedAndIneligibleFares(t *testing.T) {
 
 func TestMissingCashPriceStopsBeforeAnyPricingRequest(t *testing.T) {
 	r := award.Result{Itineraries: []award.Itinerary{{Fares: []award.Fare{{QuoteID: "1"}}}}}
-	// A nil client would panic if a request were attempted.
+
 	err := priceFaresWithReplans(context.Background(), nil, pageData{}, &r, nil, 2)
 	if err == nil {
 		t.Fatal("missing price accepted")

@@ -8,9 +8,6 @@ import (
 
 const maxQueuedSearches = 1024
 
-// Persist accepted work before dispatch, without holding the scheduler mutex.
-// A stalled disk may delay this submission, but cannot stall other jobs' status
-// or cancellation. Cancellation/shutdown while waiting prevents dispatch.
 func (s *Service) admitLocked(job *Job) (Job, error) {
 	writer := s.writer
 	if writer != nil {

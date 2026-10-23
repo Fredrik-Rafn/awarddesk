@@ -13,8 +13,6 @@ import (
 	"awarddesk/internal/sessionstore"
 )
 
-// A saved member session keeps cookies, browser identity and its original proxy
-// together. Restoring cookies on a different IP can invalidate the login.
 type cached struct {
 	Version         int
 	Account         string
@@ -35,8 +33,6 @@ func (p *Provider) store() sessionstore.Store {
 	return sessionstore.Store{Backend: p.config.StateBackend, Path: filepath.Join(".state", "eva", hex.EncodeToString(h[:])+".json")}
 }
 
-// Save verified member state before and after using it for a search. The search
-// error takes priority if saving the refreshed cookies also fails.
 func (p *Provider) finish(store sessionstore.Store, c *session.Client, saved cached, use func(*session.Client, string) error) error {
 	if err := p.save(store, c, saved); err != nil {
 		return err

@@ -18,8 +18,6 @@ func isMemberLoginPage(body []byte, target string) bool {
 	return err == nil && f.field("$txt_Member") != ""
 }
 
-// Only used before credentials/OTP, or for the saved-session read-only GET.
-// Never apply this classification to credential, OTP or pricing submissions.
 func canRecoverSessionSetup(err error) bool {
 	var failure *award.Error
 	if !errors.As(err, &failure) || failure.OutcomeUnknown {

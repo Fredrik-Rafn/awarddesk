@@ -8,7 +8,6 @@ import (
 	"golang.org/x/net/html"
 )
 
-// Return only user-facing error-container text, never scripts or form values.
 func loginFeedback(body []byte, secrets ...string) string {
 	root, err := html.Parse(bytes.NewReader(body))
 	if err != nil {
@@ -41,7 +40,7 @@ func loginFeedback(body []byte, secrets ...string) string {
 			text = strings.ReplaceAll(text, secret, "[redacted]")
 		}
 	}
-	// Numeric identifiers or OTPs must not be surfaced as diagnostic text.
+
 	text = strings.Map(func(r rune) rune {
 		if unicode.IsDigit(r) {
 			return '#'

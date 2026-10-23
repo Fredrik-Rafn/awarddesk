@@ -100,7 +100,7 @@ func TestMigrationOnceAndReopen(t *testing.T) {
 }
 func TestPrune(t *testing.T) {
 	s := testDB(t)
-	_ = s.SetSettings(map[string]string{"HISTORY_RETENTION_DAYS": "1"}) // Legacy settings cannot restore pruning.
+	_ = s.SetSettings(map[string]string{"HISTORY_RETENTION_DAYS": "1"})
 	if e := s.SaveJob("old", json.RawMessage(`{"id":"old"}`)); e != nil {
 		t.Fatal(e)
 	}

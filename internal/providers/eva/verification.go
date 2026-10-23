@@ -7,8 +7,6 @@ import (
 	"awarddesk/internal/antibot"
 )
 
-// The solver uses its own HTTP client; only prepare touches the airline cookie
-// jar. Both tasks finish before the token check and availability POST.
 func bookingVerification(ctx context.Context, solve func(context.Context) (antibot.CaptchaSolution, error), prepare func(context.Context) error) (antibot.CaptchaSolution, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

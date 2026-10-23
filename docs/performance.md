@@ -1,6 +1,60 @@
 # EVA search speed
 
+## Award tickets: current path
+
+The final [200-search validation](verification-status.md) completed with no final
+failures: 79 priced searches and 121 valid empty results. Priced completion was
+60.5 seconds median / 150.2 seconds P95; first mileage was 27.3 seconds median.
+Optional tax enrichment was 15.3 seconds median and covered 225 of 242 quotes.
+The overall 18.7-second median includes empty inventory and should not be quoted
+as the typical time to return priced flights.
+
+| Flights quoted in one search | Searches | Median completion | P95 |
+| --- | ---: | ---: | ---: |
+| 1 | 22 | 39.8 s | 66.6 s |
+| 2–3 | 34 | 58.6 s | 118.0 s |
+| 4–6 | 9 | 83.7 s | 170.5 s |
+| 7 or more | 14 | 113.5 s | 153.3 s |
+
+These cohorts mix routes, passenger counts, recovery and available helper capacity;
+they show the remaining flight-count tendency, not a controlled parallelism
+comparison. A pre-change seven-flight TPE–HKG sample took 265.4 seconds. The same
+query later took 73.7 seconds in a smoke check and 153.3 seconds in the final run.
+Those observations demonstrate variability as well as improvement opportunities;
+they do not establish a fixed percentage speedup.
+
+Award tickets are the main UI mode. Availability is checked for the actual party
+before any mileage quote. The parent prices its own lane while up to two idle
+ready accounts price other exact itineraries, each with an independent session
+and proxy. Helpers count against the shared concurrency limit, never wait for a
+slot, and never perform a new credential login. Missing helper quotes return to
+the parent rather than becoming a partial success.
+
+A helper can reuse the parent's positive availability evidence for at most 60
+seconds when query, party and full itineraries match. It still obtains its own
+fresh booking forms and selection security. Otherwise it performs availability
+normally. This avoids duplicate availability preparation without sharing cookies,
+one-use form state or security payloads across accounts.
+
+Tax estimates use a separate cash context. Validated per-adult taxes from one cash
+availability response can cover every exact matching flight; ambiguous amounts,
+fare families or totals fall back to the selected-fare response. No traveller,
+catalogue or checkout step is needed for this estimate. Missing estimates do not
+discard successfully quoted award mileage. USD rates are shared and cached daily.
+
+More flights still mean more protected mileage selections. Three fresh Akamai
+rounds remain required per actual selection. Parallel helpers reduce elapsed time
+when spare accounts are available; they cannot remove this upstream work. See
+[award flow](eva-awards.md) for time budgets and validation, and
+[verification evidence](verification-status.md) for measured results.
+
+## Shared cache and scheduling
+
 Complete EVA results are stored in SQLite for **30 minutes from availability retrieval**.
+Award recovery conservatively retains the oldest reused quote timestamp instead
+of extending freshness. The query mode isolates award and Miles & Cash caches;
+see [award efficiency](eva-awards.md#efficiency-and-diagnostics) for its separate
+request sequence and quote-recovery rules.
 Change `EVA_RESULT_CACHE_TTL` in Admin (up to `24h`). Its cache switch disables
 caching and clears temporary results after confirmation. A legacy `0s` lifetime
 also requires confirmation. Historical searches stay permanently.
@@ -14,11 +68,15 @@ Recent cache hits bypass the live-search queue and provider cooldowns.
 
 Identical queued/running requests share one job, preventing duplicate solver and
 airline requests. The live-refresh flag must also match. This is single-process
-coalescing; cancelling a shared job cancels it for all callers using that ID.
+coalescing. The browser's Stop following search action detaches that viewer;
+it does not cancel work another viewer may be following. Explicit API cancellation
+of the shared job affects all callers using that ID.
 Different accounts can search concurrently; each individual account remains exclusive.
 The default concurrency limit is four, with up to 512 configurable in Admin.
 
-For uncached searches, the external CAPTCHA task runs alongside the full Akamai
+## Miles & Cash: retained secondary path
+
+For uncached Miles & Cash searches, the external CAPTCHA task runs alongside the full Akamai
 sensor sequence. Only the sensor task uses the airline HTTP client; CAPTCHA
 verification and availability wait for both tasks. A failure cancels the other
 task. There are still three required sensor rounds and no fixed request spacing.
@@ -99,7 +157,7 @@ and catalog transitions has not been validated and is not implemented.
 
 ## Local contention improvements
 
-The live workspace is configured for 100. The FIFO admits up to 1,024 queued
+Concurrency is configurable; the 200-search validation uses at most 30. The FIFO admits up to 1,024 queued
 searches independently of finished history. Capacity waiting has 30 minutes,
 separate from 15 minutes of execution after first account acquisition. Lowered
 limits drain active work; cancellation immediately frees queued capacity.

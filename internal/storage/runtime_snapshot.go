@@ -2,8 +2,6 @@ package storage
 
 import "encoding/json"
 
-// RuntimeSettings avoids transferring the potentially multi-megabyte proxy list
-// every time a worker checks account capacity. Only the pool reads that value.
 func (s *Store) RuntimeSettings() (map[string]string, error) {
 	rows, err := s.DB.Query("SELECT key,value FROM settings WHERE key!='PROXY_LIST'")
 	if err != nil {
@@ -27,7 +25,6 @@ func (s *Store) HasProxies() bool {
 	return configured
 }
 
-// AccountRuntime reads one consistent snapshot instead of one query per account.
 func (s *Store) AccountRuntime() (map[string]json.RawMessage, error) {
 	rows, err := s.DB.Query("SELECT key,data FROM runtime WHERE key LIKE 'account:%'")
 	if err != nil {

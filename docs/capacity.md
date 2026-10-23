@@ -1,10 +1,31 @@
 # Capacity and scaling
 
 These are workload-specific measurements and planning estimates. The configured
-ceiling is not a measured capacity guarantee. No additional 500-search test was
-run as part of the EVA-only cleanup.
+ceiling is not a measured capacity guarantee. Award tickets are the main UI mode;
+the older Miles & Cash benchmark measures a different request sequence.
 
-## What was measured
+## Current award measurement — 23–24 October 2026
+
+The final reviewed build completed 200 distinct uncached searches with no final
+failures: 79 priced and 121 valid empty results. There were 168 successes without
+recorded recovery and 32 after automatic recovery. Priced latency was 60.5 seconds
+median / 150.2 seconds P95; the overall 18.7-second median includes empty inventory.
+
+| Submitted concurrency | Jobs | Phase elapsed | Observed phase completions/minute |
+| ---: | ---: | ---: | ---: |
+| 2 | 20 | 506.5 s | 2.4 |
+| 8 | 40 | 248.3 s | 9.7 |
+| 20 | 80 | 190.6 s | 25.2 |
+| 30 | 60 | 170.5 s | 21.1 |
+
+These are finite mixed phases, not steady arrival-rate or all-priced workload
+limits. Different queries and increasingly warm sessions prevent a causal
+comparison of concurrency levels. The shared account-operation limit was 30,
+including helpers and maintenance. Windows peak process working set was 301.6
+MiB with `GOMAXPROCS=4` and a 512 MiB soft Go memory limit. See
+[full evidence](verification-status.md) and [flight-count timings](performance.md).
+
+## Historical Miles & Cash measurement
 
 The 22 October 2026 test submitted 500 distinct uncached searches in phases up to
 30 concurrent jobs, across multiple routes/dates/cabins/adult counts.
@@ -29,17 +50,26 @@ GOMAXPROCS=4 and a 1 GiB soft Go memory limit. Low observed memory does not prov
 Thirty-two baseline failures were the per-adult/party price-comparison bug, now
 fixed. Seven targeted live regression searches subsequently passed, including
 multiple adults. The original 84.6% is the measured baseline, not the current
-post-fix success rate. A full post-fix mixed-load run is still needed. Account
-retry-policy changes also have not had a multi-hour soak test.
+post-fix success rate. These figures must not be presented as the current award
+flow's success rate. See [verification evidence](verification-status.md) for the
+separate award measurements. Account renewal has not had a multi-day soak test.
 
 ## Practical operating estimate today
 
 Keep 30 as the tested live-concurrency ceiling for now. With enough ready accounts,
-independent usable sticky identities and funded/healthy solvers, planning around
-10–15 new uncached searches per minute is a conservative starting range based on
-the mixed benchmark, not an SLA. Long-haul searches with many quote groups can
-reduce that; cache hits and identical-query coalescing can increase user-facing
-throughput substantially.
+independent usable sticky identities and funded/healthy solvers, use the measured
+throughput of the representative award cohort as a better planning
+input than the older cash benchmark. Flight count, recovery, optional tax lookup
+and warm session state materially change occupied time. Cache hits and identical-
+query coalescing can increase user-facing throughput substantially.
+
+An award search can claim up to two idle ready helper accounts to quote different
+flights in parallel. The parent and helpers all count against the same global
+limit: a setting of 30 does not permit 30 searches each to create three additional
+workers. Helpers never wait for capacity or start a new credential login. At
+saturation the parent prices its own flights sequentially; helper failures fall
+back to missing-flight quotation on the parent. This trades unused account slots
+for lower latency without multiplying the configured upstream load ceiling.
 
 Do not call this 30 simultaneous users. One user can submit many jobs, and many
 users can reuse cached/coalesced work. The server listens on localhost; optional
@@ -87,7 +117,7 @@ been benchmarked.
 ## Internal queue and configured ceiling
 
 The existing jobs service queues searches beyond available worker capacity. The
-current configured shared concurrency is 100; a fresh workspace still defaults
+200-search validation uses a shared concurrency of 30; a fresh workspace defaults
 to four until changed in Admin. Account ownership and maintenance/onboarding also
 consume or constrain shared capacity, so 100 is a ceiling rather than a guaranteed
 number of simultaneous airline searches.
@@ -123,7 +153,7 @@ Overload can therefore still reject or expire work; this is not unlimited buffer
 
 ### First: measure and improve one process
 
-1. Repeat the mixed live benchmark after the pricing and recovery fixes. Separate
+1. Repeat representative live benchmarks after material flow changes. Separate
    fresh/warm, live/cached, route/fare-group count and passenger-count cohorts.
 2. Record arrival rate, p50/p95/p99 queue time, account/lease wait, upstream stage
    times, solver latency/cost, final outcomes and recovered outcomes.
@@ -167,6 +197,5 @@ A deterministic test uses real SQLite with 300 jobs and 100 fake-provider worker
 identical in-flight requests coalesced. This validates local scheduling and
 persistence, not live EVA throughput, latency or success rate at 100 flows.
 
-The subsequent two-search live smoke check also passed, followed by a cached
-repeat. See [verification scope](verification-status.md) for routes and timings;
-these checks do not replace a representative high-concurrency live benchmark.
+See [verification scope](verification-status.md) for live routes, phase timings
+and outcomes. Fake-provider scheduling tests do not establish airline capacity.

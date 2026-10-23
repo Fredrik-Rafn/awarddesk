@@ -1,5 +1,3 @@
-// Package fleet schedules independent EVA accounts. Each booking session has
-// exactly one owner, while different accounts may serve concurrent searches.
 package fleet
 
 import (
@@ -12,6 +10,7 @@ import (
 	"time"
 
 	"awarddesk/internal/award"
+	"awarddesk/internal/exchange"
 	"awarddesk/internal/outlook"
 	"awarddesk/internal/providers/eva"
 	"awarddesk/internal/proxies"
@@ -68,6 +67,7 @@ func New(db *storage.Store) *Fleet {
 	ctx, cancel := context.WithCancel(context.Background())
 	f := &Fleet{db: db, entries: map[string]*entry{}, pending: map[string]bool{}, ctx: ctx, cancel: cancel, prepareWake: make(chan struct{}, 16), changed: make(chan struct{})}
 	f.pool = proxies.NewSource(func() (string, error) { return db.Setting("PROXY_LIST"), nil })
+	rates := exchange.New(db)
 	f.build = func(a storage.Account, m map[string]string) airline {
 		ttl, _ := time.ParseDuration(m["EVA_RESULT_CACHE_TTL"])
 		if m["FLIGHT_CACHE_ENABLED"] == "false" {
@@ -75,7 +75,8 @@ func New(db *storage.Store) *Fleet {
 		}
 		age, _ := time.ParseDuration(m["EVA_SESSION_MAX_AGE"])
 		return eva.New(eva.Config{
-			Email: a.Email, Password: a.Password,
+			Exchange: rates,
+			Email:    a.Email, Password: a.Password,
 			HyperKey: m["HYPER_API_KEY"], AnyKey: m["ANYSOLVER_API_KEY"],
 			ImpervaSolver: m["EVA_IMPERVA_SOLVER"],
 			Pool:          f.pool,
@@ -92,7 +93,6 @@ func New(db *storage.Store) *Fleet {
 }
 func (f *Fleet) Capabilities() award.Capabilities { return eva.New(eva.Config{}).Capabilities() }
 
-// Cooldowns are per account; one rejected login must not pause the whole fleet.
 func (f *Fleet) ManagesCooldowns() bool     { return true }
 func (f *Fleet) DefersExecutionStart() bool { return true }
 func (f *Fleet) Ready() bool {
@@ -211,7 +211,6 @@ func (f *Fleet) Statuses() ([]Status, error) {
 	return out, nil
 }
 
-// claim selects ready accounts first and rotates equally ready accounts by use.
 func (f *Fleet) claim(ctx context.Context, want string, excluded map[string]bool, force bool) (storage.Account, airline, func(), error) {
 	for {
 		if e := ctx.Err(); e != nil {
@@ -309,7 +308,7 @@ func (f *Fleet) claim(ctx context.Context, want string, excluded map[string]bool
 		}
 	}
 }
-func (f *Fleet) outcome(id string, p airline, err error) {
+func (f *Fleet) outcome(id string, p airline, err error, mode ...string) {
 	var previous Status
 	f.db.RuntimeValue("account:"+id, &previous)
 	st := Status{ID: id, State: "ready", CheckedAt: time.Now().UTC(), Session: p.SessionInfo()}
@@ -328,7 +327,7 @@ func (f *Fleet) outcome(id string, p airline, err error) {
 		if errors.As(err, &ae) {
 			st.Stage = ae.Stage
 			st.Message = ae.Message
-			if ae.Stage == "miles pricing" {
+			if ae.Stage == "miles pricing" || (len(mode) > 0 && mode[0] == "award" && awardQueryFailure(ae)) {
 				st.NextAttempt = time.Time{}
 				st.State = "ready"
 				st.ConsecutiveFailures = 0
@@ -344,16 +343,28 @@ func (f *Fleet) outcome(id string, p airline, err error) {
 	}
 	_ = f.db.Runtime("account:"+id, st)
 }
-func (f *Fleet) Search(ctx context.Context, q award.Query, report award.Reporter) (award.Result, error) {
+func (f *Fleet) Search(ctx context.Context, q award.Query, report award.Reporter) (result award.Result, err error) {
 	if r, ok := f.CachedSearch(q); ok {
 		return r, nil
 	}
 	excluded := map[string]bool{}
-	var result award.Result
-	var err error
-	for attempt := 0; attempt < 3; attempt++ {
+	var bestPartial award.Result
+	defer func() {
+		if q.Mode == "award" && err != nil && len(bestPartial.Itineraries) > len(result.Itineraries) {
+			result = bestPartial
+			result.Complete = false
+		}
+	}()
+	limit := 3
+	if q.Mode == "award" {
+		limit = 5
+	}
+	for attempt := 0; attempt < limit; attempt++ {
 		a, p, release, e := f.claim(ctx, "", excluded, false)
 		if e != nil {
+			if ctx.Err() != nil {
+				return result, ctx.Err()
+			}
 			if err != nil {
 				return result, err
 			}
@@ -370,9 +381,21 @@ func (f *Fleet) Search(ctx context.Context, q award.Query, report award.Reporter
 				if recover() != nil {
 					err = &award.Error{Code: "internal", Message: "EVA operation stopped unexpectedly; inspect the account before retrying", OutcomeUnknown: true}
 				}
-				f.outcome(a.ID, p, err)
+				f.outcome(a.ID, p, err, q.Mode)
 			}()
-			result, err = p.Search(ctx, q, func(progress award.Progress) {
+			attemptCtx := ctx
+			if q.Mode == "award" && len(bestPartial.Itineraries) > 0 {
+				attemptCtx = award.WithRecoveryResult(ctx, bestPartial)
+			}
+			if q.Mode == "award" {
+				factory, cleanup := f.awardHelperFactory(attemptCtx, excluded)
+				defer cleanup()
+				attemptCtx = eva.WithAwardQuoteWorkerFactory(attemptCtx, factory)
+			}
+			result, err = p.Search(attemptCtx, q, func(progress award.Progress) {
+				if q.Mode == "award" && progress.Preview != nil && len(progress.Preview.Itineraries) < len(bestPartial.Itineraries) {
+					progress.Preview = nil
+				}
 				status.Stage = progress.Stage
 				status.Message = progress.Message
 				_ = f.db.Runtime("account:"+a.ID, status)
@@ -384,8 +407,18 @@ func (f *Fleet) Search(ctx context.Context, q award.Query, report award.Reporter
 		if err == nil {
 			return result, nil
 		}
+		if q.Mode == "award" && len(result.Itineraries) > len(bestPartial.Itineraries) {
+			bestPartial = award.CloneResult(result)
+		}
 		var ae *award.Error
-		if !errors.As(err, &ae) || !safeFailover(ae) || len(result.Itineraries) > 0 {
+		if !errors.As(err, &ae) {
+			return result, err
+		}
+		retry := safeFailover(ae) && len(result.Itineraries) == 0
+		if q.Mode == "award" {
+			retry = safeAwardFailover(ae)
+		}
+		if !retry || attempt+1 == limit {
 			return result, err
 		}
 		accounts, _ := f.db.Accounts()
@@ -399,7 +432,11 @@ func (f *Fleet) Search(ctx context.Context, q award.Query, report award.Reporter
 			return result, err
 		}
 		if report != nil {
-			report(award.Progress{Stage: "session failover", Message: "Trying another account after interrupted session preparation", Recovery: &award.Recovery{Stage: ae.Stage, Code: ae.Code, Attempt: attempt + 1}})
+			message := "Trying another account after interrupted session preparation"
+			if q.Mode == "award" {
+				message = "Recovering the award search with another account and sticky proxy"
+			}
+			report(award.Progress{Stage: "session failover", Message: message, Recovery: &award.Recovery{Stage: ae.Stage, Code: ae.Code, Attempt: attempt + 1}})
 		}
 	}
 	return result, err
@@ -414,7 +451,7 @@ func safeFailover(e *award.Error) bool {
 	}
 	switch e.Code {
 	case "session_denied", "session_expired", "session_unverified", "proxy_pool", "proxy_changed", "proxy_connection", "connection", "timeout", "forbidden", "challenge_service", "busy", "http_error", "site_unavailable":
-		return e.Stage == "" || e.Stage == "session preparation" || e.Stage == "proxy verification" || e.Stage == "session verification" || e.Stage == "booking security" || e.Stage == "flight search" || e.Stage == "booking handoff" || e.Stage == "booking form security" || e.Stage == "availability"
+		return e.Stage == "" || e.Stage == "session preparation" || e.Stage == "proxy verification" || e.Stage == "session verification" || e.Stage == "booking security" || e.Stage == "flight search" || e.Stage == "booking handoff" || e.Stage == "booking form security" || e.Stage == "availability" || e.Stage == "award availability" || e.Stage == "award security" || e.Stage == "award flights"
 	}
 	return false
 }
@@ -462,8 +499,7 @@ func (f *Fleet) Prepare(ctx context.Context, id string, report award.Reporter, f
 	return err
 }
 func (f *Fleet) Start() {
-	// Recover queued work and durable cooldowns. Interrupted operations receive
-	// a delayed fresh check, never a replay of their previous request.
+
 	if rows, e := f.db.Accounts(); e == nil {
 		for _, a := range rows {
 			var st Status
@@ -500,16 +536,14 @@ func (f *Fleet) maintain() {
 	if e != nil {
 		return
 	}
-	// Missing/expired sessions take priority over periodic healthy checks. Within
-	// each class, the least recently checked account goes first to avoid starvation.
+
 	sort.SliceStable(statuses, func(i, j int) bool {
 		if statuses[i].Session.Ready != statuses[j].Session.Ready {
 			return !statuses[i].Session.Ready
 		}
 		return statuses[i].CheckedAt.Before(statuses[j].CheckedAt)
 	})
-	// Use at most half the shared slots (capped at eight) so a large expired
-	// fleet can recover without maintenance taking over search capacity.
+
 	limit := award.ConcurrencyLimit(f.db.Setting("SEARCH_CONCURRENCY"))
 	backgroundLimit := limit / 2
 	if backgroundLimit < 1 {
@@ -536,7 +570,6 @@ func (f *Fleet) maintain() {
 
 }
 
-// Edit excludes active searches and maintenance, including other local processes.
 func (f *Fleet) Edit(id string, fn func() error) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()

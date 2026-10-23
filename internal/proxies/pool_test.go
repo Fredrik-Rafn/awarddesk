@@ -69,7 +69,7 @@ func TestExclusiveFreshLockedLeases(t *testing.T) {
 	}
 	first := a.URL
 	a.Release(false)
-	a.Release(true) // second release must not quarantine the slot
+	a.Release(true)
 	b, err := p.Acquire(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -168,7 +168,7 @@ func TestConcurrentLeaseBound(t *testing.T) {
 		}()
 	}
 	close(start)
-	// Hold the single successful lease while all other requests are rejected.
+
 	for i := 0; i < 200; i++ {
 		<-attempted
 	}

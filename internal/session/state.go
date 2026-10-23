@@ -11,8 +11,6 @@ import (
 	http "github.com/bogdanfinn/fhttp"
 )
 
-// CookieEvent retains original scope and absolute expiry. Cookie headers alone
-// omit these attributes and cannot safely reconstruct a jar.
 type CookieEvent struct {
 	URL     string
 	Cookies []*http.Cookie
@@ -67,9 +65,6 @@ func (c *Client) Snapshot() (State, error) {
 	return State{UserAgent: c.userAgent, EgressIP: c.egressIP, Cookies: compactCookieEvents(c.jar.events, time.Now())}, nil
 }
 
-// Retain each live cookie's latest attributes in creation order. Updates do
-// not change cookie creation order, while deletion/recreation does. Scope and
-// absolute expiry remain intact, including cookies with a default path.
 func compactCookieEvents(events []CookieEvent, now time.Time) []CookieEvent {
 	type stored struct {
 		event CookieEvent
@@ -135,8 +130,6 @@ func compactCookieEvents(events []CookieEvent, now time.Time) []CookieEvent {
 	return result
 }
 
-// Restore is only permitted before the first request. Replay preserves cookie
-// updates/deletions, host-only domains, paths and expiry across process restarts.
 func (c *Client) Restore(s State) error {
 	if c.started || c.count != 0 || len(s.Cookies) > 4096 {
 		return errors.New("invalid saved session")

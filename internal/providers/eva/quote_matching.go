@@ -6,15 +6,12 @@ import (
 	"awarddesk/internal/award"
 )
 
-// EVA changes its internal IDs when availability refreshes. Match the actual
-// flights and fare instead. JSON keeps field boundaries clear, even if a value
-// contains punctuation; joining strings with a separator could mix them up.
 func flightKey(segments []award.Segment) string {
 	fields := make([][4]string, len(segments))
 	for i, s := range segments {
 		fields[i] = [4]string{s.FlightNumber, s.Origin, s.Destination, s.DepartureLocal}
 	}
-	data, _ := json.Marshal(fields) // String fields cannot fail JSON encoding.
+	data, _ := json.Marshal(fields)
 	return string(data)
 }
 
@@ -47,8 +44,6 @@ func matchingSelection(fresh award.Result, wanted award.Itinerary, fare award.Fa
 	return "", "", award.Failure("price_changed", "EVA changed flight availability or fare prices during pricing; run a fresh search")
 }
 
-// Index completed quotes once instead of scanning every old fare for every new
-// fare. Copy only the mileage calculation; keep the refreshed IDs and cash price.
 func preserveMatchingQuotes(fresh *award.Result, previous award.Result) {
 	quotes := make(map[quoteKey]award.Fare)
 	for _, item := range previous.Itineraries {

@@ -14,7 +14,7 @@ import (
 	"awarddesk/internal/sessionstore"
 )
 
-const resultCacheVersion = 2
+const resultCacheVersion = 4
 
 type cachedResult struct {
 	Version int          `json:"version"`
@@ -34,7 +34,7 @@ func (p *Provider) CachedSearch(q award.Query) (award.Result, bool) {
 	}
 	if data, err := p.resultStore(q).Load(); err == nil {
 		var saved cachedResult
-		if json.Unmarshal(data, &saved) == nil && (saved.Version == resultCacheVersion || (saved.Version == 1 && q.Adults == 1)) && validCachedResult(saved.Result, q, time.Now(), p.config.ResultCacheTTL) {
+		if json.Unmarshal(data, &saved) == nil && (saved.Version == resultCacheVersion || (q.Mode == "" && saved.Version > 0 && saved.Version < resultCacheVersion && (saved.Version != 1 || q.Adults == 1))) && validCachedResult(saved.Result, q, time.Now(), p.config.ResultCacheTTL) {
 			saved.Result.Cached = true
 			expires := saved.Result.FetchedAt.Add(p.config.ResultCacheTTL)
 			saved.Result.CacheExpiresAt = &expires
@@ -104,7 +104,6 @@ func validCachedResult(r award.Result, q award.Query, now time.Time, ttl time.Du
 	return r.Complete && r.Query == q && !r.FetchedAt.IsZero() && !r.FetchedAt.After(now) && now.Sub(r.FetchedAt) < ttl
 }
 
-// Keep disk usage bounded. Entries contain parsed results, never booking tokens.
 func pruneResultCache(dir string, limit int) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {

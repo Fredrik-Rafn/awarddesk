@@ -1,4 +1,3 @@
-// eva-check exercises the local website API with uncached sequential searches.
 package main
 
 import (
@@ -203,7 +202,7 @@ func run() error {
 			m.Warnings = job.Result.Warnings
 			for _, item := range job.Result.Itineraries {
 				for _, fare := range item.Fares {
-					if fare.MilesCash != nil {
+					if fare.MilesCash != nil || (fare.PricingType == "award" && fare.Points > 0) {
 						m.Quotes++
 					}
 				}
@@ -215,8 +214,7 @@ func run() error {
 		}
 		encoded, _ := json.Marshal(m)
 		fmt.Println(string(encoded))
-		// An uncertain credential/OTP/pricing outcome needs investigation, not
-		// another unattended live request. Rate limits end the batch as well.
+
 		if stopAtFailure(m.Error) {
 			fmt.Println("Stopped at an account, rate-limit or uncertain-outcome boundary.")
 			break
@@ -237,7 +235,7 @@ func observePreview(m *measurement, job jobs.Job, elapsed int64) {
 	if m.FirstQuoteMS == 0 {
 		for _, i := range job.Result.Itineraries {
 			for _, f := range i.Fares {
-				if f.MilesCash != nil {
+				if f.MilesCash != nil || (f.PricingType == "award" && f.Points > 0) {
 					m.FirstQuoteMS = elapsed
 					return
 				}

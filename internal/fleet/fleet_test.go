@@ -175,7 +175,7 @@ func TestMaintenancePreparesAccountsAndCoalescesManualRequests(t *testing.T) {
 			}
 		}
 	}
-	// Exhausted retry budgets exclude only the affected account.
+
 	_ = f.db.Runtime("account:a", Status{ID: "a", NeedsAttention: true, ConsecutiveFailures: MaxPreparationFailures})
 	f.maintain()
 	deadline := time.Now().Add(time.Second)

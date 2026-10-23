@@ -24,8 +24,6 @@ type pageData struct {
 
 var pageSessionID = regexp.MustCompile(`\bsessionId\s*:\s*["']([A-Za-z0-9_!.~-]{1,256})["']`)
 
-// Read EVA's booking data from JSON responses or the initial HTML page.
-// Parse the embedded JSON directly; never execute the page's JavaScript.
 func decodePage(body []byte) (pageData, error) {
 	var p pageData
 	var envelope struct {
@@ -62,8 +60,7 @@ func decodePage(body []byte) (pageData, error) {
 		return p, award.Failure("search_protocol", "EVA booking data format changed")
 	}
 	p = bootstrap.PageDefinitionConfig.PageData
-	// The navigation session is a sibling of config in the initializer.
-	// siteConfiguration.appData.beSessionId belongs to analytics and differs.
+
 	matches := pageSessionID.FindAllSubmatch(body, -1)
 	if len(matches) == 1 {
 		p.SessionID = string(matches[0][1])

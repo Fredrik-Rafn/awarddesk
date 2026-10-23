@@ -1,5 +1,3 @@
-// Package login runs one bounded, cancellable verification at a time.
-// It retains public status only; the checker manages session storage.
 package login
 
 import (
@@ -58,12 +56,12 @@ func (s *Service) startLocked() error {
 		return award.Failure("configuration", "Configure "+s.name+" credentials and solver keys, then restart")
 	}
 	if s.status.State == "running" {
-		return nil // Coalesce concurrent requests; no additional upstream login.
+		return nil
 	}
 	if time.Now().Before(s.next) {
 		if s.status.State == "verified" {
 			return nil
-		} // Briefly reuse explicitly timestamped verification.
+		}
 		return award.Failure("cooldown", "Please wait before starting another "+s.name+" login check")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)

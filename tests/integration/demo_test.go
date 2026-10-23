@@ -124,7 +124,7 @@ func TestDemoAccessKeepsOriginTokenAndLocalAdminBoundaries(t *testing.T) {
 			r.Header.Set("X-Forwarded-Proto", tc.proto)
 			r.Header.Set("X-Forwarded-Host", tc.forwardedHost)
 			r.Header.Set("X-CSRF-Token", tc.csrf)
-			r.AddCookie(localCookie) // A valid admin cookie must not bypass the public boundary.
+			r.AddCookie(localCookie)
 			if tc.password != "" {
 				r.SetBasicAuth("demo", tc.password)
 			}

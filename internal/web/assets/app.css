@@ -11,6 +11,10 @@
   background: #f7f8fc;
   font-synthesis: none;
 }
+.search-mode-field {
+  max-width: 300px;
+  margin-bottom: 24px;
+}
 * {
   box-sizing: border-box;
 }
@@ -595,7 +599,7 @@ summary:focus-visible {
   }
 }
 
-/* Keep the search workspace compact once there are results to compare. */
+
 .has-results .intro {
   padding: 25px 0 18px;
 }
@@ -621,7 +625,7 @@ summary:focus-visible {
     font-size: 14px;
   }
 }
-/* Session status presentation. */
+
 .ana-panel {
   margin-bottom: 24px;
 }
@@ -643,7 +647,7 @@ summary:focus-visible {
   text-decoration: none;
   font-size: 14px;
 }
-/* Shared custom select surface. */
+
 .custom-select {
   position: relative;
   width: 100%;
@@ -782,7 +786,7 @@ a:focus-visible {
   }
 }
 
-/* Flight explorer: calm surfaces, clear fields, a compact responsive route. */
+
 body:has(.flight-search-panel) {
   background:
     radial-gradient(ellipse at 50% 0, #fff1f7 0, transparent 650px), #f8f9fd;
@@ -1229,7 +1233,7 @@ body.has-results:has(.flight-search-panel) .intro h1 {
   text-align: center;
 }
 
-/* Search feedback shares a stable footprint while real quotes arrive. */
+
 #results {
   animation: surface-arrive 0.25s ease-out;
 }

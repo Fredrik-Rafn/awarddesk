@@ -43,8 +43,7 @@ func run() error {
 		return err
 	}
 	defer db.Close()
-	// One server owns this workspace. Two servers could otherwise compete for
-	// the same accounts and send overlapping login or booking requests.
+
 	releaseWorkspace, err := (sessionstore.Store{Path: dbPath + ".server"}).Lock()
 	if err != nil {
 		return errors.New("this workspace already has a running server")
@@ -55,7 +54,7 @@ func run() error {
 		return err
 	}
 	evaProvider := fleet.New(db)
-	// Defers run in reverse order: stop workers before closing providers and DB.
+
 	defer evaProvider.Close()
 	evaReady := evaProvider.Ready()
 	j := jobs.NewConcurrent(award.ConcurrencyLimit(settings["SEARCH_CONCURRENCY"]), evaProvider)

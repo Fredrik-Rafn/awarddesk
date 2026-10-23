@@ -14,9 +14,6 @@ import (
 	"awarddesk/internal/session"
 )
 
-// AnySolver calls the solver API directly. When Proxy is configured, the
-// solving task uses the same sticky proxy as the airline session. Without a
-// proxy the solver uses its own egress, which may differ from the airline client.
 type AnySolver struct {
 	Key       string
 	Proxy     string
@@ -82,8 +79,7 @@ func (a AnySolver) callOnce(ctx context.Context, path string, p map[string]any) 
 		return nil, errors.New("CAPTCHA service returned an invalid response")
 	}
 	if id, ok := v["errorId"].(float64); !ok || id != 0 {
-		// Use fixed messages only: upstream descriptions can echo proxy or
-		// account credentials. Retain actionable distinctions for the UI.
+
 		switch v["errorCode"] {
 		case "PROXY_INCOMPATIBLE":
 			return nil, errors.New("CAPTCHA provider cannot use this proxy configuration")
@@ -120,8 +116,7 @@ func (a AnySolver) Solve(ctx context.Context, page, key string) (CaptchaSolution
 	defer cancel()
 	settings := map[string]any{"routing": map[string]any{"mode": "autoCheapest"}, "retry": map[string]any{"enabled": true, "maxRetries": 1}, "fallback": map[string]any{"enabled": true, "maxFallbacks": 1}}
 	if proxy != "" {
-		// A single sticky endpoint intentionally remains the same on a solver
-		// retry; rotating it would break its association with the EVA session.
+
 		settings["allowProxyReuse"] = true
 	}
 	v, e := a.call(ctx, "createTask", map[string]any{"task": task, "settings": settings})

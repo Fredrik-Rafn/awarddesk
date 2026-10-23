@@ -1,4 +1,3 @@
-// Package sessionstore persists portable, readable JSON state files.
 package sessionstore
 
 import (

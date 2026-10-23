@@ -1,0 +1,22 @@
+{
+  "currency": {"code": "TWD"},
+  "isMilesMode": false,
+  "totalAmount": {"amount": 5179, "currency": {"code": "TWD"}},
+  "totalTaxes": {"amount": 3047},
+  "totalTaxesPerPax": {"amount": 3047},
+  "listTravellerPrice": [{
+    "traveller": {"travellerCode": "ADT", "travellersNumber": 1},
+    "travellerPrice": [{"priceBean": {"recoAmount": {"listTaxes": [
+      [
+        {"code": "FARE_BASIS", "name": "Fare", "value": 2132, "currency": {"code": "TWD"}},
+        {"code": "YQAC", "name": "Airline Fuel Surcharge (YQAC)", "value": 1222, "currency": {"code": "TWD"}},
+        {"code": "YRVB", "name": "Booking Service Charge (YRVB)", "value": 1075, "currency": {"code": "TWD"}},
+        {"name": "Total for base fare and airline surcharges", "value": 4429, "currency": {"code": "TWD"}, "isSubTotal": true}
+      ],
+      [
+        {"code": "TWAE", "name": "Taiwan Airport Service Charge (TWAE)", "value": 750, "currency": {"code": "TWD"}},
+        {"name": "Total Taxes, fees and charges", "value": 750, "currency": {"code": "TWD"}, "isSubTotal": true}
+      ]
+    ]}}}]
+  }]
+}

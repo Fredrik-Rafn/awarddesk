@@ -1,4 +1,3 @@
-// Package config loads local startup settings without logging their values.
 package config
 
 import (
@@ -13,10 +12,6 @@ import (
 
 var envName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
-// LoadEnv reads KEY=value lines, ignoring blanks and full-line # comments.
-// Single quotes are literal; double quotes support Go-style escapes.
-// There is no variable expansion. Existing process variables take precedence.
-// A missing file is allowed so environment-only deployments still work.
 func LoadEnv(path string) error {
 	f, err := os.Open(path)
 	if errors.Is(err, os.ErrNotExist) {

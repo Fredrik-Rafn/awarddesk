@@ -15,6 +15,23 @@ func cacheQuery() award.Query {
 	return award.Query{Provider: "eva", Origin: "HND", Destination: "SIN", Date: time.Now().AddDate(0, 0, 1).Format("2006-01-02"), Cabin: award.Economy, Adults: 1}
 }
 
+func TestTaxEnrichmentCacheUpgradePreservesCashButRefreshesOldAwards(t *testing.T) {
+	t.Chdir(t.TempDir())
+	p := New(Config{Email: "member@example.test", ResultCacheTTL: time.Minute})
+	for _, mode := range []string{"", "award"} {
+		q := cacheQuery()
+		q.Mode = mode
+		data, _ := json.Marshal(cachedResult{Version: 2, Result: award.Result{Query: q, FetchedAt: time.Now(), Complete: true}})
+		if err := p.resultStore(q).Save(data); err != nil {
+			t.Fatal(err)
+		}
+		_, hit := p.CachedSearch(q)
+		if hit != (mode == "") {
+			t.Fatalf("legacy cache mode=%q accepted=%v", mode, hit)
+		}
+	}
+}
+
 func TestLegacySingleAdultCacheSurvivesPartyTotalMigration(t *testing.T) {
 	t.Chdir(t.TempDir())
 	p := New(Config{Email: "member@example.test", ResultCacheTTL: time.Minute})
@@ -48,7 +65,7 @@ func TestResultCachePersistenceRefreshAndIsolation(t *testing.T) {
 	if err != nil || first.Cached || calls != 1 {
 		t.Fatalf("first result: calls=%d cached=%v err=%v", calls, first.Cached, err)
 	}
-	// Reconstruct the provider to prove persistence across process lifetimes.
+
 	p = New(p.config)
 	second, err := p.searchCached(context.Background(), q, nil, run)
 	if err != nil || !second.Cached || calls != 1 || !second.FetchedAt.Equal(first.FetchedAt) {

@@ -1,0 +1,399 @@
+<!-- Sanitized response structure; all session state below is synthetic. -->
+<form action="./select-itinerary.aspx?lang=en-Global" method="POST"><input name="__ZIPSTATE" value="fresh-test-state"><input name="ctl00$__MasterEVENTTARGET"><input name="ctl00$__MasterEVENTARGUMENT"><div id="mainContent">
+
+
+    <main class="content">
+        <div class="editorA">
+            <h1 class="heading-h1 editorA-heading">
+                Award Ticket-Select Itinerary
+            </h1>
+            <div class="editor editorA-editor"></div>
+        </div>
+        <div class="step">
+            <p class="sr-only">Steps to redeem award ticket</p>
+            <div class="step-item step-active" aria-current="step">
+                <span class="sr-only">Step 1</span>
+                <p class="step-description">Select trip</p>
+            </div>
+            <div class="step-item">
+                <span class="sr-only">Step 2</span>
+                <p class="step-description">Select flight</p>
+            </div>
+            <div class="step-item">
+                <span class="sr-only">Step 3</span>
+                <p class="step-description">Mileage deduction</p>
+            </div>
+            <div class="step-item">
+                <span class="sr-only">Step 4</span>
+                <p class="step-description">Passenger information</p>
+            </div>
+            <div class="step-item">
+                <span class="sr-only">Step 5</span>
+                <p class="step-description">Review</p>
+            </div>
+            <div class="step-item">
+                <span class="sr-only">Step 6</span>
+                <p class="step-description">Online reservation completed</p>
+            </div>
+        </div>
+        <div class="content-form">
+            <div class="content-bg content-bg--green">
+
+<div id="content_msg_Error" class="message message--error margin-b-3 js-validationSummary" tabindex="-1"></div>
+
+
+                <div class="form">
+                   <div class="editor container-3 margin-x-auto margin-b-3">
+                      You can search for <a href="https://booking.evaair.com/flyeva/eva/b2c/plan-your-journey/award-upgrade-availability/award-upgrade-availability.aspx" title="Open in new window" target="_blank">Award/Upgrade Availability</a> before booking
+                   </div>
+                    <p class="form-note" aria-hidden="true">
+                        <strong class="form-required">*</strong>
+                        Mandatory item
+                    </p>
+                    <div class="margin-b-4" role="group">
+                        <p class="form-label">
+                            One Way /Round Trip<strong class="form-required" aria-hidden="true">*</strong>
+                        </p>
+                        <div class="form-radioGroup js-radioGroup">
+                            <div class="form-radio">
+                                <input value="2" name="ctl00$content$rb_trip" type="radio" id="content_rb_RoundTrip" class="form-inputRadio" aria-invalid="false" required="" checked="checked"/>
+                                <label class="form-labelRadio" for="content_rb_RoundTrip">
+                                    <span class="form-labelText">
+                                        Round Trip
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="form-radio">
+                                <input value="1" name="ctl00$content$rb_trip" type="radio" id="content_rb_OneWay" class="form-inputRadio" aria-invalid="false" required=""/>
+                                <label class="form-labelRadio" for="content_rb_OneWay">
+                                    <span class="form-labelText">
+                                        One Way
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="margin-y-2" role="group">
+                        <p class="form-label form-label--group">
+                            Outbound
+                        </p>
+                        <div class="flex flex-direction-column-sm margin-b-4 js-cityPair">
+                            <div class="col-6 col-sm-4 margin-r-6 margin-r-none-sm margin-b-4-sm">
+                                <label for="content_DepNA" class="form-label">
+                                    Departure City<strong class="form-required" aria-hidden="true">*</strong>
+                                </label>
+                                <div class="flex form-flightSearch js-fieldGroup">
+                                    <input name="ctl00$content$DepNA" type="text" maxlength="50" id="content_DepNA" class="form-inputText" aria-invalid="false" required="" data-required="Itinerary" data-triggerid="content_hid_DepCity" data-triggerid1="content_hid_DepContinentCode" data-triggerid2="content_hid_DepCommunityCode"/>
+                                    <button type="button" class="btn btn--icon btn--icon--input" data-step="Please select a region,Please select an airport">
+                                        <svg class="btn-icon icon-flightSearch">
+                                            <title>
+                                                Departure City
+                                            </title>
+                                            <use xlink:href="#icon-flightSearch"></use>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-combinator display-none">
+                                <button type="button" class="btn btn--icon" aria-label="Departure and destination interchange">
+                                    <svg class="btn-icon icon-fromtoSwitch">
+                                        <use xlink:href="#icon-fromtoSwitch"></use>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="col-6 col-sm-4">
+                                <label for="content_ArrNA" class="form-label">
+                                    Arrival City<strong class="form-required" aria-hidden="true">*</strong>
+                                </label>
+                                <div class="flex form-flightSearch js-fieldGroup">
+                                    <input name="ctl00$content$ArrNA" type="text" maxlength="50" id="content_ArrNA" aria-invalid="false" class="form-inputText" required="" data-required="Itinerary" data-triggerid="content_hid_ArrCity" data-triggerid1="content_hid_ArrContinentCode" data-triggerid2="content_hid_ArrCommunityCode"/>
+                                    <button type="button" class="btn btn--icon btn--icon--input" aria-label="Arrival City" data-step="Please select a region,Please select an airport">
+                                        <svg class="btn-icon icon-flightSearch">
+                                            <use xlink:href="#icon-flightSearch"></use>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <input type="hidden" name="ctl00$content$hid_DepCity" id="content_hid_DepCity"/>
+                        <input type="hidden" name="ctl00$content$hid_DepContinentCode" id="content_hid_DepContinentCode"/>
+                        <input type="hidden" name="ctl00$content$hid_DepCommunityCode" id="content_hid_DepCommunityCode"/>
+                        <input type="hidden" name="ctl00$content$hid_ArrCity" id="content_hid_ArrCity"/>
+                        <input type="hidden" name="ctl00$content$hid_ArrContinentCode" id="content_hid_ArrContinentCode"/>
+                        <input type="hidden" name="ctl00$content$hid_ArrCommunityCode" id="content_hid_ArrCommunityCode"/>
+
+                        <div class="margin-b-4">
+                            <label for="content_ddl_Cabin" class="form-label">
+                                Class<strong class="form-required" aria-hidden="true">*</strong>
+                            </label>
+                            <div class="form-select">
+                                <select name="ctl00$content$ddl_Cabin" id="content_ddl_Cabin" class="form-inputSelect form-inputSelect--middle" aria-invalid="false">
+	<option selected="selected" value="X">Economy</option>
+	<option value="E">Premium Economy Class</option>
+	<option value="I">Business/Premium Laurel</option>
+
+</select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="margin-b-2 js-BackGroup" role="group">
+                        <p class="form-label form-label--group">
+                            Inbound
+                        </p>
+                        <div class="flex flex-direction-column-sm margin-b-4 js-cityPair2">
+                            <div class="col-6 col-sm-4 margin-r-6 margin-r-none-sm margin-b-4-sm">
+                                <label for="content_DepNA_Back" class="form-label">
+                                    Departure City<strong class="form-required" aria-hidden="true">*</strong>
+                                </label>
+                                <div class="flex form-flightSearch js-fieldGroup">
+                                    <input name="ctl00$content$DepNA_Back" type="text" maxlength="50" id="content_DepNA_Back" class="form-inputText" aria-invalid="false" required="" data-required="Itinerary" data-triggerid="content_hid_DepCity_Back" data-triggerid1="content_hid_Dep_BackContinentCode" data-triggerid2="content_hid_Dep_BackCommunityCode"/>
+                                    <button type="button" class="btn btn--icon btn--icon--input" data-step="Please select a region,Please select an airport">
+                                        <svg class="btn-icon icon-flightSearch">
+                                            <title>
+                                                Departure City
+                                            </title>
+                                            <use xlink:href="#icon-flightSearch"></use>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-combinator js-exchangePlace display-none">
+                                <button type="button" class="btn btn--icon" aria-label="Departure and destination interchange">
+                                    <svg class="btn-icon icon-fromtoSwitch">
+                                        <use xlink:href="#icon-fromtoSwitch"></use>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="col-6 col-sm-4">
+                                <label for="content_ArrNA_Back" class="form-label">
+                                    Arrival City<strong class="form-required" aria-hidden="true">*</strong>
+                                </label>
+                                <div class="flex form-flightSearch js-fieldGroup">
+                                    <input name="ctl00$content$ArrNA_Back" type="text" maxlength="50" id="content_ArrNA_Back" aria-invalid="false" class="form-inputText" required="" data-required="Itinerary" data-triggerid="content_hid_ArrCity_Back" data-triggerid1="content_hid_Arr_BackContinentCode" data-triggerid2="content_hid_Arr_BackCommunityCode"/>
+                                    <button type="button" class="btn btn--icon btn--icon--input" data-step="Please select a region,Please select an airport">
+                                        <svg class="btn-icon icon-flightSearch">
+                                            <title>
+                                                Arrival City
+                                            </title>
+                                            <use xlink:href="#icon-flightSearch"></use>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <input type="hidden" name="ctl00$content$hid_DepCity_Back" id="content_hid_DepCity_Back"/>
+                        <input type="hidden" name="ctl00$content$hid_Dep_BackContinentCode" id="content_hid_Dep_BackContinentCode"/>
+                        <input type="hidden" name="ctl00$content$hid_Dep_BackCommunityCode" id="content_hid_Dep_BackCommunityCode"/>
+                        <input type="hidden" name="ctl00$content$hid_ArrCity_Back" id="content_hid_ArrCity_Back"/>
+                        <input type="hidden" name="ctl00$content$hid_Arr_BackContinentCode" id="content_hid_Arr_BackContinentCode"/>
+                        <input type="hidden" name="ctl00$content$hid_Arr_BackCommunityCode" id="content_hid_Arr_BackCommunityCode"/>
+
+                        <div class="margin-b-4">
+                            <label for="content_ddl_Cabin_Back" class="form-label">
+                                Class<strong class="form-required" aria-hidden="true">*</strong>
+                            </label>
+                            <div class="form-select">
+                                <select name="ctl00$content$ddl_Cabin_Back" id="content_ddl_Cabin_Back" class="form-inputSelect form-inputSelect--middle" aria-invalid="false">
+	<option selected="selected" value="X">Economy</option>
+	<option value="E">Premium Economy Class</option>
+	<option value="I">Business/Premium Laurel</option>
+
+</select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="margin-y-2" role="group">
+                        <p class="form-label form-label--group">
+                            Travel Date(s)
+                        </p>
+                        <div class="margin-b-4 js-onewaydate">
+                            <label for="content_txt_OneWayDepDate" class="form-label">
+                                Departure Date<strong class="form-required" aria-hidden="true">*</strong>
+                            </label>
+                            <input name="ctl00$content$txt_OneWayDepDate" type="text" id="content_txt_OneWayDepDate" class="form-inputText form-datepicker js-datepicker1" aria-invalid="false" required="" data-required="Please select your travel date" min="2026/10/24" max="2027/10/19"/>
+                        </div>
+                        <div class="flex flex-direction-column-sm margin-b-4 js-roundtripdate">
+                            <div class="col-6 col-sm-4 margin-r-6 margin-r-none-sm margin-b-4-sm">
+                                <label for="content_txt_RoundTripDepDate" class="form-label">
+                                    Departure Date<strong class="form-required" aria-hidden="true">*</strong>
+                                </label>
+                                <input name="ctl00$content$txt_RoundTripDepDate" type="text" value="2026/10/31" id="content_txt_RoundTripDepDate" class="form-inputText form-datepicker js-datepicker2" aria-invalid="false" required="" data-required="Please select your travel date" min="2026/10/24" max="2027/10/19"/>
+                            </div>
+                            <div class="col-6 col-sm-4">
+                                <label for="content_txt_RoundTripBackDate" class="form-label">
+                                    Return Date<strong class="form-required" aria-hidden="true">*</strong>
+                                </label>
+                                <input name="ctl00$content$txt_RoundTripBackDate" type="text" value="2026/11/07" id="content_txt_RoundTripBackDate" class="form-inputText form-datepicker js-secondInput" aria-invalid="false" required="" data-required="Please select your travel date" min="2026/10/24" max="2027/10/19"/>
+                            </div>
+                        </div>
+                        <input type="hidden" name="ctl00$content$hid_tbGoYYYYMM" id="content_hid_tbGoYYYYMM"/>
+                        <input type="hidden" name="ctl00$content$hid_tbBackYYYYMM" id="content_hid_tbBackYYYYMM"/>
+                    </div>
+                    <div class="margin-y-2">
+                        <div class="editor form-information">
+                            <p class="form-title">
+                                Please enter Membership Number and password of travel companions
+                            </p>
+                        </div>
+
+                        <fieldset class="margin-b-2 js-experienceLoop">
+                            <legend class="form-heading">
+                                Companion Passengers 1
+                            </legend>
+                            <div class="margin-b-4">
+                                <label for="txt_CardNo0" class="form-label">
+                                    Membership Number
+                                </label>
+                                <input type="text" id="txt_CardNo0" name="txt_CardNo0" class="form-inputText js-CardNo" aria-invalid="false" maxlength="10" pattern="[0-9]{10}" autocomplete="off" data-pattern="Only 10 characters allowed."/>
+                            </div>
+                            <div class="margin-b-4">
+                                <label class="form-label" for="txt_Pwd0">
+                                    Password
+                                </label>
+                                <input type="password" id="txt_Pwd0" name="txt_Pwd0" class="form-inputText js-Password" maxlength="50" autocomplete="new-password" aria-invalid="false"/>
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="margin-b-2 js-experienceLoop">
+                            <legend class="form-heading">
+                                Companion Passengers 2
+                            </legend>
+                            <div class="margin-b-4">
+                                <label for="txt_CardNo1" class="form-label">
+                                    Membership Number
+                                </label>
+                                <input type="text" id="txt_CardNo1" name="txt_CardNo1" class="form-inputText js-CardNo" aria-invalid="false" maxlength="10" pattern="[0-9]{10}" autocomplete="off" data-pattern="Only 10 characters allowed."/>
+                            </div>
+                            <div class="margin-b-4">
+                                <label class="form-label" for="txt_Pwd1">
+                                    Password
+                                </label>
+                                <input type="password" id="txt_Pwd1" name="txt_Pwd1" class="form-inputText js-Password" maxlength="50" autocomplete="new-password" aria-invalid="false"/>
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="margin-b-2 js-experienceLoop">
+                            <legend class="form-heading">
+                                Companion Passengers 3
+                            </legend>
+                            <div class="margin-b-4">
+                                <label for="txt_CardNo2" class="form-label">
+                                    Membership Number
+                                </label>
+                                <input type="text" id="txt_CardNo2" name="txt_CardNo2" class="form-inputText js-CardNo" aria-invalid="false" maxlength="10" pattern="[0-9]{10}" autocomplete="off" data-pattern="Only 10 characters allowed."/>
+                            </div>
+                            <div class="margin-b-4">
+                                <label class="form-label" for="txt_Pwd2">
+                                    Password
+                                </label>
+                                <input type="password" id="txt_Pwd2" name="txt_Pwd2" class="form-inputText js-Password" maxlength="50" autocomplete="new-password" aria-invalid="false"/>
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="margin-b-2 js-experienceLoop">
+                            <legend class="form-heading">
+                                Companion Passengers 4
+                            </legend>
+                            <div class="margin-b-4">
+                                <label for="txt_CardNo3" class="form-label">
+                                    Membership Number
+                                </label>
+                                <input type="text" id="txt_CardNo3" name="txt_CardNo3" class="form-inputText js-CardNo" aria-invalid="false" maxlength="10" pattern="[0-9]{10}" autocomplete="off" data-pattern="Only 10 characters allowed."/>
+                            </div>
+                            <div class="margin-b-4">
+                                <label class="form-label" for="txt_Pwd3">
+                                    Password
+                                </label>
+                                <input type="password" id="txt_Pwd3" name="txt_Pwd3" class="form-inputText js-Password" maxlength="50" autocomplete="new-password" aria-invalid="false"/>
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="margin-b-2 js-experienceLoop">
+                            <legend class="form-heading">
+                                Companion Passengers 5
+                            </legend>
+                            <div class="margin-b-4">
+                                <label for="txt_CardNo4" class="form-label">
+                                    Membership Number
+                                </label>
+                                <input type="text" id="txt_CardNo4" name="txt_CardNo4" class="form-inputText js-CardNo" aria-invalid="false" maxlength="10" pattern="[0-9]{10}" autocomplete="off" data-pattern="Only 10 characters allowed."/>
+                            </div>
+                            <div class="margin-b-4">
+                                <label class="form-label" for="txt_Pwd4">
+                                    Password
+                                </label>
+                                <input type="password" id="txt_Pwd4" name="txt_Pwd4" class="form-inputText js-Password" maxlength="50" autocomplete="new-password" aria-invalid="false"/>
+                            </div>
+                        </fieldset>
+
+                    </div>
+                    <div class="form-btnBlock">
+                        <button type="button" class="btn btn--lg btn--green js-Confirm">
+                            Confirm
+                        </button>
+                        <button type="submit" name="ctl00$content$btn_ok" value="" id="content_btn_ok" class="display-none">Confirm</button>
+                    </div>
+                </div>
+                <div class="container-1 margin-x-auto">
+                    <div class="listTextNote listTextNote--green">
+                        <p class="listTextNote-title listTextNote-title--green">
+                            Notices
+                        </p>
+                        <div class="editor">
+                            <div typeof="Region" resource="Main">
+
+
+
+<ul><li>A reservation can be made for up to 6 passengers per transaction, not limited to adults (over 16 years old) or children, and must contain at least 1 adult. The credit card holder must be one of the people listed in the reservation.</li><li>System will auto cancel waiting segments 36 hours prior to departure for long haul, and 28 hours prior to departure for short haul. If you still prefer to waitlist for award flights after previous mentioned time, please rebook waiting itineraries.</li><li>Reservations can be made from 3- 7 hours (depends on routes) to 360 days before departure. Online booking allows a round-trip, a one-way itinerary, an itinerary with different departure and arrival point but in the same country or round-trip with different booking classes.</li><li>If you are waiting for confirmation after booking an award ticket, please note that this system will not confirm the booking if you go ahead and issue the ticket. Contact your EVA Air reservations office for the latest booking status.</li><li>Passengers travel with infant(s), please issue your award ticket online before adding infant(s) into your Booking Reference Number; otherwise contact EVA Air Reservation center for assistance.</li><li>If your credit card transaction has been successfully authorized through Verified by Visa or MasterCard® SecureCode or American Express SafeKey® or JCB J/Secure, you will NOT be required to present the credit card upon check-in at the airport. In addition, the cardholder does NOT need to be one of the travel companions.(However, if you have only entered the 3- (or 4-) digit card verification code on the back (or front) of the credit card, then you will still be required to present your credit card at the airport.)</li><li>To refund award tickets, please click <a href="https://booking.evaair.com/flyeva/eva/b2c/refund-application-login.aspx?lang=#x-normal" target="_blank">REFUND APPLICATION/ REFUND INQUIRY</a> for online refund or you may contact EVA local ticketing counter.
+<ol><li>Refund service fee: For online refund, no refund service fee. For other channels, refund service fee US$50.00 will apply. The refund service fee will be waived for a member with Diamond, Gold or Silver tier at the time of application, please refer to <a href="https://www.evaair.com/en-global/infinity-mileagelands/mileage-award-program/mileage-redemption/award-ticket/eva-uni-air/" target="_blank">Guidelines for EVA Air/UNI Air International Ticket Awards Redemption</a> for more information.</li><li>For entirely unused award ticket, EVA Air will refund applicable taxes, surcharges and miles upon request. Miles will be credited back to the member’s account if they are still valid on the refund date.</li><li>For partially used award ticket, EVA Air will refund applicable taxes, surcharges and miles for unused flight segments upon request. Miles, after deducting the amount used according to one way award ticket requirement, will be credited back to the member’s account if they are still valid on the refund date.</li></ol></li><li>Regardless of the place of issue, award tickets involving EVA Air/UNI Air international flights with journeys originating worldwide except Hong Kong will incur a booking service charge (YR tax code) per ticket. This fee is non-refundable upon ticket refund, regardless of whether the seat status is confirmed or waitlisted.</li></ul>
+
+</div>
+
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <input type="hidden" name="ctl00$content$hiddenDep" id="content_hiddenDep"/>
+    <input type="hidden" name="ctl00$content$hiddenArr" id="content_hiddenArr"/>
+    <input type="hidden" name="ctl00$content$hiddenUserCardNo" id="content_hiddenUserCardNo" value=""/>
+    <input type="hidden" name="ctl00$content$hid_AliasNmae" id="content_hid_AliasNmae"/>
+    <input type="hidden" name="ctl00$content$hid_CorpCode" id="content_hid_CorpCode"/>
+
+    <div hidden="">
+
+        <div id="js-modal-alias" class="modal-box">
+            <h1 class="modal-title">
+                Please select Reservation Name
+            </h1>
+            <div class="modal-content">
+                <div class="form">
+                    <div id="content_div_AliasName" class="margin-b-4">
+                        <label for="alias-name" class="form-label">
+                            Membership Number 2303499310
+                        </label>
+                        <div class="form-select">
+                            <select id="alias-name" class="form-inputSelect">
+
+                            </select>
+                        </div>
+                    </div>
+
+
+
+                    <div class="form-btnBlock">
+                        <button type="button" class="btn btn--lg btn--green js-SendConfirm">
+                            Confirm
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+        </div></form>

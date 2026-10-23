@@ -1,7 +1,5 @@
 package storage
 
-// EditableSetting limits runtime configuration to the supported EVA surface.
-// Credentials and the proxy list have their own dedicated admin endpoints.
 func EditableSetting(key string) bool {
 	switch key {
 	case "HYPER_API_KEY", "ANYSOLVER_API_KEY", "EVA_IMPERVA_SOLVER",
@@ -12,8 +10,6 @@ func EditableSetting(key string) bool {
 	return false
 }
 
-// removeRetiredConfiguration drops obsolete integration settings/state while
-// keeping account credentials, onboarding checkpoints and all search history.
 func (s *Store) removeRetiredConfiguration() error {
 	settings, err := s.Settings()
 	if err != nil {

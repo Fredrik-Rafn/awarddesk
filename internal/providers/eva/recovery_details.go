@@ -21,8 +21,6 @@ func recoveryDetail(stage string, err error, attempt int) *award.Recovery {
 	return &award.Recovery{Stage: stage, Code: code, Attempt: attempt}
 }
 
-// CAPTCHA polling and airline security preparation can report concurrently.
-// Serialize both and attach retries to the currently active search stage.
 func trackRequestRecoveries(ctx context.Context, observer award.Reporter) (context.Context, award.Reporter) {
 	var mu sync.Mutex
 	stage := "session preparation"

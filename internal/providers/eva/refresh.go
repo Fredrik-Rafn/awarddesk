@@ -12,8 +12,6 @@ import (
 	"awarddesk/internal/session"
 )
 
-// Reopen flight selection in the current authenticated booking session. These
-// are the fields EVA's own modify-search builder sends; no CAPTCHA is replayed.
 func refreshAvailability(ctx context.Context, c pricingClient, current, initial pageData, q award.Query) (pageData, award.Result, error) {
 	v := ajaxContext(current)
 	for _, k := range []string{"B_LOCATION_1", "E_LOCATION_1", "B_DATE_1", "B_ANY_TIME_1", "DISPLAY_TYPE", "ARRANGE_BY", "PREF_AIR_FREQ_AIRLINE_1_1", "PREF_AIR_FREQ_LEVEL_1_1", "PREF_AIR_FREQ_MILES_1_1", "PREF_AIR_FREQ_NUMBER_1_1"} {
@@ -71,8 +69,6 @@ func refreshAvailability(ctx context.Context, c pricingClient, current, initial 
 	return next, r, err
 }
 
-// This POST only reopens flight availability. A bounded retry is safe even if
-// its response was lost, and never repeats fare selection or ACTION=BOOK.
 func canRetryAvailabilityRead(err error) bool {
 	var failure *award.Error
 	if !errors.As(err, &failure) {
