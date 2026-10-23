@@ -42,6 +42,21 @@ sessionstore (snapshots + OS locks)      outlook (OAuth/OTP)
 The provider interface remains useful for testing: job scheduling can be tested
 with deterministic fake providers without making airline or solver requests.
 
+The EVA package separates account configuration (`provider.go`), login
+(`login.go`), HTTP navigation (`navigation.go`), saved member state
+(`member_state.go`), registration and flight pricing. Production flows use HTTP
+and OAuth/IMAP; they do not launch browser automation.
+
+Cross-package HTTP/SQLite/scheduling tests live in `tests/integration/`. Frontend
+JavaScript tests live in `tests/browser/` and run with Node, without a browser.
+Private Go unit tests and their fixtures stay beside their package. See the
+[test guide](../tests/README.md) for the layout and offline commands.
+
+Admin routing/authentication stays in `web/admin.go`; account edits, settings and
+dashboard summaries live in `admin_accounts.go`, `admin_settings.go` and
+`admin_overview.go`. Existing history/cache/registration handlers keep their own
+files. These files share a package, so the refactor needs no extra exported APIs.
+
 ## Persistence and lifecycle
 
 main opens SQLite, acquires the workspace lock, reads configuration, constructs

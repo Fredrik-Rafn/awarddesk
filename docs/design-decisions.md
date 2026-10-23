@@ -35,6 +35,7 @@ has been load-tested.
 | Permanent history | Auditability, trends and reproducible failure analysis | Database and backups grow forever | Partition/archive older history while preserving access, rather than silently deleting it |
 | Localhost-only admin | Fits the personal/local deployment; minimal authentication surface | Not a public multi-user product, no tenant isolation | Hosted identity, TLS, authorization, rate limits, audit and secret isolation |
 | Shared provider contract | Separates scheduler/UI from EVA's implementation and allows fake tests | A small abstraction in a single-provider app | Direct coupling saves a little code but makes lifecycle tests and future refactors harder |
+| Separate integration/frontend tests; colocated private unit tests | Clear top-level test suites without exporting implementation details; normal go test still runs everything | Unit test files remain beside Go source | Put every test outside only when the public API gives enough coverage; avoid test-only exports or custom build overlays |
 
 ## Important invariants
 

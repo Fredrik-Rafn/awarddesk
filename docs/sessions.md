@@ -10,6 +10,10 @@ states table. The path is a logical key, not a browser profile directory.
 It contains scoped cookies, browser identity, creation/expiry information, the
 configuration fingerprint and the exact sticky proxy URL/template.
 
+[member_state.go](../internal/providers/eva/member_state.go) owns the saved-state
+format and persistence helpers; [login.go](../internal/providers/eva/login.go)
+decides whether to restore, verify or renew it.
+
 The fleet permits one operation per account. The provider also acquires its gate
 and OS-backed state lock. A saved session cannot safely drive concurrent booking
 flows; different accounts provide concurrency.

@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const path = require("node:path");
 const source = fs.readFileSync(
-  path.join(__dirname, "../assets/admin-registration.js"),
+  path.join(__dirname, "../../internal/web/assets/admin-registration.js"),
   "utf8",
 );
 function harness() {

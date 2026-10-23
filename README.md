@@ -208,10 +208,20 @@ internal/session/               HTTP transport, scoped cookies and egress pinnin
 internal/sessionstore/          Pluggable state storage and OS account locks
 internal/antibot/               Hyper and AnySolver clients
 internal/jobs/                  Bounded workers, progress, cancellation, history
+internal/web/                   HTTP boundary, admin routes and focused handlers
 internal/web/assets/            Embedded flight-search and admin pages
 internal/config/                Database bootstrap and legacy import adapters
 cmd/                            Explicit diagnostic commands
+tests/integration/              HTTP/admin, SQLite and scheduler integration tests
+tests/browser/                  Offline frontend JavaScript tests (Node)
 ```
+
+Go unit tests stay beside the package whose private logic they check. Integration
+and frontend tests are separate under `tests/`; see the [test guide](tests/README.md).
+Within EVA, start at `provider.go` for configuration, `login.go` for authentication,
+`navigation.go` for redirects/forms and `member_state.go` for saved member state.
+Admin handlers follow the same rule: `admin.go` wires routes and authentication;
+`admin_accounts.go`, `admin_settings.go` and `admin_overview.go` own those features.
 
 ## Verify and diagnose
 
@@ -222,6 +232,10 @@ go run ./cmd/eva-login
 go run ./cmd/outlook-check
 go run ./cmd/eva-check -help
 ```
+
+`go test` runs offline with temporary databases and simulated providers. It does
+not consume solver credits. Node is optional for frontend checks; no browser
+automation is used in the application's login, registration or search flows.
 
 Diagnostic login commands use the same database. EVA checks lease an account
 exclusively; explicit login checks can consume solver credits. The Outlook check

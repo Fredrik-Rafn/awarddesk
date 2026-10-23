@@ -1,4 +1,4 @@
-package web
+package integration
 
 import (
 	"context"
@@ -9,12 +9,13 @@ import (
 	"awarddesk/internal/award"
 	"awarddesk/internal/jobs"
 	"awarddesk/internal/login"
+	"awarddesk/internal/web"
 )
 
 func TestLocalBoundary(t *testing.T) {
 	j := jobs.New()
 	defer j.Close()
-	s, e := New(j, true, false)
+	s, e := web.New(j, true, false)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -27,8 +28,8 @@ func TestLocalBoundary(t *testing.T) {
 		{"rebinding", "GET", "/api/config", "evil.example", "", "", "", 403},
 		{"cross origin", "GET", "/api/config", "localhost:8080", "https://evil.example", "", "", 403},
 		{"missing csrf", "POST", "/api/searches", "localhost:8080", "", "", "{}", 403},
-		{"invalid fields", "POST", "/api/searches", "localhost:8080", "", s.csrf, `{"secret":"no"}`, 400},
-		{"oversized", "POST", "/api/searches", "localhost:8080", "", s.csrf, strings.Repeat(" ", 9000), 400},
+		{"invalid fields", "POST", "/api/searches", "localhost:8080", "", requestToken(s), `{"secret":"no"}`, 400},
+		{"oversized", "POST", "/api/searches", "localhost:8080", "", requestToken(s), strings.Repeat(" ", 9000), 400},
 		{"unknown job", "GET", "/api/searches/unknown", "localhost:8080", "", "", "", 404},
 		{"airport", "GET", "/api/airports?q=JFK", "localhost:8080", "", "", "", 200},
 	}
@@ -53,7 +54,7 @@ func TestLocalBoundary(t *testing.T) {
 func TestEVALoginLifecycle(t *testing.T) {
 	j := jobs.New()
 	defer j.Close()
-	s, err := New(j, false, true)
+	s, err := web.New(j, false, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +64,7 @@ func TestEVALoginLifecycle(t *testing.T) {
 	for _, tc := range []struct {
 		method, token string
 		code          int
-	}{{"POST", "", 403}, {"POST", s.csrf, 202}, {"POST", s.csrf, 202}, {"GET", "", 200}, {"DELETE", "", 403}, {"DELETE", s.csrf, 204}} {
+	}{{"POST", "", 403}, {"POST", requestToken(s), 202}, {"POST", requestToken(s), 202}, {"GET", "", 200}, {"DELETE", "", 403}, {"DELETE", requestToken(s), 204}} {
 		r := httptest.NewRequest(tc.method, "http://localhost:8080/api/logins/eva", nil)
 		r.Header.Set("X-CSRF-Token", tc.token)
 		w := httptest.NewRecorder()

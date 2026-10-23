@@ -1,4 +1,4 @@
-package jobs
+package integration
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"awarddesk/internal/award"
+	"awarddesk/internal/jobs"
 	"awarddesk/internal/storage"
 )
 
@@ -17,7 +18,7 @@ type loadProvider struct {
 	active, peak     atomic.Int32
 }
 
-func (p *loadProvider) Capabilities() award.Capabilities { return fakeProvider{}.Capabilities() }
+func (p *loadProvider) Capabilities() award.Capabilities { return jobProvider{}.Capabilities() }
 func (p *loadProvider) Search(ctx context.Context, q award.Query, report award.Reporter) (award.Result, error) {
 	n := p.active.Add(1)
 	defer p.active.Add(-1)
@@ -47,7 +48,7 @@ func TestOneHundredWorkersWithSQLiteAndThreeHundredQueuedSearches(t *testing.T) 
 	}
 	defer db.Close()
 	p := &loadProvider{entered: make(chan struct{}, 300), release: make(chan struct{})}
-	s := NewConcurrent(100, p)
+	s := jobs.NewConcurrent(100, p)
 	defer s.Close()
 	if err = s.SetPersistence(db); err != nil {
 		t.Fatal(err)
@@ -55,7 +56,7 @@ func TestOneHundredWorkersWithSQLiteAndThreeHundredQueuedSearches(t *testing.T) 
 	started := time.Now()
 	ids := make([]string, 300)
 	for i := range ids {
-		j, e := s.Submit(queueQuery(i))
+		j, e := s.Submit(uniqueJobQuery(i))
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -74,14 +75,14 @@ func TestOneHundredWorkersWithSQLiteAndThreeHundredQueuedSearches(t *testing.T) 
 		}
 	}
 	for i := 0; i < 20; i++ {
-		j, e := s.Submit(queueQuery(i))
+		j, e := s.Submit(uniqueJobQuery(i))
 		if e != nil || j.ID != ids[i] {
 			t.Fatal("duplicate work admitted")
 		}
 	}
 	close(p.release)
 	for _, id := range ids[:270] {
-		await(t, s, id, "completed")
+		awaitJob(t, s, id, "completed")
 	}
 	s.Close()
 	rows, err := db.Jobs()
@@ -90,7 +91,7 @@ func TestOneHundredWorkersWithSQLiteAndThreeHundredQueuedSearches(t *testing.T) 
 	}
 	completed, cancelled := 0, 0
 	for _, data := range rows {
-		var j Job
+		var j jobs.Job
 		if json.Unmarshal(data, &j) != nil {
 			t.Fatal("invalid persisted job")
 		}

@@ -124,6 +124,12 @@ universal retry of every failed search.
 Provider.Search wraps cache handling and calls searchLive.
 searchLive uses [login.go](../internal/providers/eva/login.go), withSession:
 
+Account configuration and construction live in
+[provider.go](../internal/providers/eva/provider.go). Saved cookies, account
+identity and persistence helpers live in
+[member_state.go](../internal/providers/eva/member_state.go). Shared form requests
+and redirect checks live in [navigation.go](../internal/providers/eva/navigation.go).
+
 1. Apply the operation deadline: six minutes for preparation, ten for search.
 2. Acquire the provider gate and logical snapshot OS lock.
 3. Load/validate the portable saved session, configuration identity and expiry.
@@ -404,6 +410,12 @@ admin password is admin1234. Account/solver secrets are editable only through
 authenticated admin responses and masked inputs with reveal controls; they are
 not exposed by public configuration/job results.
 
+Follow its routes into [admin_accounts.go](../internal/web/admin_accounts.go),
+[admin_settings.go](../internal/web/admin_settings.go) and
+[admin_overview.go](../internal/web/admin_overview.go) for account edits, settings
+validation and dashboard assembly. Each file owns one feature; access checks stay
+at the common route boundary.
+
 The database holds plaintext reusable secrets, not an encrypted secret vault.
 The app binds locally. Publishing it would require the access-control and
 deployment work in [capacity/scaling](capacity.md).
@@ -423,8 +435,13 @@ deployment work in [capacity/scaling](capacity.md).
   signup acknowledgement, checkpoints and duplicate-submission protection.
 - [storage/settings_test.go](../internal/storage/settings_test.go): obsolete
   configuration cleanup without losing active state/history.
-- [web/testdata/http.test.cjs](../internal/web/testdata/http.test.cjs):
+- [tests/browser/http.test.cjs](../tests/browser/http.test.cjs):
   request-token retry boundaries.
+
+For HTTP/admin and job/SQLite integration scenarios, read
+[tests/integration](../tests/integration/). Private parsing/recovery unit tests
+remain with their Go package. [The test guide](../tests/README.md) explains how to
+run each group without live airline or solver calls.
 
 When debugging a slow/failed search, inspect its terminal code, stage, timeline
 and recoveries before changing retry limits. Separate dispatch wait, account wait,

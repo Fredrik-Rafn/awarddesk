@@ -1,4 +1,4 @@
-package web
+package integration
 
 import (
 	"encoding/json"

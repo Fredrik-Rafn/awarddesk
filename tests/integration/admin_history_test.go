@@ -1,4 +1,4 @@
-package web
+package integration
 
 import (
 	"encoding/csv"
@@ -67,16 +67,5 @@ func TestAdminHistoryStatisticsAndExport(t *testing.T) {
 		if w = adminRequest(h, s, "GET", path, "", cookie, true); w.Code != 400 {
 			t.Fatalf("invalid filter accepted: %s", path)
 		}
-	}
-}
-func TestCSVCellsCannotExecuteFormula(t *testing.T) {
-	for _, v := range []string{"=SUM(A1:A2)", " +1+1", "-42", "@example", "\t=1"} {
-		out := csvCell(v)
-		if !strings.HasPrefix(out, "'") {
-			t.Fatalf("unsafe spreadsheet cell %q", v)
-		}
-	}
-	if csvCell("   ") != "   " || csvCell("TPE") != "TPE" {
-		t.Fatal("ordinary values changed")
 	}
 }

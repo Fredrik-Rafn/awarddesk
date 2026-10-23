@@ -1,16 +1,11 @@
-// Package eva implements EVA member login for the Miles & Cash booking flow.
 package eva
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,52 +13,11 @@ import (
 
 	"awarddesk/internal/antibot"
 	"awarddesk/internal/award"
-	"awarddesk/internal/outlook"
 	"awarddesk/internal/proxies"
 	"awarddesk/internal/session"
 	"awarddesk/internal/sessionstore"
 )
 
-const LoginURL = "https://eservice.evaair.com/flyeva/eva/ffp/login.aspx"
-const ItineraryURL = "https://eservice.evaair.com/flyeva/eva/ffp/frequent-flyer.aspx"
-
-type Config struct {
-	StateBackend                      sessionstore.Backend
-	SessionMaxAge                     time.Duration
-	Email, Password, HyperKey, AnyKey string
-	ImpervaSolver                     string
-	Pool                              *proxies.Pool
-	Mailbox                           *outlook.Reader
-	ResultCacheTTL                    time.Duration
-}
-type Provider struct {
-	config Config
-	gate   chan struct{}
-	warm   *warmSession // Protected by gate and the on-disk account lock.
-	closed bool
-}
-
-func New(c Config) *Provider { return &Provider{config: c, gate: make(chan struct{}, 1)} }
-
-type cached struct {
-	Version         int
-	Account         string
-	Identity        string
-	Created         time.Time
-	ExpiresAt       time.Time
-	ExpirySource    string
-	Proxy, Template string
-	HTTP            session.State
-}
-
-func (p *Provider) identity() string {
-	h := sha256.Sum256([]byte(p.config.Email + "\x00" + p.config.Password + "\x00" + session.UserAgent))
-	return hex.EncodeToString(h[:])
-}
-func (p *Provider) store() sessionstore.Store {
-	h := sha256.Sum256([]byte(strings.ToLower(p.config.Email)))
-	return sessionstore.Store{Backend: p.config.StateBackend, Path: filepath.Join(".state", "eva", hex.EncodeToString(h[:])+".json")}
-}
 func (p *Provider) Ensure(ctx context.Context, report award.Reporter) error {
 	ctx, report = trackRequestRecoveries(ctx, report)
 	stage := "session preparation"
@@ -471,20 +425,6 @@ func prepareLoginForm(f *form, target string, now time.Time) error {
 	}
 	return nil
 }
-func (p *Provider) finish(store sessionstore.Store, c *session.Client, saved cached, use func(*session.Client, string) error) error {
-	if err := p.save(store, c, saved); err != nil {
-		return err
-	}
-	if use == nil {
-		return nil
-	}
-	err := use(c, saved.Proxy)
-	saveErr := p.save(store, c, saved)
-	if err != nil {
-		return err
-	}
-	return saveErr
-}
 func (p *Provider) solve(ctx context.Context, c *session.Client, proxy, page string, f *form) error {
 	if f.key == "" || f.captchaAction == "" {
 		return award.Failure("captcha_changed", "EVA login does not expose the expected reCAPTCHA v3 configuration")
@@ -495,27 +435,6 @@ func (p *Provider) solve(ctx context.Context, c *session.Client, proxy, page str
 	}
 	return f.set("$grecaptcharesponse", solution.Token)
 }
-func (p *Provider) save(store sessionstore.Store, c *session.Client, saved cached) error {
-	state, err := c.Snapshot()
-	if err != nil {
-		return award.Failure("session_store", "Could not snapshot EVA session")
-	}
-	saved.HTTP = state
-	saved.ExpiresAt, saved.ExpirySource = p.expiry(saved)
-	saved.Account = p.config.Email
-	data, err := json.Marshal(saved)
-	if err == nil {
-		err = store.Save(data)
-	}
-	if err != nil {
-		return award.Failure("session_store", "Could not save EVA session")
-	}
-	if p.warm != nil && p.warm.client == c {
-		p.warm.diskKey = sessionSnapshotKey(data)
-		p.warm.usedAt = time.Now()
-	}
-	return nil
-}
 func authenticated(body []byte, target string) bool {
 	u, err := url.Parse(target)
 	if err != nil || u.Host != "eservice.evaair.com" || strings.ToLower(u.Path) != "/flyeva/eva/ffp/frequent-flyer.aspx" {
@@ -523,83 +442,4 @@ func authenticated(body []byte, target string) bool {
 	}
 	f, err := parseForm(body, target)
 	return err == nil && f.field("$txt_Member") == "" && strings.Contains(string(body), `id="Member_Name"`) && strings.Contains(string(body), `__doPostBackLocal('FUN', 'logout')`)
-}
-func navigate(ctx context.Context, c *session.Client, method, target string, values url.Values, from ...string) ([]byte, string, error) {
-	previous := LoginURL
-	if len(from) > 0 {
-		previous = from[0]
-	} else if method == "GET" && target == LoginURL {
-		previous = ""
-	}
-	for i := 0; i < 6; i++ {
-		u, err := url.Parse(target)
-		if err != nil || u.Scheme != "https" || u.User != nil || (u.Host != "booking.evaair.com" && u.Host != "eservice.evaair.com" && u.Host != "book.evaair.com") {
-			return nil, "", award.Failure("unsafe_destination", "EVA navigation left the allowed portal")
-		}
-		var body *strings.Reader
-		h := http.Header{"sec-fetch-site": {"none"}}
-		var source *url.URL
-		if previous != "" {
-			source, err = url.Parse(previous)
-			if err != nil || source.Scheme != "https" || !strings.HasSuffix(source.Hostname(), ".evaair.com") {
-				return nil, target, award.Failure("unsafe_destination", "Invalid EVA referring page")
-			}
-			h["referer"] = []string{previous}
-			h["sec-fetch-site"] = []string{"same-site"}
-			if source.Host == u.Host {
-				h["sec-fetch-site"] = []string{"same-origin"}
-			}
-		}
-		if method == "POST" {
-			body = strings.NewReader(values.Encode())
-			h["content-type"] = []string{"application/x-www-form-urlencoded"}
-			if source == nil {
-				return nil, target, award.Failure("unsafe_destination", "EVA form origin missing")
-			}
-			h["origin"] = []string{source.Scheme + "://" + source.Host}
-		}
-		var res *http.Response
-		var data []byte
-		if body != nil {
-			res, data, err = c.Do(ctx, method, target, body, h)
-		} else {
-			res, data, err = c.Do(ctx, method, target, nil, h)
-		}
-		if err != nil {
-			if res != nil && (res.StatusCode == 403 || res.StatusCode == 428) && u.Host == "eservice.evaair.com" && (strings.EqualFold(u.Path, "/flyeva/eva/ffp/login.aspx") || strings.EqualFold(u.Path, "/flyeva/EVA/FFP/register-now.aspx")) && bytes.Contains(data, []byte(`name="sec_chlge_forward_wrap"`)) {
-				return data, target, nil
-			}
-			if res != nil && (res.StatusCode == 403 || res.StatusCode == 428) && isAdaptiveBookingChallenge(data, target) {
-				return data, target, nil
-			}
-			if res != nil && res.StatusCode == 403 && u.Host == "book.evaair.com" && isReeseContinuation(data, target) {
-				return data, target, nil
-			}
-			if res != nil && res.StatusCode == 403 {
-				kind := "security"
-				if bytes.Contains(data, []byte("sec_chlge_forward_wrap")) {
-					kind = "additional Akamai challenge"
-				} else if bytes.Contains(data, []byte("Access Denied")) {
-					kind = "access policy"
-				}
-				return nil, target, &award.Error{Code: "session_denied", HTTPStatus: 403, Message: "EVA " + u.Host + " rejected the request (HTTP 403; " + kind + ")"}
-			}
-			return nil, target, err
-		}
-		if res.StatusCode == 200 {
-			return data, target, nil
-		}
-		if res.StatusCode != 301 && res.StatusCode != 302 && res.StatusCode != 303 {
-			return nil, target, award.Failure("login_http", "EVA returned an unexpected navigation response")
-		}
-		ref, err := url.Parse(res.Header.Get("Location"))
-		if err != nil || ref.String() == "" {
-			return nil, target, award.Failure("login_protocol", "EVA redirect missing")
-		}
-		previous = target
-		target = u.ResolveReference(ref).String()
-		method = "GET"
-		values = nil
-	}
-	return nil, target, award.Failure("redirect_limit", "EVA redirected too many times")
 }

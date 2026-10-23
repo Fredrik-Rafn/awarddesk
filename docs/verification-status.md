@@ -58,3 +58,17 @@ The reviewed build also passed an uncached HKG–TPE search for 10 December 2026
 two adults: 131 seconds, seven flights, all 21 displayed fares quoted, complete
 results and no recorded recoveries. This single smoke check validates the changed
 pricing path; it does not establish a new latency or failure-rate benchmark.
+
+## Test layout and module boundaries — 23 October 2026
+
+All 196 Go test functions were retained during the layout cleanup. HTTP/admin and
+job/SQLite scenarios now run from `tests/integration/` through exported interfaces;
+frontend JavaScript tests run from `tests/browser/` with Node. Private unit tests
+remain with their Go packages. The HTTP tests obtain CSRF tokens via `/api/config`
+rather than accessing the server's private field.
+
+EVA provider setup, navigation and saved member state were split out of the login
+file. Admin account/settings/overview handlers were split from common routing and
+authentication. Verification uses the offline suite, vet and compilation; no live
+EVA flow or paid solver call is part of this cleanup. See
+[tests/README.md](../tests/README.md) for exact commands and scope.

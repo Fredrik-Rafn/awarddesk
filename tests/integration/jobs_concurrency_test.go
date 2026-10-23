@@ -1,4 +1,4 @@
-package jobs
+package integration
 
 import (
 	"context"
@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"awarddesk/internal/award"
+	"awarddesk/internal/jobs"
 )
 
 func TestSearchDispatchCanGrowToTwoHundredConcurrentFlows(t *testing.T) {
 	entered := make(chan struct{}, 200)
 	release := make(chan struct{})
-	s := NewConcurrent(1, fakeProvider{run: func(ctx context.Context) (award.Result, error) {
+	s := jobs.NewConcurrent(1, jobProvider{run: func(ctx context.Context) (award.Result, error) {
 		entered <- struct{}{}
 		select {
 		case <-release:
@@ -23,7 +24,7 @@ func TestSearchDispatchCanGrowToTwoHundredConcurrentFlows(t *testing.T) {
 	defer s.Close()
 	s.EnsureWorkers(200)
 	for i := 0; i < 200; i++ {
-		q := query()
+		q := jobQuery()
 		q.Date = time.Now().AddDate(0, 0, i+1).Format("2006-01-02")
 		if _, e := s.Submit(q); e != nil {
 			t.Fatal(e)

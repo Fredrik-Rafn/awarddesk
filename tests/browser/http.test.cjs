@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
-const source=fs.readFileSync(path.join(__dirname,'../assets/http.js'),'utf8');
+const source=fs.readFileSync(path.join(__dirname,'../../internal/web/assets/http.js'),'utf8');
 const response=(status,data)=>({status,ok:status>=200&&status<300,json:async()=>data});
 function client(fetch){return vm.runInNewContext(source+'\nworkspaceHTTP;',{fetch})}
 test('restart refreshes token and performs each action exactly once',async()=>{

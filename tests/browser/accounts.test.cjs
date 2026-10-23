@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, '../assets/admin-accounts.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../../internal/web/assets/admin-accounts.js'), 'utf8');
 const context = vm.createContext({});
 vm.runInContext(source.slice(0, source.indexOf('function accountCells')), context);
 const account = {id:'account', enabled:true, email:'test@example.com', outlookEmail:'test@outlook.com', clientId:'test-client'};
