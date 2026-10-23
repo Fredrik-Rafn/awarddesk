@@ -72,3 +72,14 @@ file. Admin account/settings/overview handlers were split from common routing an
 authentication. Verification uses the offline suite, vet and compilation; no live
 EVA flow or paid solver call is part of this cleanup. See
 [tests/README.md](../tests/README.md) for exact commands and scope.
+
+## ngrok demo mode — 23 October 2026
+
+Offline integration tests cover exact public-host matching, required demo
+authentication, HTTPS/origin/CSRF enforcement, local access preservation, blocked
+public admin/preparation endpoints (including requests with a valid admin cookie),
+and simulated search submission/result polling. Invalid startup URLs and short
+passwords fail closed. The Windows launcher is syntax-checked, and its flags are
+checked against the installed ngrok 3.36.0 help. No public tunnel or live EVA flow
+is started for these checks; the actual assigned ngrok URL is obtained when the
+user runs the launcher.

@@ -417,7 +417,9 @@ validation and dashboard assembly. Each file owns one feature; access checks sta
 at the common route boundary.
 
 The database holds plaintext reusable secrets, not an encrypted secret vault.
-The app binds locally. Publishing it would require the access-control and
+The app binds locally. [Demo mode](demo.md) permits a single password-protected
+HTTPS hostname through ngrok while admin stays local. `web/demo.go` handles that
+boundary. A public multi-user deployment still requires the access-control and
 deployment work in [capacity/scaling](capacity.md).
 
 ## Tests to read and debugging checklist

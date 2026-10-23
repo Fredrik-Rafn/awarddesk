@@ -42,8 +42,9 @@ reduce that; cache hits and identical-query coalescing can increase user-facing
 throughput substantially.
 
 Do not call this 30 simultaneous users. One user can submit many jobs, and many
-users can reuse cached/coalesced work. The public app is localhost-only; serving
-real external users would need a separate deployment/security design.
+users can reuse cached/coalesced work. The server listens on localhost; optional
+[ngrok demo mode](demo.md) provides password-protected access for trusted viewers.
+Serving a public multi-user product still needs a separate deployment/security design.
 
 The 1–512 setting is a software bound, not evidence that 512 live flows work.
 Higher concurrency needs an incremental representative test and resource/error

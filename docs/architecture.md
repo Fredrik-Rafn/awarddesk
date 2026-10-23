@@ -90,6 +90,12 @@ Mutation requests require X-CSRF-Token. Host/Origin checks restrict the local
 boundary; admin operations also require a valid HttpOnly/SameSite cookie.
 Public results/configuration exclude credentials.
 
+Optional [demo mode](demo.md) accepts one explicitly configured HTTPS hostname
+behind ngrok. `web/demo.go` requires a separate demo password for that hostname
+and keeps admin/manual account-preparation routes localhost-only. Forwarding
+headers never grant local access. The ordinary origin and request-token checks
+also apply to public requests. The listener still binds to 127.0.0.1.
+
 ## Contention boundaries
 
 The bounded FIFO separates capacity-wait and execution budgets. Account/proxy

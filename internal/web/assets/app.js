@@ -615,6 +615,14 @@ $("download").addEventListener("click", () => {
   busy(false);
   try {
     config = await api("/api/config");
+    if (config.demo) {
+      document.querySelectorAll('a[href^="/admin"]')
+        .forEach((link) => {
+          link.hidden = true;
+        });
+      const label = document.querySelector("header .local");
+      if (label) label.textContent = "DEMO";
+    }
     config.providers = config.providers.filter((p) => p.id === "eva");
     config.ready = config.evaLoginReady;
     $("provider").replaceChildren(

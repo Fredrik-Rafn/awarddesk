@@ -1,0 +1,683 @@
+{
+  "cacheExpiresAt": "2026-10-22T19:37:28.3339115Z",
+  "complete": true,
+  "fetchedAt": "2026-10-22T19:07:28.3339115Z",
+  "itineraries": [
+    {
+      "fares": [
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "2508.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 29820,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Basic",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        },
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "3888.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 66780,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Standard",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        },
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "7128.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 153300,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Up",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        }
+      ],
+      "id": "3",
+      "segments": [
+        {
+          "aircraft": "Boeing 787-10",
+          "airline": "EVA Air",
+          "arrivalLocal": "2026-12-10T12:00:00",
+          "departureLocal": "2026-12-10T10:10:00",
+          "destination": "TPE",
+          "flightNumber": "BR892",
+          "origin": "HKG"
+        }
+      ],
+      "summary": "EVA Miles \u0026 Cash"
+    },
+    {
+      "fares": [
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "2508.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 29820,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Basic",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        },
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "3888.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 66780,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Standard",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        },
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "7128.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 153300,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Up",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        }
+      ],
+      "id": "1",
+      "segments": [
+        {
+          "aircraft": "Boeing 787-9",
+          "airline": "EVA Air",
+          "arrivalLocal": "2026-12-10T13:05:00",
+          "departureLocal": "2026-12-10T11:20:00",
+          "destination": "TPE",
+          "flightNumber": "BR852",
+          "origin": "HKG"
+        }
+      ],
+      "summary": "EVA Miles \u0026 Cash"
+    },
+    {
+      "fares": [
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "2508.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 29820,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Basic",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        },
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "3888.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 66780,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Standard",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        },
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "7128.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 153300,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Up",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        }
+      ],
+      "id": "4",
+      "segments": [
+        {
+          "aircraft": "Airbus A321",
+          "airline": "EVA Air",
+          "arrivalLocal": "2026-12-10T15:20:00",
+          "departureLocal": "2026-12-10T13:30:00",
+          "destination": "TPE",
+          "flightNumber": "BR868",
+          "origin": "HKG"
+        }
+      ],
+      "summary": "EVA Miles \u0026 Cash"
+    },
+    {
+      "fares": [
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "3028.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 43680,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Basic",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        },
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "3888.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 66780,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Standard",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        },
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "7128.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 153300,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Up",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        }
+      ],
+      "id": "5",
+      "segments": [
+        {
+          "aircraft": "Airbus A321",
+          "airline": "EVA Air",
+          "arrivalLocal": "2026-12-10T17:10:00",
+          "departureLocal": "2026-12-10T15:30:00",
+          "destination": "TPE",
+          "flightNumber": "BR870",
+          "origin": "HKG"
+        }
+      ],
+      "summary": "EVA Miles \u0026 Cash"
+    },
+    {
+      "fares": [
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "3028.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 43680,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Basic",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 2,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        },
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "3888.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 66780,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Standard",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        },
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "7128.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 153300,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Up",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        }
+      ],
+      "id": "6",
+      "segments": [
+        {
+          "aircraft": "Airbus A321",
+          "airline": "EVA Air",
+          "arrivalLocal": "2026-12-10T21:25:00",
+          "departureLocal": "2026-12-10T19:40:00",
+          "destination": "TPE",
+          "flightNumber": "BR872",
+          "origin": "HKG"
+        }
+      ],
+      "summary": "EVA Miles \u0026 Cash"
+    },
+    {
+      "fares": [
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "2508.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 29820,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Basic",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        },
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "3888.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 66780,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Standard",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        },
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "7128.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 153300,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Up",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        }
+      ],
+      "id": "0",
+      "segments": [
+        {
+          "aircraft": "Airbus A330-300",
+          "airline": "EVA Air",
+          "arrivalLocal": "2026-12-10T22:50:00",
+          "departureLocal": "2026-12-10T21:10:00",
+          "destination": "TPE",
+          "flightNumber": "BR858",
+          "origin": "HKG"
+        }
+      ],
+      "summary": "EVA Miles \u0026 Cash"
+    },
+    {
+      "fares": [
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "2508.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 29820,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Basic",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        },
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "3888.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 66780,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Standard",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        },
+        {
+          "cabin": "economy",
+          "cashPrice": {
+            "amount": "7128.0",
+            "currency": "HKD"
+          },
+          "estimated": true,
+          "milesCash": {
+            "miles": 153300,
+            "remainingCash": {
+              "amount": "1388.0",
+              "currency": "HKD"
+            },
+            "selectable": false
+          },
+          "milesCashEligible": true,
+          "name": "Economy Up",
+          "points": 0,
+          "pricingType": "miles_cash",
+          "program": "EVA Infinity MileageLands",
+          "seats": 9,
+          "taxes": {
+            "amount": "",
+            "currency": ""
+          }
+        }
+      ],
+      "id": "2",
+      "segments": [
+        {
+          "aircraft": "Airbus A321",
+          "airline": "EVA Air",
+          "arrivalLocal": "2026-12-10T23:35:00",
+          "departureLocal": "2026-12-10T21:50:00",
+          "destination": "TPE",
+          "flightNumber": "BR810",
+          "origin": "HKG"
+        }
+      ],
+      "summary": "EVA Miles \u0026 Cash"
+    }
+  ],
+  "query": {
+    "adults": 2,
+    "cabin": "economy",
+    "date": "2026-12-10",
+    "destination": "TPE",
+    "origin": "HKG",
+    "provider": "eva"
+  },
+  "warnings": [
+    "Miles \u0026 Cash amounts are maximum-offset estimates for aggregation, not award tickets. No payment or ticketing request was submitted."
+  ]
+}

@@ -11,7 +11,6 @@ import (
 	"io/fs"
 	"mime"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -34,6 +33,9 @@ type Server struct {
 	ProxyEnabled bool
 	EVALogin     *login.Service
 	csrf         string
+	demoOrigin   string
+	demoHost     string
+	demoPassword [32]byte
 }
 
 func New(j *jobs.Service, ready, proxy bool) (*Server, error) {
@@ -67,7 +69,7 @@ func (s *Server) Handler() http.Handler {
 		if s.Admin != nil {
 			evaReady = s.Admin.Fleet.Ready()
 		}
-		writeJSON(w, 200, map[string]any{"csrf": s.csrf, "ready": ready, "proxyEnabled": proxy, "providers": s.Jobs.Capabilities(), "evaLoginReady": evaReady})
+		writeJSON(w, 200, map[string]any{"csrf": s.csrf, "ready": ready, "proxyEnabled": proxy, "providers": s.Jobs.Capabilities(), "evaLoginReady": evaReady, "demo": s.demoHost != "" && r.Host == s.demoHost})
 	})
 	s.loginRoutes(mux)
 	mux.HandleFunc("GET /api/airports", func(w http.ResponseWriter, r *http.Request) {
@@ -102,16 +104,15 @@ func (s *Server) Handler() http.Handler {
 	root, _ := fs.Sub(assets, "assets")
 	mux.Handle("GET /", http.FileServer(http.FS(root)))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		u, e := url.Parse("http://" + r.Host)
-		if e != nil || u.User != nil || u.Path != "" || u.RawQuery != "" || (u.Hostname() != "127.0.0.1" && u.Hostname() != "localhost" && u.Hostname() != "::1") {
-			fail(w, 403, "local access only")
-			return
-		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
-		if origin := r.Header.Get("Origin"); origin != "" && origin != "http://"+r.Host {
+		allowedOrigin, ok := s.accessOrigin(w, r)
+		if !ok {
+			return
+		}
+		if origin := r.Header.Get("Origin"); origin != "" && origin != allowedOrigin {
 			fail(w, 403, "cross-origin requests are not allowed")
 			return
 		}

@@ -34,6 +34,7 @@ has been load-tested.
 | One coalescing history writer | SQL/encoding do not block scheduler status/cancellation; accepted work flushes before dispatch | Single writer; brief progress lag; hard failure can lose latest update | Transactional durable queue/outbox for distributed workers |
 | Permanent history | Auditability, trends and reproducible failure analysis | Database and backups grow forever | Partition/archive older history while preserving access, rather than silently deleting it |
 | Localhost-only admin | Fits the personal/local deployment; minimal authentication surface | Not a public multi-user product, no tenant isolation | Hosted identity, TLS, authorization, rate limits, audit and secret isolation |
+| Explicit password-protected demo origin | Share searches through ngrok without opening admin or relaxing host/CSRF checks | Shared demo identity; host computer must stay running | Hosted identity and tenant isolation for a public service |
 | Shared provider contract | Separates scheduler/UI from EVA's implementation and allows fake tests | A small abstraction in a single-provider app | Direct coupling saves a little code but makes lifecycle tests and future refactors harder |
 | Separate integration/frontend tests; colocated private unit tests | Clear top-level test suites without exporting implementation details; normal go test still runs everything | Unit test files remain beside Go source | Put every test outside only when the public API gives enough coverage; avoid test-only exports or custom build overlays |
 

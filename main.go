@@ -67,6 +67,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	if err = app.ConfigureDemo(os.Getenv("AWARDDESK_PUBLIC_URL"), os.Getenv("AWARDDESK_DEMO_PASSWORD")); err != nil {
+		return err
+	}
 	registrations, err := registration.New(db, evaProvider)
 	if err != nil {
 		return err
