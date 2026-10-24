@@ -59,6 +59,7 @@ func (p *Provider) searchAwardWithTaxes(ctx context.Context, q award.Query, repo
 		slog.Warn("EVA award tax estimates incomplete; retaining award quotes", "code", code,
 			"origin", q.Origin, "destination", q.Destination, "date", q.Date)
 	}
+	r = recoverAwardTaxEstimates(taxCtx, r, report)
 	p.convertAwardTaxes(ctx, &r)
 	if ctx.Err() != nil {
 		return r, ctx.Err()

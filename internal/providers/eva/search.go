@@ -3,16 +3,12 @@ package eva
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
-	"mime/multipart"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
-
-	http "github.com/bogdanfinn/fhttp"
 
 	"awarddesk/internal/antibot"
 	"awarddesk/internal/award"
@@ -131,24 +127,9 @@ func (p *Provider) searchCashWithPricing(ctx context.Context, q award.Query, rep
 				if err != nil {
 					return err
 				}
-				var data bytes.Buffer
-				writer := multipart.NewWriter(&data)
-				if err = writer.WriteField("token", solution.Token); err != nil {
-					return err
-				}
-				if err = writer.Close(); err != nil {
-					return err
-				}
-				_, check, err := c.Do(ctx, "POST", "https://booking.evaair.com/flyeva/handler/CheckRecaptcha.ashx", &data, http.Header{"sec-fetch-site": {"same-origin"}, "content-type": {writer.FormDataContentType()}, "referer": {target}, "origin": {"https://booking.evaair.com"}, "sec-fetch-mode": {"cors"}, "sec-fetch-dest": {"empty"}})
+				verified, err := checkBookingRecaptcha(ctx, c, target, solution.Token)
 				if err != nil {
 					return err
-				}
-				var verified struct {
-					Success string
-					Source  string
-				}
-				if json.Unmarshal(check, &verified) != nil || verified.Source == "" || (verified.Success != "true" && verified.Success != "false") {
-					return award.Failure("captcha_changed", "EVA booking CAPTCHA verification format changed")
 				}
 				if err = fillSearch(&f, q, verified.Success, verified.Source); err != nil {
 					return err
@@ -169,8 +150,13 @@ func (p *Provider) searchCashWithPricing(ctx context.Context, q award.Query, rep
 
 					continue
 				}
+				body, target, err = p.completeCashConfirmation(ctx, c, proxy, body, target, report)
+				if err != nil {
+					return err
+				}
 				sso, err = parseForm(body, target)
 				if err != nil || sso.action != overrideURL || sso.values.Get("EMBEDDED_TRANSACTION") != "FlexPricerAvailability" || sso.values.Get("ENC") == "" {
+					captureAwardFailure(body)
 					return award.Failure("search_protocol", "EVA did not return the flight-availability handoff")
 				}
 				break

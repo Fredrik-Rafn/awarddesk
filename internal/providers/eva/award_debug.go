@@ -5,11 +5,19 @@ import (
 )
 
 func captureAwardFailure(body []byte) {
+	captureAwardData(body, "html")
+}
+
+func captureAwardImage(body []byte) {
+	captureAwardData(body, "png")
+}
+
+func captureAwardData(body []byte, extension string) {
 	dir := os.Getenv("AWARDDESK_AWARD_DEBUG_DIR")
 	if dir == "" || os.MkdirAll(dir, 0700) != nil {
 		return
 	}
-	f, err := os.CreateTemp(dir, "award-*.private.html")
+	f, err := os.CreateTemp(dir, "award-*.private."+extension)
 	if err != nil {
 		return
 	}

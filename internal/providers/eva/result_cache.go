@@ -14,7 +14,7 @@ import (
 	"awarddesk/internal/sessionstore"
 )
 
-const resultCacheVersion = 4
+const resultCacheVersion = 5
 
 type cachedResult struct {
 	Version int          `json:"version"`

@@ -20,7 +20,14 @@ func (a AnySolver) SolveRecaptchaV3(ctx context.Context, page, key, action, titl
 	if err != nil {
 		return CaptchaSolution{}, errors.New("CAPTCHA proxy configuration invalid")
 	}
-	task := map[string]any{"type": "ReCaptchaV3TokenProxyLess", "websiteURL": page, "websiteKey": key, "pageAction": action, "pageTitle": title, "apiDomain": "recaptcha.net", "minScore": 0.7}
+	score := a.RecaptchaMinScore
+	if score == 0 {
+		score = 0.7
+	}
+	if !(score >= 0.1 && score <= 0.9) {
+		return CaptchaSolution{}, errors.New("reCAPTCHA minimum score is invalid")
+	}
+	task := map[string]any{"type": "ReCaptchaV3TokenProxyLess", "websiteURL": page, "websiteKey": key, "pageAction": action, "pageTitle": title, "apiDomain": "recaptcha.net", "minScore": score}
 	if proxy != "" {
 		task["type"] = "ReCaptchaV3Token"
 		task["proxy"] = proxy
@@ -32,6 +39,9 @@ func (a AnySolver) SolveRecaptchaV3(ctx context.Context, page, key, action, titl
 		"retry":           map[string]any{"enabled": false, "maxRetries": 0},
 		"fallback":        map[string]any{"enabled": true, "maxFallbacks": 1},
 		"allowProxyReuse": true,
+	}
+	if len(a.RecaptchaProviderOrder) > 0 {
+		settings["routing"] = map[string]any{"mode": "priority", "providerOrder": append([]string(nil), a.RecaptchaProviderOrder...)}
 	}
 	value, err := a.call(ctx, "createTask", map[string]any{"task": task, "settings": settings})
 	if err != nil {

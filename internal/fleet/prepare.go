@@ -1,6 +1,7 @@
 package fleet
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -36,6 +37,7 @@ func (f *Fleet) enqueuePrepare(id string, force bool) (bool, error) {
 	}
 	st.State, st.Stage, st.Message = "queued", "queued preparation", "Waiting for an available session worker"
 	st.Queued, st.CheckedAt = true, time.Now().UTC()
+	st.ManualPreparation = force
 	st.NextAttempt, st.NeedsAttention = time.Time{}, false
 	if err := f.db.Runtime("account:"+id, st); err != nil {
 		return false, errors.New("could not queue account preparation")
@@ -89,9 +91,20 @@ func (f *Fleet) prepareWorker() {
 		task := f.prepareQueue[0]
 		f.prepareQueue = f.prepareQueue[1:]
 		f.mu.Unlock()
-		_ = f.Prepare(f.ctx, task.id, nil, task.force)
+		ctx := f.ctx
+		if !task.force {
+			ctx = context.WithValue(ctx, automaticPreparationKey{}, true)
+		}
+		if err := f.Prepare(ctx, task.id, nil, task.force); errors.Is(err, errMaintenanceIdle) {
+			var status Status
+			f.db.RuntimeValue("account:"+task.id, &status)
+			status.State, status.Stage, status.Message = "idle", "maintenance paused", errMaintenanceIdle.Error()
+			status.Queued, status.ManualPreparation = false, false
+			_ = f.db.Runtime("account:"+task.id, status)
+		}
 		f.mu.Lock()
 		delete(f.pending, task.id)
+		f.notifyLocked()
 		f.mu.Unlock()
 	}
 }

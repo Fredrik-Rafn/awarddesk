@@ -26,8 +26,8 @@ Go uses `tls-client`/`fhttp` for isolated HTTP sessions, HTML/JSON parsers, Hype
 for Akamai and Imperva, and AnySolver for CAPTCHA/security fallback. Outlook OAuth
 and read-only IMAP retrieve fresh verification mail. SQLite stores configuration,
 sticky proxies, reusable sessions, results and history. Production flows use no
-browser automation. See the [flow walkthrough](docs/eva-awards.md) and
-[code guide](docs/code-walkthrough.md) for implementation details.
+browser automation. See the [flow walkthrough](docs/eva-awards.md) for implementation
+details. Airport metadata comes from the public-domain [OurAirports data](https://ourairports.com/data/).
 
 **Miles & Cash** remains a separate optional mode. It estimates the maximum
 mileage offset against a paid fare and its cash remainder; that remainder is not
@@ -58,7 +58,9 @@ The initial admin password is **admin1234**, with no username; change it in Admi
 3. Add an EVA login/password and its Outlook mailbox, OAuth client ID and refresh
    token in Accounts. Outlook needs IMAP access; its ordinary password is unused.
 4. Prepare an account and wait for Ready, then search on the main page. Background
-   maintenance refreshes sessions and retries recoverable account failures.
+   maintenance refreshes sessions and retries recoverable account failures. It
+   pauses after one hour without searches and resumes on the next search; manual
+   preparation remains available.
 
 Configuration is stored privately in `data/awarddesk.db`. Existing environment
 and proxy files are imported once; subsequent changes belong in Admin. Stop with
@@ -91,9 +93,11 @@ labelled cash-derived tax estimates of **TWD 3,047 ≈ US$93.49 per itinerary**.
 On 23–24 October 2026, **200 distinct uncached searches completed with zero final
 failures**, at up to 30 concurrent searches: 168 without recorded recovery and
 32 after automatic recovery. There were 79 priced results (242 itineraries) and
-121 valid empty results. Priced-search latency was 60.5 seconds median and 150.2
-seconds P95. Cash-derived fee estimates with USD conversion covered 225 of 242
+121 valid empty results. Priced-search latency was 60.5 seconds median.
+Cash-derived fee estimates with USD conversion covered 225 of 242
 quotes; the other fees remained unknown. See the [benchmark summary](docs/benchmarks/award-200-2026-10-24.json).
+After a route-confirmation fix, a separate replay recovered 14 of those 17 missing
+estimates; three remained unknown after bounded CAPTCHA retries.
 
 Recorded results are historical evidence, not a guarantee of future availability.
 Detailed methodology and failures are in [verification evidence](docs/verification-status.md).

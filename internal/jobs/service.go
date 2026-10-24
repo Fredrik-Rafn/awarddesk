@@ -130,6 +130,12 @@ func (s *Service) Submit(q award.Query) (Job, error) {
 	if !supported || q.Adults > p.Capabilities().MaxAdults {
 		return Job{}, errors.New("search is not supported by this provider")
 	}
+	if s.ctx.Err() != nil {
+		return Job{}, award.Failure("closed", "search service is shutting down")
+	}
+	if observer, ok := p.(interface{ SearchSubmitted(time.Time) }); ok {
+		observer.SearchSubmitted(time.Now().UTC())
+	}
 	b := make([]byte, 16)
 	if _, e := rand.Read(b); e != nil {
 		return Job{}, e

@@ -2,7 +2,6 @@
 bin/
 .env
 .env.*
-!.env.example
 *.har
 *.private.*
 *.log
@@ -15,3 +14,14 @@ data/
 *.db-shm
 *.db.locks/
 *.db.server.lock
+
+/docs/*
+!/docs/demo.md
+!/docs/eva-awards.md
+!/docs/verification-status.md
+!/docs/examples/
+/docs/examples/*
+!/docs/examples/eva-award-result.json
+!/docs/benchmarks/
+/docs/benchmarks/*
+!/docs/benchmarks/award-200-2026-10-24.json

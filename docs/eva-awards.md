@@ -80,6 +80,22 @@ result rather than a request failure.
     unknown outcomes and already-quoted partial results cannot trigger that retry.
 11. Optionally retrieve cash-fare tax estimates for exact matching flights. Keep
     them separate from actual award taxes; convert available amounts to USD.
+    Some routes, including TPE–ICN, return a `TRANSBLOCK` form before the normal
+    cash-availability handoff. Follow that fresh form only to EVA's known
+    `booking-confirm.aspx` page, complete its separate CAPTCHA and submit its
+    current confirmation form. An explicit incorrect verification-code response
+    permits at most two further solves using newly returned forms; transport
+    uncertainty never replays a confirmation POST.
+    Confirmation reCAPTCHA requests use a 0.9 minimum score and prefer TwoCaptcha
+    through AnySolver, alternating provider preference after an explicit rejection.
+    Ordinary login/search verification keeps its existing 0.7 request. The image
+    fallback accepts four to six alphanumeric characters and mirrors Chrome's
+    observed BotDetect hidden-field initialization. No browser is launched.
+    If fees remain missing, one idle ready account on its own proxy can perform
+    an independent exact cash lookup. It cannot log in, repeat award availability
+    or overwrite completed estimates. Parent and helper share the original
+    two-minute fee budget; the helper uses at most 90 seconds and needs at least
+    ten seconds remaining. Only exact query/itinerary/fare matches are merged.
 12. Persist history and cache only a complete successful result, then release the
     account and proxy lease. Award and Miles & Cash queries have separate cache
     identities, as do different party sizes. The normal 30-minute TTL applies.

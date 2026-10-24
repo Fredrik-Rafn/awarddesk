@@ -15,10 +15,12 @@ import (
 )
 
 type AnySolver struct {
-	Key       string
-	Proxy     string
-	Client    *http.Client
-	UserAgent string
+	Key                    string
+	Proxy                  string
+	Client                 *http.Client
+	UserAgent              string
+	RecaptchaMinScore      float64
+	RecaptchaProviderOrder []string
 }
 
 type transientSolverError struct{ message string }

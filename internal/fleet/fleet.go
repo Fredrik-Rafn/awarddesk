@@ -44,6 +44,7 @@ type Status struct {
 	ConsecutiveFailures int             `json:"consecutiveFailures"`
 	RetryLimit          int             `json:"retryLimit"`
 	Configured          bool            `json:"configured"`
+	ManualPreparation   bool            `json:"manualPreparation,omitempty"`
 }
 type Fleet struct {
 	db             *storage.Store
@@ -61,11 +62,13 @@ type Fleet struct {
 	prepareWake    chan struct{}
 	prepareWorkers int
 	changed        chan struct{}
+	activityWake   chan struct{}
 }
 
 func New(db *storage.Store) *Fleet {
 	ctx, cancel := context.WithCancel(context.Background())
-	f := &Fleet{db: db, entries: map[string]*entry{}, pending: map[string]bool{}, ctx: ctx, cancel: cancel, prepareWake: make(chan struct{}, 16), changed: make(chan struct{})}
+	f := &Fleet{db: db, entries: map[string]*entry{}, pending: map[string]bool{}, ctx: ctx, cancel: cancel, prepareWake: make(chan struct{}, 16), changed: make(chan struct{}), activityWake: make(chan struct{}, 1)}
+	f.initializeSearchActivity(time.Now().UTC())
 	f.pool = proxies.NewSource(func() (string, error) { return db.Setting("PROXY_LIST"), nil })
 	rates := exchange.New(db)
 	f.build = func(a storage.Account, m map[string]string) airline {
@@ -215,6 +218,9 @@ func (f *Fleet) claim(ctx context.Context, want string, excluded map[string]bool
 	for {
 		if e := ctx.Err(); e != nil {
 			return storage.Account{}, nil, nil, e
+		}
+		if automatic, _ := ctx.Value(automaticPreparationKey{}).(bool); automatic && !f.maintenanceActive(time.Now()) {
+			return storage.Account{}, nil, nil, errMaintenanceIdle
 		}
 		accounts, err := f.db.Accounts()
 		if err != nil {
@@ -391,6 +397,7 @@ func (f *Fleet) Search(ctx context.Context, q award.Query, report award.Reporter
 				factory, cleanup := f.awardHelperFactory(attemptCtx, excluded)
 				defer cleanup()
 				attemptCtx = eva.WithAwardQuoteWorkerFactory(attemptCtx, factory)
+				attemptCtx = eva.WithAwardTaxWorker(attemptCtx, f.awardTaxWorker(excluded))
 			}
 			result, err = p.Search(attemptCtx, q, func(progress award.Progress) {
 				if q.Mode == "award" && progress.Preview != nil && len(progress.Preview.Itineraries) < len(bestPartial.Itineraries) {
@@ -508,7 +515,7 @@ func (f *Fleet) Start() {
 			st = recoverPreparationStatus(st, time.Now().UTC())
 			_ = f.db.Runtime("account:"+a.ID, st)
 			if configured(a) && st.State == "queued" && st.Stage == "queued preparation" {
-				_ = f.schedulePrepare(a.ID, true)
+				_ = f.schedulePrepare(a.ID, st.ManualPreparation)
 			}
 		}
 	}
@@ -523,13 +530,17 @@ func (f *Fleet) Start() {
 			case <-f.ctx.Done():
 				return
 			case <-ticker.C:
+			case <-f.activityWake:
 			}
 		}
 	}()
 }
 func (f *Fleet) maintain() {
+	f.maintainAt(time.Now())
+}
+func (f *Fleet) maintainAt(now time.Time) {
 	_ = f.db.Prune()
-	if f.db.Setting("EVA_BACKGROUND_ENABLED") == "false" || !f.Ready() {
+	if !f.maintenanceActive(now) || f.db.Setting("EVA_BACKGROUND_ENABLED") == "false" || !f.Ready() {
 		return
 	}
 	statuses, e := f.Statuses()
@@ -553,10 +564,10 @@ func (f *Fleet) maintain() {
 		backgroundLimit = 8
 	}
 	for _, st := range statuses {
-		if !st.Configured || st.Busy || st.Queued || st.State == "disabled" || st.NeedsAttention || time.Now().Before(st.NextAttempt) {
+		if !st.Configured || st.Busy || st.Queued || st.State == "disabled" || st.NeedsAttention || now.Before(st.NextAttempt) {
 			continue
 		}
-		if st.Session.Ready && time.Since(st.CheckedAt) < 5*time.Minute {
+		if st.Session.Ready && now.Sub(st.CheckedAt) < 5*time.Minute {
 			continue
 		}
 		f.mu.Lock()
