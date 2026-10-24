@@ -59,10 +59,6 @@ func (s *Server) accessOrigin(w http.ResponseWriter, r *http.Request) (string, b
 		fail(w, 403, "demo access requires HTTPS")
 		return "", false
 	}
-	if strings.HasPrefix(r.URL.Path, "/admin") || strings.HasPrefix(r.URL.Path, "/api/admin") || strings.HasPrefix(r.URL.Path, "/api/logins") {
-		fail(w, 403, "account management is available through localhost only")
-		return "", false
-	}
 	user, password, ok := r.BasicAuth()
 	hash := sha256.Sum256([]byte(password))
 	if !ok || user != "demo" || subtle.ConstantTimeCompare(hash[:], s.demoPassword[:]) != 1 {

@@ -31,6 +31,7 @@ func (a *Admin) settings(w http.ResponseWriter) {
 		Value      string `json:"value"`
 		Secret     bool   `json:"secret"`
 		Configured bool   `json:"configured"`
+		WriteOnly  bool   `json:"writeOnly,omitempty"`
 	}
 	out := map[string]setting{}
 	for k, v := range m {
@@ -38,6 +39,9 @@ func (a *Admin) settings(w http.ResponseWriter) {
 			continue
 		}
 		row := setting{Value: v, Secret: secretSetting(k), Configured: v != ""}
+		if strings.HasSuffix(k, "_API_KEY") {
+			row.Value, row.WriteOnly = "", true
+		}
 		out[k] = row
 	}
 	writeJSON(w, 200, out)

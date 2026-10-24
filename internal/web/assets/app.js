@@ -758,10 +758,6 @@ $("download").addEventListener("click", () => {
   try {
     config = await api("/api/config");
     if (config.demo) {
-      document.querySelectorAll('a[href^="/admin"]')
-        .forEach((link) => {
-          link.hidden = true;
-        });
       const label = document.querySelector("header .local");
       if (label) label.textContent = "DEMO";
     }

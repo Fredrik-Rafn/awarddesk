@@ -11,8 +11,12 @@ func TestEditableSecretsRequireAdminAndClearingIsScoped(t *testing.T) {
 	cookie := adminLogin(t, s, h)
 	s.Admin.DB.SetSettings(map[string]string{"ANYSOLVER_API_KEY": "other-secret-key"})
 	w := adminRequest(h, s, "GET", "/api/admin/settings", "", cookie, true)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "test-secret-key") {
+	if w.Code != 200 || strings.Contains(w.Body.String(), "test-secret-key") || strings.Contains(w.Body.String(), "other-secret-key") || !strings.Contains(w.Body.String(), `"writeOnly":true`) {
 		t.Fatal("settings editor contract")
+	}
+	w = adminRequest(h, s, "PUT", "/api/admin/settings", `{"values":{"SEARCH_CONCURRENCY":"4"}}`, cookie, true)
+	if w.Code != 200 || s.Admin.DB.Setting("HYPER_API_KEY") != "test-secret-key" {
+		t.Fatal("saving unrelated settings erased a hidden API key")
 	}
 	w = adminRequest(h, s, "PUT", "/api/admin/settings", `{"values":{"HYPER_API_KEY":""}}`, cookie, true)
 	if w.Code != 200 || s.Admin.DB.Setting("HYPER_API_KEY") != "" || s.Admin.DB.Setting("ANYSOLVER_API_KEY") != "other-secret-key" {

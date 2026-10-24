@@ -63,10 +63,12 @@ The initial admin password is **admin1234**, with no username; change it in Admi
    preparation remains available.
 
 Configuration is stored privately in `data/awarddesk.db`. Existing environment
-and proxy files are imported once; subsequent changes belong in Admin. Stop with
+and proxy files are imported once; optional first-run placeholders are in
+[.env.example](.env.example). Subsequent changes belong in Admin. Stop with
 Ctrl+C; use `go run . -port 8090` for another port. For a password-protected
 recruiter demo, follow [ngrok setup](docs/demo.md), or use `./start-demo.ps1` on
-Windows after installing/authenticating ngrok. Admin remains localhost-only.
+Windows after installing/authenticating ngrok. The demo also exposes `/admin`,
+with its separate admin login; saved API keys are never returned to the browser.
 
 Offline checks spend no solver credits:
 

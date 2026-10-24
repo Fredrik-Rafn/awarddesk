@@ -303,10 +303,14 @@ $("proxy-form").onsubmit = async (e) => {
 };
 $("settings-form").onsubmit = async (e) => {
   e.preventDefault();
-  const values = {};
+  const values = {}, clear = [];
   for (const input of $("setting-fields").querySelectorAll(
     "input[name],select[name]",
   )) {
+    if (input.dataset.writeOnly && !input.value) {
+      if (input.dataset.clear) clear.push(input.name);
+      continue;
+    }
     values[input.name] = input.value;
   }
   if ($("new-setting-key").value.trim())
@@ -328,7 +332,7 @@ $("settings-form").onsubmit = async (e) => {
   try {
     await api("/api/admin/settings", {
       method: "PUT",
-      body: JSON.stringify({ values, confirmCacheClear }),
+      body: JSON.stringify({ values, clear, confirmCacheClear }),
     });
     message("Settings saved", "success");
     $("settings-form").classList.remove("has-unsaved");

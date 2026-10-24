@@ -2,6 +2,7 @@
 bin/
 .env
 .env.*
+!.env.example
 *.har
 *.private.*
 *.log

@@ -1,8 +1,9 @@
 # Share a demo with ngrok
 
 The app keeps running on your computer. ngrok forwards a public HTTPS address to
-its localhost port. Visitors sign in with a separate demo password. The admin UI,
-admin API and manual account-preparation endpoints stay localhost-only.
+its localhost port. Visitors sign in with a separate demo password. Both the flight
+page and `/admin` are available through the tunnel. Admin also requires its own
+password (initially `admin1234`, unless changed in this workspace).
 
 ## Windows: one command
 
@@ -76,14 +77,17 @@ forwarded requests pretending to be localhost. It also keeps its ordinary CSRF
 token checks for public search submissions and cancellation.
 
 The localhost URL remains usable without the demo password. Open
-`http://127.0.0.1:8080/admin` on the host computer to manage accounts, sessions,
-keys and settings. Visitors cannot use your local admin session through the
-public URL. Admin links are hidden in the demo page.
+`http://127.0.0.1:8080/admin` on the host computer or `/admin` at the public URL
+to manage accounts, sessions, keys and settings. Sign in separately on each host.
+Saved API keys are write-only: the browser receives their configured status,
+never their value. Leave blank to retain them, enter a replacement, or explicitly
+clear a saved key. Account credentials remain visible to signed-in administrators.
 
 ## What visitors can do
 
 Authenticated visitors can open the flight page, search airports, submit searches
-and retrieve results. They share this workspace's accounts, queue, sessions and
+and retrieve results. Visitors with the admin password can also manage the workspace.
+They share this workspace's accounts, queue, sessions and
 cache. Demo authentication applies to the whole public site, including API and
 asset requests. It is a shared demo, not a tenant-isolated hosted service.
 

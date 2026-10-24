@@ -270,7 +270,7 @@ func (a *Admin) session(w http.ResponseWriter, r *http.Request) {
 		if c, e := r.Cookie("awarddesk_admin"); e == nil {
 			_, _ = a.DB.DB.Exec("DELETE FROM admin_sessions WHERE token=?", tokenHash(c.Value))
 		}
-		http.SetCookie(w, &http.Cookie{Name: "awarddesk_admin", Value: "", Path: "/api/admin", HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: -1})
+		http.SetCookie(w, &http.Cookie{Name: "awarddesk_admin", Value: "", Path: "/api/admin", HttpOnly: true, Secure: r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https", SameSite: http.SameSiteStrictMode, MaxAge: -1})
 		w.WriteHeader(204)
 	case "POST":
 		a.mu.Lock()
@@ -302,7 +302,7 @@ func (a *Admin) session(w http.ResponseWriter, r *http.Request) {
 			fail(w, 500, "Could not start admin session")
 			return
 		}
-		http.SetCookie(w, &http.Cookie{Name: "awarddesk_admin", Value: token, Path: "/api/admin", HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: 43200})
+		http.SetCookie(w, &http.Cookie{Name: "awarddesk_admin", Value: token, Path: "/api/admin", HttpOnly: true, Secure: r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https", SameSite: http.SameSiteStrictMode, MaxAge: 43200})
 		writeJSON(w, 200, map[string]bool{"authenticated": true})
 	default:
 		fail(w, 405, "Method not allowed")

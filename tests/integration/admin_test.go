@@ -18,8 +18,8 @@ func TestAdminAuthSecretsAndCSRF(t *testing.T) {
 	}
 	c := adminLogin(t, s, h)
 	w := adminRequest(h, s, "GET", "/api/admin/settings", "", c, true)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "test-secret-key") || strings.Contains(w.Body.String(), "_ADMIN_HASH") {
-		t.Fatal("authenticated settings must show editable values, never internal authentication hashes")
+	if w.Code != 200 || strings.Contains(w.Body.String(), "test-secret-key") || strings.Contains(w.Body.String(), "_ADMIN_HASH") || !strings.Contains(w.Body.String(), `"writeOnly":true`) {
+		t.Fatal("settings must hide saved API keys and internal authentication hashes")
 	}
 	w = adminRequest(h, s, "PUT", "/api/admin/settings", `{"values":{"HYPER_API_KEY":"replacement"}}`, c, false)
 	if w.Code != 403 {

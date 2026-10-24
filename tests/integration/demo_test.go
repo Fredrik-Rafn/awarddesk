@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -16,6 +17,51 @@ import (
 
 const demoAddress = "https://example.ngrok-free.app"
 const demoPassword = "separate-test-password"
+
+func TestRemoteAdminLoginAndHiddenAPIKeys(t *testing.T) {
+	s, _ := adminTestServer(t)
+	if err := s.ConfigureDemo(demoAddress, demoPassword); err != nil {
+		t.Fatal(err)
+	}
+	h := s.Handler()
+	request := func(method, path, body string, cookie *http.Cookie, token bool) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(method, demoAddress+path, strings.NewReader(body))
+		r.SetBasicAuth("demo", demoPassword)
+		r.Header.Set("X-Forwarded-Proto", "https")
+		r.Header.Set("Origin", demoAddress)
+		r.Header.Set("Content-Type", "application/json")
+		if cookie != nil {
+			r.AddCookie(cookie)
+		}
+		if token {
+			r.Header.Set("X-CSRF-Token", requestToken(s))
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+	if w := request("GET", "/api/admin/settings", "", nil, false); w.Code != 401 {
+		t.Fatal("demo authentication bypassed admin login")
+	}
+	w := request("POST", "/api/admin/session", `{"password":"admin1234"}`, nil, true)
+	if w.Code != 200 || len(w.Result().Cookies()) != 1 {
+		t.Fatalf("remote login failed: %d", w.Code)
+	}
+	cookie := w.Result().Cookies()[0]
+	if !cookie.Secure || !cookie.HttpOnly || cookie.SameSite != http.SameSiteStrictMode {
+		t.Fatal("remote admin cookie is not protected")
+	}
+	w = request("GET", "/api/admin/settings", "", cookie, false)
+	if w.Code != 200 || strings.Contains(w.Body.String(), "test-secret-key") || !strings.Contains(w.Body.String(), `"writeOnly":true`) {
+		t.Fatal("remote settings exposed a saved API key")
+	}
+	if w = request("PUT", "/api/admin/settings", `{"values":{"SEARCH_CONCURRENCY":"8"}}`, cookie, false); w.Code != 403 {
+		t.Fatal("remote settings bypassed CSRF")
+	}
+	if w = request("PUT", "/api/admin/settings", `{"values":{"HYPER_API_KEY":"updated-key"}}`, cookie, true); w.Code != 200 || s.Admin.DB.Setting("HYPER_API_KEY") != "updated-key" {
+		t.Fatal("remote API key replacement failed")
+	}
+}
 
 func TestDemoConfigurationFailsClosed(t *testing.T) {
 	j := jobs.New()
@@ -80,7 +126,7 @@ func TestDemoCanSubmitAndPollSearchWithoutAnAirline(t *testing.T) {
 	}
 }
 
-func TestDemoAccessKeepsOriginTokenAndLocalAdminBoundaries(t *testing.T) {
+func TestDemoAccessKeepsOriginTokenAndAdminAuthentication(t *testing.T) {
 	s, _ := adminTestServer(t)
 	if err := s.ConfigureDemo(demoAddress, demoPassword); err != nil {
 		t.Fatal(err)
@@ -110,9 +156,11 @@ func TestDemoAccessKeepsOriginTokenAndLocalAdminBoundaries(t *testing.T) {
 		{name: "local remains available", host: "localhost:8080", path: "/api/config", status: 200},
 		{name: "local admin remains available", host: "localhost:8080", path: "/api/admin/overview", status: 200},
 	}
-	for _, path := range []string{"/admin", "/admin.html", "/admin/", "/api/admin/session", "/api/admin/accounts", "/api/logins/eva"} {
-		cases = append(cases, requestCase{name: "private " + path, host: "example.ngrok-free.app", path: path, proto: "https", password: demoPassword, status: 403})
-	}
+	cases = append(cases,
+		requestCase{name: "admin page requires demo password", host: "example.ngrok-free.app", path: "/admin", proto: "https", status: 401},
+		requestCase{name: "public admin page", host: "example.ngrok-free.app", path: "/admin", proto: "https", password: demoPassword, status: 200},
+		requestCase{name: "public authenticated admin", host: "example.ngrok-free.app", path: "/api/admin/overview", proto: "https", password: demoPassword, status: 200},
+	)
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			method := tc.method

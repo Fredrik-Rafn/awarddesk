@@ -268,8 +268,26 @@ function renderSettingsFields(definitions) {
         input.max = "512";
         input.step = "1";
       }
-      input.placeholder = s.secret ? "Not configured" : "";
+      input.placeholder = s.writeOnly && s.configured
+        ? "Saved · leave blank to keep, enter a new key to replace"
+        : s.secret ? "Not configured" : "";
+      if (s.writeOnly) {
+        input.dataset.writeOnly = "true";
+        input.dataset.secretInput = "true";
+      }
       control.append(input);
+      if (s.writeOnly && s.configured) {
+        const clear = el("button", "Clear saved key", "secondary");
+        clear.type = "button";
+        clear.onclick = async () => {
+          if (!await confirmAction({title: "Clear API key?", message: "This removes the stored key when you save settings.", confirmLabel: "Clear key"})) return;
+          input.value = "";
+          input.dataset.clear = "true";
+          input.placeholder = "Will be removed when you save";
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+        };
+        control.append(clear);
+      }
     }
     if (s.secret) {
       const status = el(

@@ -39,7 +39,8 @@ try {
     Write-Host "Demo URL: $publicURL"
     Write-Host 'Demo username: demo'
     Write-Host "Demo password: $env:AWARDDESK_DEMO_PASSWORD"
-    Write-Host "Admin stays local: http://127.0.0.1:$Port/admin"
+    Write-Host "Demo admin: $publicURL/admin (separate admin password)"
+    Write-Host "Local admin: http://127.0.0.1:$Port/admin"
     Write-Host 'Keep this terminal open. Ctrl+C stops the app and its tunnel.'
     go run . -port $Port
     if ($LASTEXITCODE -ne 0) { throw 'Awarddesk exited with an error.' }
