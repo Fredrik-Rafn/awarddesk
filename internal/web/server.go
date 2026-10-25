@@ -108,6 +108,14 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+		if r.URL.Path == "/healthz" && (r.Method == "GET" || r.Method == "HEAD") {
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.WriteHeader(http.StatusOK)
+			if r.Method == "GET" {
+				_, _ = w.Write([]byte("ok\n"))
+			}
+			return
+		}
 		allowedOrigin, ok := s.accessOrigin(w, r)
 		if !ok {
 			return

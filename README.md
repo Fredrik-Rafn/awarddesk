@@ -69,6 +69,8 @@ Ctrl+C; use `go run . -port 8090` for another port. For a password-protected
 recruiter demo, follow [ngrok setup](docs/demo.md), or use `./start-demo.ps1` on
 Windows after installing/authenticating ngrok. The demo also exposes `/admin`,
 with its separate admin login; saved API keys are never returned to the browser.
+For an independently hosted demo, follow [Railway deployment](docs/railway.md),
+including the private SQLite transfer.
 
 Offline checks spend no solver credits:
 

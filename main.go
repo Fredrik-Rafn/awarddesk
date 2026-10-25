@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -32,10 +31,17 @@ func main() {
 }
 
 func run() error {
-	port := flag.Int("port", 8080, "localhost HTTP port")
+	httpConfig, err := config.HTTP()
+	if err != nil {
+		return err
+	}
+	port := flag.Int("port", httpConfig.Port, "HTTP port")
+	host := flag.String("host", httpConfig.Host, "HTTP listen address")
 	flag.Parse()
-	if *port < 1 || *port > 65535 {
-		return errors.New("invalid port")
+	httpConfig.Host, httpConfig.Port = *host, *port
+	address, err := httpConfig.Address()
+	if err != nil {
+		return err
 	}
 	dbPath := config.DatabasePath()
 	db, err := config.Database()
@@ -66,7 +72,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if err = app.ConfigureDemo(os.Getenv("AWARDDESK_PUBLIC_URL"), os.Getenv("AWARDDESK_DEMO_PASSWORD")); err != nil {
+	if err = app.ConfigureDemo(httpConfig.PublicURL, os.Getenv("AWARDDESK_DEMO_PASSWORD")); err != nil {
 		return err
 	}
 	registrations, err := registration.New(db, evaProvider)
@@ -81,7 +87,7 @@ func run() error {
 	app.EVALogin = login.New(evaProvider.Ensure)
 	defer app.EVALogin.Close()
 	srv := &http.Server{
-		Addr:              net.JoinHostPort("127.0.0.1", strconv.Itoa(*port)),
+		Addr:              address,
 		Handler:           app.Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
