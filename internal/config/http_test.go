@@ -3,7 +3,7 @@ package config
 import "testing"
 
 func TestHTTPDefaultsAndRailway(t *testing.T) {
-	for _, key := range []string{"PORT", "AWARDDESK_LISTEN_HOST", "AWARDDESK_PUBLIC_URL", "RAILWAY_PUBLIC_DOMAIN"} {
+	for _, key := range []string{"PORT", "AWARDDESK_LISTEN_HOST", "AWARDDESK_PUBLIC_URL", "RAILWAY_PUBLIC_DOMAIN", "FLY_APP_NAME"} {
 		t.Setenv(key, "")
 	}
 	c, err := HTTP()
@@ -27,6 +27,18 @@ func TestHTTPDefaultsAndRailway(t *testing.T) {
 	c, _ = HTTP()
 	if c.PublicURL != "https://custom.example.com" {
 		t.Fatal("explicit public URL was not preserved")
+	}
+	t.Setenv("AWARDDESK_PUBLIC_URL", "")
+	t.Setenv("RAILWAY_PUBLIC_DOMAIN", "")
+	t.Setenv("FLY_APP_NAME", "awarddesk-demo")
+	c, _ = HTTP()
+	if c.PublicURL != "https://awarddesk-demo.fly.dev" {
+		t.Fatal("Fly domain not selected")
+	}
+	t.Setenv("AWARDDESK_PUBLIC_URL", "https://custom.example.com")
+	c, _ = HTTP()
+	if c.PublicURL != "https://custom.example.com" {
+		t.Fatal("Fly domain overrode explicit public URL")
 	}
 }
 

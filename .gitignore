@@ -19,6 +19,7 @@ data/
 /docs/*
 !/docs/demo.md
 !/docs/railway.md
+!/docs/fly.md
 !/docs/eva-awards.md
 !/docs/verification-status.md
 !/docs/examples/

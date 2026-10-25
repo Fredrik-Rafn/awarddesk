@@ -1,5 +1,20 @@
 # Verification scope
 
+## Hosted demo — 25 October 2026
+
+The Docker image built successfully and was deployed to one Fly.io machine in
+Amsterdam with one shared CPU, 1 GB RAM and a 1 GB persistent volume. The private
+SQLite transfer preserved 59 accounts and 5,000 proxy entries. Public HTTPS,
+demo authentication, separate admin login, CSRF protection and API-key redaction
+were checked against the hosted service; its health check passed.
+
+Two uncached TPE–HKG smoke searches were submitted for 27 November 2026, economy,
+one adult. The first failed during fresh EVA member login (`login_unverified`).
+After background preparation established usable sessions, the second completed
+in approximately 110 seconds with five award mileage quotes and five cash-derived
+tax estimates. This is deployment smoke evidence, not a new reliability benchmark.
+Normal background upkeep was restored after verification.
+
 ## Final award benchmark — 23–24 October 2026
 
 The final reviewed build completed **200 distinct uncached award searches**, with

@@ -1,0 +1,34 @@
+primary_region = "ams"
+kill_signal = "SIGTERM"
+kill_timeout = "15s"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  AWARDDESK_LISTEN_HOST = "0.0.0.0"
+  AWARDDESK_DB = "/data/awarddesk.db"
+  GOMEMLIMIT = "512MiB"
+
+[[mounts]]
+  source = "awarddesk_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/healthz"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "1gb"

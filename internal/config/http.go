@@ -28,6 +28,9 @@ func HTTP() (HTTPOptions, error) {
 	if c.PublicURL == "" && os.Getenv("RAILWAY_PUBLIC_DOMAIN") != "" {
 		c.PublicURL = "https://" + os.Getenv("RAILWAY_PUBLIC_DOMAIN")
 	}
+	if c.PublicURL == "" && os.Getenv("FLY_APP_NAME") != "" {
+		c.PublicURL = "https://" + os.Getenv("FLY_APP_NAME") + ".fly.dev"
+	}
 	return c, nil
 }
 
